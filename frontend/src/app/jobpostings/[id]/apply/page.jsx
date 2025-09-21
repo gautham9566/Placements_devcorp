@@ -574,6 +574,18 @@ export default function JobApplicationPage() {
 
       const response = await client.get('/api/auth/profile/');
       const profile = response.data;
+
+      // Also fetch resume information from the new Resume model
+      try {
+        const resumes = await studentsAPI.getResumes();
+        profile.resumes = resumes;
+        profile.resume_count = resumes.length;
+      } catch (resumeError) {
+        console.log('Could not fetch resumes:', resumeError);
+        profile.resumes = [];
+        profile.resume_count = 0;
+      }
+
       setUserProfile(profile);
 
       // Validate profile for job application

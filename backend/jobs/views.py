@@ -172,12 +172,24 @@ class JobApplicationCreateView(generics.CreateAPIView):
         uploaded_resume = self.request.FILES.get("resume", None)
         profile_resume = student.resume
 
-        if not uploaded_resume and not profile_resume:
+        # Check for resumes in the new Resume model
+        student_resumes = student.resumes.all()
+        primary_resume = student.resumes.filter(is_primary=True).first()
+        latest_resume = student.resumes.first() if student_resumes.exists() else None
+
+        if not uploaded_resume and not profile_resume and not student_resumes.exists():
             raise serializers.ValidationError({
                 "resume": "A resume must be uploaded or present in the student profile."
             })
 
-        final_resume = uploaded_resume if uploaded_resume else profile_resume
+        # Priority: uploaded_resume > profile_resume > primary_resume > latest_resume
+        final_resume = uploaded_resume if uploaded_resume else (
+            profile_resume if profile_resume else (
+                primary_resume.file if primary_resume else (
+                    latest_resume.file if latest_resume else None
+                )
+            )
+        )
 
         # Create enhanced snapshot using utility function
         snapshot = create_enhanced_application_snapshot(
@@ -636,12 +648,24 @@ class EnhancedJobApplicationCreateView(generics.CreateAPIView):
         uploaded_resume = self.request.FILES.get("resume", None)
         profile_resume = student.resume
 
-        if not uploaded_resume and not profile_resume:
+        # Check for resumes in the new Resume model
+        student_resumes = student.resumes.all()
+        primary_resume = student.resumes.filter(is_primary=True).first()
+        latest_resume = student.resumes.first() if student_resumes.exists() else None
+
+        if not uploaded_resume and not profile_resume and not student_resumes.exists():
             raise serializers.ValidationError({
                 "resume": "A resume must be uploaded or present in the student profile."
             })
 
-        final_resume = uploaded_resume if uploaded_resume else profile_resume
+        # Priority: uploaded_resume > profile_resume > primary_resume > latest_resume
+        final_resume = uploaded_resume if uploaded_resume else (
+            profile_resume if profile_resume else (
+                primary_resume.file if primary_resume else (
+                    latest_resume.file if latest_resume else None
+                )
+            )
+        )
 
         # Process additional fields and handle file uploads
         additional_fields = {}

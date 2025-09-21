@@ -119,7 +119,7 @@ export default function ExportModal({ onClose, filters }) {
         try {
           const text = await blob.text();
           const lines = text.split('\n');
-          const applicationCount = lines.length - 1; // Subtract header line
+          const applicationCount = lines.length - 2; // Subtract header line
 
           console.log(`Exported ${applicationCount} applications to CSV`);
 

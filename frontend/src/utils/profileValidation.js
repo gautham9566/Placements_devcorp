@@ -96,8 +96,12 @@ export const validateProfile = (profile) => {
     }
   }
 
-  // Check resume
-  if (!profile.resume && !profile.resume_url) {
+  // Check resume - check both old resume field and new Resume model
+  const hasOldResume = profile.resume || profile.resume_url;
+  const hasNewResumes = profile.resumes && Array.isArray(profile.resumes) && profile.resumes.length > 0;
+  const hasResumeCount = profile.resume_count && profile.resume_count > 0;
+
+  if (!hasOldResume && !hasNewResumes && !hasResumeCount) {
     missing.push('Resume');
     errors.push('Resume is required for job applications');
   }
@@ -123,6 +127,13 @@ export const validateProfile = (profile) => {
   // Determine if profile is valid for job applications
   const isValid = missing.length === 0 && errors.length === 0;
   const canApply = CRITICAL_FIELDS.every(field => {
+    if (field === 'resume') {
+      // Special handling for resume field - check both old and new resume models
+      const hasOldResume = profile.resume || profile.resume_url;
+      const hasNewResumes = profile.resumes && Array.isArray(profile.resumes) && profile.resumes.length > 0;
+      const hasResumeCount = profile.resume_count && profile.resume_count > 0;
+      return hasOldResume || hasNewResumes || hasResumeCount;
+    }
     const value = profile[field];
     return value && (typeof value !== 'string' || value.trim() !== '');
   });
