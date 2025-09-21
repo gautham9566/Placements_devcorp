@@ -1,0 +1,651 @@
+@import "tailwindcss";
+
+:root {
+  /* Light theme variables */
+  --background: #ffffff;
+  --foreground: #171717;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-color: #e5e7eb;
+  --border-secondary: #d1d5db;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --shadow-hover: rgba(0, 0, 0, 0.15);
+  --accent-primary: #3b82f6;
+  --accent-secondary: #1d4ed8;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+}
+
+/* Dark theme variables */
+[data-theme="dark"] {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --bg-primary: #1e293b;
+  --bg-secondary: #334155;
+  --bg-tertiary: #475569;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --border-color: #475569;
+  --border-secondary: #64748b;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --shadow-hover: rgba(0, 0, 0, 0.4);
+  --accent-primary: #60a5fa;
+  --accent-secondary: #3b82f6;
+  --success: #34d399;
+  --error: #f87171;
+  --warning: #fbbf24;
+}
+
+/* System theme follows user's OS preference */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --bg-primary: #1e293b;
+    --bg-secondary: #334155;
+    --bg-tertiary: #475569;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
+    --border-color: #475569;
+    --border-secondary: #64748b;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --shadow-hover: rgba(0, 0, 0, 0.4);
+    --accent-primary: #60a5fa;
+    --accent-secondary: #3b82f6;
+    --success: #34d399;
+    --error: #f87171;
+    --warning: #fbbf24;
+  }
+}
+
+html,body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  height: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Global dark mode classes */
+.dark-mode {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.dark-mode .bg-white {
+  background-color: var(--bg-primary) !important;
+}
+
+.dark-mode .bg-gray-50 {
+  background-color: var(--background) !important;
+}
+
+.dark-mode .bg-gray-100 {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-mode .bg-gray-200 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.dark-mode .bg-gray-300 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* Text color fixes for dark mode */
+.dark-mode .text-black {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-white {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-gray-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-gray-700 {
+  color: var(--text-secondary) !important;
+}
+
+.dark-mode .text-gray-600 {
+  color: var(--text-tertiary) !important;
+}
+
+.dark-mode .text-gray-500 {
+  color: var(--text-tertiary) !important;
+}
+
+.dark-mode .text-gray-400 {
+  color: var(--text-tertiary) !important;
+}
+
+.dark-mode .border-gray-200 {
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode .border-gray-300 {
+  border-color: var(--border-secondary) !important;
+}
+
+.dark-mode .shadow-sm {
+  box-shadow: 0 1px 2px 0 var(--shadow-color) !important;
+}
+
+.dark-mode .shadow-md {
+  box-shadow: 0 4px 6px -1px var(--shadow-color), 0 2px 4px -1px var(--shadow-color) !important;
+}
+
+.dark-mode .hover\:bg-gray-50:hover {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-mode .hover\:bg-gray-100:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* Sidebar specific styles */
+.dark-mode .sidebar {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Card and content area styles */
+.dark-mode .content-card {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Form input styles */
+.dark-mode input,
+.dark-mode textarea,
+.dark-mode select {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-mode input:focus,
+.dark-mode textarea:focus,
+.dark-mode select:focus {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+}
+
+/* Button styles */
+.dark-mode .btn-primary {
+  background-color: var(--accent-primary) !important;
+  color: white !important;
+}
+
+.dark-mode .btn-secondary {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.profileContainer:hover .dropdown {
+  display: block;
+}
+
+/* Add this to your global CSS or inside a tailwind.config.js plugin */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* Tailwind slate-300 */
+  border-radius: 9999px;
+}
+
+.dark-mode .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--border-secondary);
+}
+
+/* Font Size Variables */
+[data-font-size="small"] {
+  font-size: 14px;
+}
+
+[data-font-size="medium"] {
+  font-size: 16px;
+}
+
+[data-font-size="large"] {
+  font-size: 18px;
+}
+
+/* Theme Classes */
+.theme-dark {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.theme-light {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.theme-system {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Font Size Classes */
+.font-small {
+  font-size: 14px;
+}
+
+.font-medium {
+  font-size: 16px;
+}
+
+.font-large {
+  font-size: 18px;
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Dark mode specific component styles */
+.dark-mode .dropdown-menu {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode .dropdown-item:hover {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Settings page specific styles */
+.dark-mode .settings-tab.active {
+  background-color: var(--accent-primary) !important;
+  color: white !important;
+}
+
+.dark-mode .settings-tab {
+  color: var(--text-secondary) !important;
+}
+
+.dark-mode .settings-tab:hover {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Login and form specific styles */
+.dark-mode input[type="email"],
+.dark-mode input[type="password"],
+.dark-mode input[type="text"],
+.dark-mode textarea,
+.dark-mode select {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-mode input[type="email"]::placeholder,
+.dark-mode input[type="password"]::placeholder,
+.dark-mode input[type="text"]::placeholder,
+.dark-mode textarea::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+/* Blue color fixes for dark mode */
+.dark-mode .bg-blue-50 {
+  background-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+.dark-mode .bg-blue-100 {
+  background-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+.dark-mode .bg-blue-600 {
+  background-color: var(--accent-primary) !important;
+}
+
+.dark-mode .bg-blue-700 {
+  background-color: var(--accent-secondary) !important;
+}
+
+.dark-mode .border-blue-500 {
+  border-color: var(--accent-primary) !important;
+}
+
+.dark-mode .border-blue-200 {
+  border-color: var(--accent-primary) !important;
+}
+
+.dark-mode .text-blue-600 {
+  color: var(--accent-primary) !important;
+}
+
+.dark-mode .text-blue-800 {
+  color: var(--accent-secondary) !important;
+}
+
+.dark-mode .text-blue-900 {
+  color: var(--accent-primary) !important;
+}
+
+/* Hover states for blue colors */
+.dark-mode .hover\:bg-blue-700:hover {
+  background-color: var(--accent-secondary) !important;
+}
+
+.dark-mode .hover\:bg-blue-50:hover {
+  background-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+.dark-mode .hover\:text-blue-600:hover {
+  color: var(--accent-primary) !important;
+}
+
+.dark-mode .hover\:text-blue-800:hover {
+  color: var(--accent-secondary) !important;
+}
+
+/* Theme selection specific styles */
+.dark-mode .theme-selector {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode .theme-selector.selected {
+  background-color: rgba(96, 165, 250, 0.1) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* Message styles */
+.dark-mode .message-success,
+.dark-mode .bg-green-50 {
+  background-color: rgba(52, 211, 153, 0.1) !important;
+  border-color: var(--success) !important;
+  color: var(--success) !important;
+}
+
+.dark-mode .message-error,
+.dark-mode .bg-red-50 {
+  background-color: rgba(248, 113, 113, 0.1) !important;
+  border-color: var(--error) !important;
+  color: var(--error) !important;
+}
+
+.dark-mode .border-green-200 {
+  border-color: var(--success) !important;
+}
+
+.dark-mode .border-red-200 {
+  border-color: var(--error) !important;
+}
+
+.dark-mode .text-green-800 {
+  color: var(--success) !important;
+}
+
+.dark-mode .text-red-800 {
+  color: var(--error) !important;
+}
+
+/* Additional UI components */
+.dark-mode .hover\:shadow-md:hover {
+  box-shadow: 0 4px 6px -1px var(--shadow-hover), 0 2px 4px -1px var(--shadow-hover) !important;
+}
+
+.dark-mode .hover\:bg-blue-700:hover {
+  background-color: var(--accent-secondary) !important;
+}
+
+/* Ensure icons inherit text color in dark mode */
+.dark-mode svg {
+  color: inherit !important;
+}
+
+/* Icon color fixes */
+.dark-mode svg,
+.dark-mode .icon,
+.dark-mode [class*="icon"] {
+  color: var(--text-primary) !important;
+  fill: currentColor !important;
+}
+
+/* Lucide icons specific fixes */
+.dark-mode .lucide {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* Tabler icons specific fixes */
+.dark-mode .tabler-icon {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* Force visibility for white/hidden icons */
+.dark-mode svg[fill="white"],
+.dark-mode svg[stroke="white"],
+.dark-mode .text-white svg {
+  fill: var(--text-primary) !important;
+  stroke: var(--text-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Form label and input icons */
+.dark-mode label svg,
+.dark-mode .input-icon svg,
+.dark-mode .form-icon svg {
+  color: var(--text-secondary) !important;
+}
+
+/* Navigation and menu icons */
+.dark-mode .nav-icon svg,
+.dark-mode .menu-icon svg,
+.dark-mode .sidebar svg {
+  color: var(--text-secondary) !important;
+}
+
+.dark-mode .nav-icon:hover svg,
+.dark-mode .menu-icon:hover svg {
+  color: var(--text-primary) !important;
+}
+
+/* Button styles for dark mode */
+.dark-mode .btn-primary,
+.dark-mode .bg-blue-600 {
+  background-color: var(--accent-primary) !important;
+  color: white !important;
+  border-color: var(--accent-primary) !important;
+}
+
+.dark-mode .btn-primary:hover,
+.dark-mode .bg-blue-600:hover {
+  background-color: var(--accent-secondary) !important;
+  border-color: var(--accent-secondary) !important;
+}
+
+.dark-mode .btn-secondary {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode .btn-secondary:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.dark-mode button:not(.btn-primary):not(.settings-tab):not(.bg-blue-600) {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode button:not(.btn-primary):not(.settings-tab):not(.bg-blue-600):hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* Specific button color overrides */
+.dark-mode button[class*="bg-blue"] {
+  background-color: var(--accent-primary) !important;
+  color: white !important;
+}
+
+.dark-mode button[class*="bg-blue"]:hover {
+  background-color: var(--accent-secondary) !important;
+}
+
+/* Link styles */
+.dark-mode a {
+  color: var(--accent-primary) !important;
+}
+
+.dark-mode a:hover {
+  color: var(--accent-secondary) !important;
+}
+
+/* Gradient backgrounds for dark mode */
+.dark-mode .bg-gradient-to-r {
+  background: linear-gradient(to right, var(--bg-primary), var(--bg-secondary)) !important;
+}
+
+/* White text visibility fixes */
+.dark-mode *[style*="color: white"],
+.dark-mode *[style*="color: #fff"],
+.dark-mode *[style*="color: #ffffff"] {
+  color: var(--text-primary) !important;
+}
+
+/* Login page specific fixes */
+.dark-mode .login-container {
+  background: var(--background) !important;
+}
+
+.dark-mode .login-form {
+  background: var(--bg-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode .login-form h1,
+.dark-mode .login-form h2,
+.dark-mode .login-form h3 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .login-form label {
+  color: var(--text-secondary) !important;
+}
+
+/* Student edit page and profile fixes */
+.dark-mode .profile-container,
+.dark-mode .edit-profile-container {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .profile-header {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Pagination fixes */
+.dark-mode .pagination {
+  background: var(--bg-primary) !important;
+}
+
+.dark-mode .pagination button {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode .pagination button:hover {
+  background: var(--bg-tertiary) !important;
+}
+
+.dark-mode .pagination button.active {
+  background: var(--accent-primary) !important;
+  color: white !important;
+  border-color: var(--accent-primary) !important;
+}
+
+.dark-mode .pagination .page-number {
+  color: var(--text-primary) !important;
+}
+
+/* Card and container fixes */
+.dark-mode .card,
+.dark-mode .container {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Modal and dialog fixes */
+.dark-mode .modal,
+.dark-mode .dialog {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode .modal-backdrop {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Table fixes */
+.dark-mode table {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-mode th {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-mode td {
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-mode tr:hover {
+  background: var(--bg-secondary) !important;
+}
+
+/* Override any forced white colors */
+.dark-mode .text-white,
+.dark-mode [style*="color: white"],
+.dark-mode [style*="color: #fff"],
+.dark-mode [style*="color: #ffffff"] {
+  color: var(--text-primary) !important;
+}
+
+/* Ensure all text is visible */
+.dark-mode h1, .dark-mode h2, .dark-mode h3, .dark-mode h4, .dark-mode h5, .dark-mode h6 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode p, .dark-mode span, .dark-mode div {
+  color: inherit !important;
+}
+
+/* Override Tailwind's default white text classes */
+.dark-mode .text-white {
+  color: var(--text-primary) !important;
+}

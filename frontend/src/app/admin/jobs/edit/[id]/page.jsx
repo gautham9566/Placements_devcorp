@@ -1,0 +1,583 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { use } from 'react';
+import { ArrowLeft, Save, X, Plus, Trash2 } from "lucide-react";
+import { getJobById, updateJob } from '../../../../../api/jobs';
+
+export default function EditJob({ params }) {
+  const unwrappedParams = use(params);
+  const jobId = parseInt(unwrappedParams.id);
+  const router = useRouter();
+  
+  const [job, setJob] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    job_type: 'FULL_TIME',
+    salary_max: '',
+    salary_min: '',
+    application_deadline: '',
+    duration: '',
+    is_published: false,
+    requirements: [],
+    benefits: [],
+    skills: [],
+    company_id: null,
+    company_name: ''
+  });
+
+  const [interviewRounds, setInterviewRounds] = useState([
+    { id: 1, name: '', date: '', time: '' }
+  ]);
+
+  const [additionalFields, setAdditionalFields] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadJobData = async () => {
+      try {
+        console.log('Loading job data for ID:', jobId);
+        const response = await getJobById(jobId);
+        console.log('Job API response:', response);
+        
+        if (response.data) {
+          const jobData = response.data;
+          console.log('Setting job data:', jobData);
+          setJob(jobData);
+          
+          // Format the data for the form
+          const formattedData = {
+            id: jobData.id,
+            title: jobData.title || '',
+            description: jobData.description || '',
+            location: jobData.location || '',
+            job_type: jobData.job_type || 'FULL_TIME',
+            salary_max: jobData.salary_max || '',
+            salary_min: jobData.salary_min || '',
+            application_deadline: jobData.application_deadline || '',
+            duration: jobData.duration || '',
+            is_published: jobData.is_published || false,
+            requirements: jobData.requirements || [],
+            benefits: jobData.benefits || [],
+            skills: jobData.skills || [],
+            company_id: jobData.company_id || jobData.company?.id || null,
+            company_name: jobData.company_name || jobData.company?.name || ''
+          };
+          
+          setFormData(formattedData);
+          
+          // Set interview rounds if available
+          if (jobData.interview_rounds && jobData.interview_rounds.length > 0) {
+            setInterviewRounds(jobData.interview_rounds.map((round, index) => ({
+              id: index + 1,
+              name: round.name || '',
+              date: round.date || '',
+              time: round.time || ''
+            })));
+          }
+          
+          // Set additional fields if available
+          if (jobData.additional_fields && jobData.additional_fields.length > 0) {
+            setAdditionalFields(jobData.additional_fields);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading job:', error);
+        setError('Failed to load job data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (jobId) {
+      loadJobData();
+    }
+  }, [jobId]);
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const addInterviewRound = () => {
+    const newId = Math.max(...interviewRounds.map(r => r.id), 0) + 1;
+    setInterviewRounds(prev => [...prev, { id: newId, name: '', date: '', time: '' }]);
+  };
+
+  const updateInterviewRound = (id, field, value) => {
+    setInterviewRounds(prev => prev.map(round => 
+      round.id === id ? { ...round, [field]: value } : round
+    ));
+  };
+
+  const removeInterviewRound = (id) => {
+    setInterviewRounds(prev => prev.filter(round => round.id !== id));
+  };
+
+  const addAdditionalField = (type) => {
+    const fieldId = Date.now();
+    const newField = {
+      id: fieldId,
+      type,
+      label: '',
+      required: false,
+      options: type === 'multiple_choice' ? [''] : undefined
+    };
+    setAdditionalFields(prev => [...prev, newField]);
+  };
+
+  const updateAdditionalField = (id, field, value) => {
+    setAdditionalFields(prev => prev.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+
+  const removeAdditionalField = (id) => {
+    setAdditionalFields(prev => prev.filter(item => item.id !== id));
+  };
+
+  const addChoiceOption = (fieldId) => {
+    setAdditionalFields(prev => prev.map(field => 
+      field.id === fieldId 
+        ? { ...field, options: [...(field.options || []), ''] }
+        : field
+    ));
+  };
+
+  const updateChoiceOption = (fieldId, optionIndex, value) => {
+    setAdditionalFields(prev => prev.map(field => 
+      field.id === fieldId 
+        ? { 
+            ...field, 
+            options: field.options.map((opt, i) => i === optionIndex ? value : opt)
+          }
+        : field
+    ));
+  };
+
+  const removeChoiceOption = (fieldId, optionIndex) => {
+    setAdditionalFields(prev => prev.map(field => 
+      field.id === fieldId 
+        ? { 
+            ...field, 
+            options: field.options.filter((_, i) => i !== optionIndex)
+          }
+        : field
+    ));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      console.log('Saving job data:', formData);
+      
+      // Prepare data for API
+      const apiData = {
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        job_type: formData.job_type,
+        salary_max: formData.salary_max,
+        salary_min: formData.salary_min,
+        application_deadline: formData.application_deadline,
+        duration: formData.duration,
+        is_published: formData.is_published,
+        requirements: formData.requirements,
+        benefits: formData.benefits,
+        skills: formData.skills,
+        interview_rounds: interviewRounds.filter(round => round.name.trim()),
+        additional_fields: additionalFields
+      };
+      
+      const response = await updateJob(jobId, apiData);
+      console.log('Update response:', response);
+      
+      if (response.data) {
+        setJob(response.data);
+        alert('Job updated successfully!');
+      }
+      
+    } catch (error) {
+      console.error('Error saving job:', error);
+      setError('Failed to save job. Please try again.');
+      alert('Failed to save job. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg">Loading job...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !job) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-red-600">Error: {error}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <button 
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Back to Company Management
+          </button>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Edit Job Application</h1>
+              <p className="text-gray-600 mt-1">
+                Job ID: {jobId} | Company: {formData.company_name}
+              </p>
+            </div>
+            <button
+              onClick={() => router.back()}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Main Form */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6 space-y-6">
+            
+            {/* Basic Job Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Job Title *
+                </label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  placeholder="Enter job title"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Location *
+                </label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => handleInputChange('location', e.target.value)}
+                  placeholder="Enter location"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Job Type *
+                </label>
+                <select
+                  value={formData.job_type}
+                  onChange={(e) => handleInputChange('job_type', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="FULL_TIME">Full Time</option>
+                  <option value="PART_TIME">Part Time</option>
+                  <option value="INTERNSHIP">Internship</option>
+                  <option value="CONTRACT">Contract</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Min Salary
+                </label>
+                <input
+                  type="text"
+                  value={formData.salary_min}
+                  onChange={(e) => handleInputChange('salary_min', e.target.value)}
+                  placeholder="Enter minimum salary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Max Salary
+                </label>
+                <input
+                  type="text"
+                  value={formData.salary_max}
+                  onChange={(e) => handleInputChange('salary_max', e.target.value)}
+                  placeholder="Enter maximum salary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={formData.is_published ? 'published' : 'draft'}
+                  onChange={(e) => handleInputChange('is_published', e.target.value === 'published')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Duration
+                </label>
+                <input
+                  type="text"
+                  value={formData.duration}
+                  onChange={(e) => handleInputChange('duration', e.target.value)}
+                  placeholder="e.g., 6 months, 2 years"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Application Deadline
+                </label>
+                <input
+                  type="date"
+                  value={formData.application_deadline}
+                  onChange={(e) => handleInputChange('application_deadline', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Job Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Job Description *
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Enter job description"
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Interview Timeline */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Interview Timeline</h3>
+              {interviewRounds.map((round, index) => (
+                <div key={round.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-gray-700">Round {index + 1}</h4>
+                    {interviewRounds.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeInterviewRound(round.id)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      value={round.name}
+                      onChange={(e) => updateInterviewRound(round.id, 'name', e.target.value)}
+                      placeholder="Enter round name"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="date"
+                      value={round.date}
+                      onChange={(e) => updateInterviewRound(round.id, 'date', e.target.value)}
+                      placeholder="Select date"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="time"
+                      value={round.time}
+                      onChange={(e) => updateInterviewRound(round.id, 'time', e.target.value)}
+                      placeholder="Select time"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              ))}
+              
+              <button
+                type="button"
+                onClick={addInterviewRound}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Round
+              </button>
+            </div>
+
+            {/* Additional Fields */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Fields</h3>
+              
+              {additionalFields.map((field) => (
+                <div key={field.id} className="border border-gray-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <input
+                      type="text"
+                      value={field.label}
+                      onChange={(e) => updateAdditionalField(field.id, 'label', e.target.value)}
+                      placeholder="Field label"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mr-3"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAdditionalField(field.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="text-xs text-gray-500 mb-2">
+                    Field Type: {field.type.replace('_', ' ').toUpperCase()}
+                  </div>
+                  
+                  {field.type === 'multiple_choice' && (
+                    <div className="space-y-2">
+                      {field.options?.map((option, optIndex) => (
+                        <div key={optIndex} className="flex gap-2">
+                          <input
+                            type="text"
+                            value={option}
+                            onChange={(e) => updateChoiceOption(field.id, optIndex, e.target.value)}
+                            placeholder={`Option ${optIndex + 1}`}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          {field.options.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeChoiceOption(field.id, optIndex)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addChoiceOption(field.id)}
+                        className="text-blue-600 text-sm hover:text-blue-800"
+                      >
+                        + Add Option
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => addAdditionalField('text')}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Text Field
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addAdditionalField('number')}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Number Field
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addAdditionalField('file')}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add File Upload Field
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addAdditionalField('multiple_choice')}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Multiple Choice Field
+                </button>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                disabled={saving}
+                className="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving Changes...' : 'Save Changes'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+} 

@@ -1,0 +1,13 @@
+Django>=3.2.0,<4.0.0
+djangorestframework>=3.14.0
+djangorestframework-simplejwt>=5.2.0
+django-cors-headers>=3.13.0
+Pillow>=9.0.0  # For handling image/file uploads
+python-dotenv>=0.21.0
+gunicorn>=20.1.0
+whitenoise>=6.2.0
+psycopg2-binary>=2.9.0  # PostgreSQL adapter for Django
+pandas
+faker
+openpyxl>=3.0.0  # For Excel export functionality
+reportlab>=3.6.0  # For PDF export functionality

@@ -1,0 +1,900 @@
+from django.core.management.base import BaseCommand
+from companies.models import Company
+
+
+class Command(BaseCommand):
+    help = 'Create sample companies for testing'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--clear',
+            action='store_true',
+            help='Clear existing companies before creating new ones',
+        )
+        parser.add_argument(
+            '--count',
+            type=int,
+            default=12,
+            help='Number of companies to create (default: 12 for basic set, use 50+ for extended set)',
+        )
+
+    def handle(self, *args, **options):
+        if options['clear']:
+            Company.objects.all().delete()
+            self.stdout.write(
+                self.style.WARNING('Cleared all existing companies')
+            )
+
+        count = options['count']
+        
+        if count <= 12:
+            # Basic set of well-known companies
+            sample_companies = self.get_basic_companies()
+        else:
+            # Extended set with 50+ diverse companies
+            sample_companies = self.get_basic_companies() + self.get_extended_companies()
+
+        created_count = 0
+        for company_data in sample_companies:
+            company, created = Company.objects.get_or_create(
+                name=company_data['name'],
+                defaults=company_data
+            )
+            if created:
+                created_count += 1
+                self.stdout.write(
+                    self.style.SUCCESS(f'Created company: {company.name}')
+                )
+                else:
+                self.stdout.write(
+                    self.style.WARNING(f'Company already exists: {company.name}')
+                )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'\nCompleted! Created {created_count} new companies. '
+                f'Total companies in database: {Company.objects.count()}'
+            )
+        )
+
+    def get_basic_companies(self):
+        """Get the basic set of 12 well-known companies"""
+        return [
+            {
+                'name': 'Google LLC',
+                'description': 'A multinational technology company that specializes in Internet-related services and products.',
+                'industry': 'Technology',
+                'size': '100,000+ employees',
+                'founded': '1998',
+                'location': 'Mountain View, CA',
+                'website': 'https://www.google.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 25,
+                'total_applicants': 1200,
+                'total_hired': 45,
+                'awaited_approval': 5
+            },
+            {
+                'name': 'Microsoft Corporation',
+                'description': 'A multinational technology corporation that develops software, services, and hardware.',
+                'industry': 'Technology',
+                'size': '100,000+ employees',
+                'founded': '1975',
+                'location': 'Redmond, WA',
+                'website': 'https://www.microsoft.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 30,
+                'total_applicants': 1500,
+                'total_hired': 52,
+                'awaited_approval': 8
+            },
+            {
+                'name': 'Amazon.com Inc.',
+                'description': 'An American multinational technology company focusing on e-commerce and cloud computing.',
+                'industry': 'E-commerce/Technology',
+                'size': '1,000,000+ employees',
+                'founded': '1994',
+                'location': 'Seattle, WA',
+                'website': 'https://www.amazon.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 40,
+                'total_applicants': 2000,
+                'total_hired': 75,
+                'awaited_approval': 12
+            },
+            {
+                'name': 'Apple Inc.',
+                'description': 'An American multinational technology company that designs and manufactures consumer electronics.',
+                'industry': 'Technology/Hardware',
+                'size': '100,000+ employees',
+                'founded': '1976',
+                'location': 'Cupertino, CA',
+                'website': 'https://www.apple.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 20,
+                'total_applicants': 900,
+                'total_hired': 35,
+                'awaited_approval': 3
+            },
+            {
+                'name': 'Meta Platforms Inc.',
+                'description': 'A technology company that focuses on connecting people through social media platforms.',
+                'industry': 'Social Media/Technology',
+                'size': '50,000-100,000 employees',
+                'founded': '2004',
+                'location': 'Menlo Park, CA',
+                'website': 'https://www.meta.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 15,
+                'total_applicants': 800,
+                'total_hired': 28,
+                'awaited_approval': 4
+            },
+            {
+                'name': 'Infosys Limited',
+                'description': 'An Indian multinational information technology company providing consulting and software services.',
+                'industry': 'IT Services',
+                'size': '250,000+ employees',
+                'founded': '1981',
+                'location': 'Bangalore, India',
+                'website': 'https://www.infosys.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 35,
+                'total_applicants': 1800,
+                'total_hired': 120,
+                'awaited_approval': 15
+            },
+            {
+                'name': 'Tata Consultancy Services',
+                'description': 'An Indian multinational information technology services and consulting company.',
+                'industry': 'IT Services',
+                'size': '500,000+ employees',
+                'founded': '1968',
+                'location': 'Mumbai, India',
+                'website': 'https://www.tcs.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 50,
+                'total_applicants': 2500,
+                'total_hired': 200,
+                'awaited_approval': 25
+            },
+            {
+                'name': 'Wipro Limited',
+                'description': 'An Indian multinational corporation providing information technology consulting and business process services.',
+                'industry': 'IT Services',
+                'size': '200,000+ employees',
+                'founded': '1945',
+                'location': 'Bangalore, India',
+                'website': 'https://www.wipro.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 28,
+                'total_applicants': 1400,
+                'total_hired': 85,
+                'awaited_approval': 10
+            },
+            {
+                'name': 'Accenture plc',
+                'description': 'A multinational professional services company providing consulting, technology and outsourcing services.',
+                'industry': 'Consulting/Technology',
+                'size': '500,000+ employees',
+                'founded': '1989',
+                'location': 'Dublin, Ireland',
+                'website': 'https://www.accenture.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 22,
+                'total_applicants': 1100,
+                'total_hired': 60,
+                'awaited_approval': 8
+            },
+            {
+                'name': 'Cognizant Technology Solutions',
+                'description': 'An American multinational information technology services and consulting company.',
+                'industry': 'IT Services',
+                'size': '300,000+ employees',
+                'founded': '1994',
+                'location': 'Teaneck, NJ',
+                'website': 'https://www.cognizant.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 18,
+                'total_applicants': 950,
+                'total_hired': 42,
+                'awaited_approval': 6
+            },
+            {
+                'name': 'Zoho Corporation',
+                'description': 'An Indian software development company that makes web-based business tools.',
+                'industry': 'Software/SaaS',
+                'size': '10,000-50,000 employees',
+                'founded': '1996',
+                'location': 'Chennai, India',
+                'website': 'https://www.zoho.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 12,
+                'total_applicants': 600,
+                'total_hired': 25,
+                'awaited_approval': 3
+            },
+            {
+                'name': 'Paytm',
+                'description': 'An Indian digital payments and financial technology company.',
+                'industry': 'Fintech',
+                'size': '10,000-50,000 employees',
+                'founded': '2010',
+                'location': 'Noida, India',
+                'website': 'https://www.paytm.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 8,
+                'total_applicants': 400,
+                'total_hired': 15,
+                'awaited_approval': 2
+            }
+        ]
+
+    def get_extended_companies(self):
+        """Get additional 50+ companies for extended dataset"""
+        return [
+            # Additional Tier 1 Companies
+            {
+                'name': 'Netflix Inc.',
+                'description': 'A streaming entertainment service with over 200 million members worldwide.',
+                'industry': 'Entertainment/Streaming',
+                'size': '10,000-50,000 employees',
+                'founded': '1997',
+                'location': 'Los Gatos, CA',
+                'website': 'https://www.netflix.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 12,
+                'total_applicants': 600,
+                'total_hired': 22,
+                'awaited_approval': 4
+            },
+            {
+                'name': 'Tesla Inc.',
+                'description': 'An electric vehicle and clean energy company.',
+                'industry': 'Automotive/Clean Energy',
+                'size': '50,000-100,000 employees',
+                'founded': '2003',
+                'location': 'Palo Alto, CA',
+                'website': 'https://www.tesla.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 18,
+                'total_applicants': 900,
+                'total_hired': 35,
+                'awaited_approval': 6
+            },
+            {
+                'name': 'Salesforce Inc.',
+                'description': 'A leading customer relationship management (CRM) platform.',
+                'industry': 'Cloud Software/CRM',
+                'size': '50,000-100,000 employees',
+                'founded': '1999',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.salesforce.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 16,
+                'total_applicants': 800,
+                'total_hired': 30,
+                'awaited_approval': 5
+            },
+            {
+                'name': 'Adobe Systems Inc.',
+                'description': 'A multinational computer software company focused on digital media and digital marketing solutions.',
+                'industry': 'Software/Digital Media',
+                'size': '25,000-50,000 employees',
+                'founded': '1982',
+                'location': 'San Jose, CA',
+                'website': 'https://www.adobe.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 14,
+                'total_applicants': 700,
+                'total_hired': 25,
+                'awaited_approval': 3
+            },
+            {
+                'name': 'Oracle Corporation',
+                'description': 'A multinational computer technology corporation specializing in database software and technology.',
+                'industry': 'Database/Enterprise Software',
+                'size': '100,000+ employees',
+                'founded': '1977',
+                'location': 'Austin, TX',
+                'website': 'https://www.oracle.com',
+                'tier': 'Tier 1',
+                'campus_recruiting': True,
+                'total_active_jobs': 22,
+                'total_applicants': 1100,
+                'total_hired': 40,
+                'awaited_approval': 7
+            },
+
+            # Tier 2 Companies
+            {
+                'name': 'IBM Corporation',
+                'description': 'A multinational technology company operating in over 170 countries.',
+                'industry': 'Technology/Consulting',
+                'size': '300,000+ employees',
+                'founded': '1911',
+                'location': 'Armonk, NY',
+                'website': 'https://www.ibm.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 28,
+                'total_applicants': 1400,
+                'total_hired': 80,
+                'awaited_approval': 12
+            },
+            {
+                'name': 'SAP SE',
+                'description': 'A multinational software corporation that makes enterprise software.',
+                'industry': 'Enterprise Software',
+                'size': '100,000+ employees',
+                'founded': '1972',
+                'location': 'Weinheim, Germany',
+                'website': 'https://www.sap.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 20,
+                'total_applicants': 1000,
+                'total_hired': 55,
+                'awaited_approval': 8
+            },
+            {
+                'name': 'ServiceNow Inc.',
+                'description': 'A cloud computing company providing service management software as a service.',
+                'industry': 'Cloud Software/IT Service Management',
+                'size': '10,000-25,000 employees',
+                'founded': '2003',
+                'location': 'Santa Clara, CA',
+                'website': 'https://www.servicenow.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 15,
+                'total_applicants': 750,
+                'total_hired': 30,
+                'awaited_approval': 5
+            },
+            {
+                'name': 'VMware Inc.',
+                'description': 'A subsidiary of Dell Technologies that provides cloud computing and platform virtualization software.',
+                'industry': 'Cloud Computing/Virtualization',
+                'size': '25,000-50,000 employees',
+                'founded': '1998',
+                'location': 'Palo Alto, CA',
+                'website': 'https://www.vmware.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 18,
+                'total_applicants': 900,
+                'total_hired': 35,
+                'awaited_approval': 6
+            },
+            {
+                'name': 'Cisco Systems Inc.',
+                'description': 'A multinational technology conglomerate specializing in networking hardware, software, and services.',
+                'industry': 'Networking/Telecommunications',
+                'size': '75,000+ employees',
+                'founded': '1984',
+                'location': 'San Jose, CA',
+                'website': 'https://www.cisco.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 24,
+                'total_applicants': 1200,
+                'total_hired': 60,
+                'awaited_approval': 10
+            },
+            {
+                'name': 'Intel Corporation',
+                'description': 'A multinational corporation and technology company designing and manufacturing computer processors.',
+                'industry': 'Semiconductors/Hardware',
+                'size': '100,000+ employees',
+                'founded': '1968',
+                'location': 'Santa Clara, CA',
+                'website': 'https://www.intel.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 26,
+                'total_applicants': 1300,
+                'total_hired': 65,
+                'awaited_approval': 9
+            },
+            {
+                'name': 'NVIDIA Corporation',
+                'description': 'A technology company specializing in graphics processing units and artificial intelligence.',
+                'industry': 'Semiconductors/AI',
+                'size': '25,000-50,000 employees',
+                'founded': '1993',
+                'location': 'Santa Clara, CA',
+                'website': 'https://www.nvidia.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 20,
+                'total_applicants': 1000,
+                'total_hired': 50,
+                'awaited_approval': 8
+            },
+            {
+                'name': 'Qualcomm Inc.',
+                'description': 'A multinational semiconductor and telecommunications equipment company.',
+                'industry': 'Semiconductors/Telecommunications',
+                'size': '50,000+ employees',
+                'founded': '1985',
+                'location': 'San Diego, CA',
+                'website': 'https://www.qualcomm.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 22,
+                'total_applicants': 1100,
+                'total_hired': 55,
+                'awaited_approval': 7
+            },
+            {
+                'name': 'Deloitte Consulting',
+                'description': 'A multinational professional services network providing audit, consulting, financial advisory, and tax services.',
+                'industry': 'Consulting',
+                'size': '300,000+ employees',
+                'founded': '1845',
+                'location': 'London, UK',
+                'website': 'https://www.deloitte.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 30,
+                'total_applicants': 1500,
+                'total_hired': 90,
+                'awaited_approval': 15
+            },
+            {
+                'name': 'McKinsey & Company',
+                'description': 'A global management consulting firm serving leading businesses, governments, and institutions.',
+                'industry': 'Management Consulting',
+                'size': '25,000+ employees',
+                'founded': '1926',
+                'location': 'New York, NY',
+                'website': 'https://www.mckinsey.com',
+                'tier': 'Tier 2',
+                'campus_recruiting': True,
+                'total_active_jobs': 12,
+                'total_applicants': 600,
+                'total_hired': 18,
+                'awaited_approval': 3
+            },
+
+            # Tier 3 Companies (Startups and Growing Companies)
+            {
+                'name': 'Flipkart Internet Pvt Ltd',
+                'description': 'An Indian e-commerce company headquartered in Bangalore.',
+                'industry': 'E-commerce',
+                'size': '50,000+ employees',
+                'founded': '2007',
+                'location': 'Bangalore, India',
+                'website': 'https://www.flipkart.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 25,
+                'total_applicants': 1250,
+                'total_hired': 75,
+                'awaited_approval': 12
+            },
+            {
+                'name': 'Swiggy',
+                'description': 'An Indian online food ordering and delivery platform.',
+                'industry': 'Food Delivery/Technology',
+                'size': '5,000-10,000 employees',
+                'founded': '2014',
+                'location': 'Bangalore, India',
+                'website': 'https://www.swiggy.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 15,
+                'total_applicants': 750,
+                'total_hired': 35,
+                'awaited_approval': 8
+            },
+            {
+                'name': 'Zomato Ltd',
+                'description': 'An Indian multinational restaurant aggregator and food delivery company.',
+                'industry': 'Food Delivery/Technology',
+                'size': '5,000+ employees',
+                'founded': '2008',
+                'location': 'Gurgaon, India',
+                'website': 'https://www.zomato.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 18,
+                'total_applicants': 900,
+                'total_hired': 40,
+                'awaited_approval': 6
+            },
+            {
+                'name': 'Ola Electric',
+                'description': 'An Indian electric vehicle manufacturer and mobility company.',
+                'industry': 'Electric Vehicles/Mobility',
+                'size': '5,000+ employees',
+                'founded': '2017',
+                'location': 'Bangalore, India',
+                'website': 'https://www.olaelectric.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 12,
+                'total_applicants': 600,
+                'total_hired': 25,
+                'awaited_approval': 4
+            },
+            {
+                'name': 'Byju\'s',
+                'description': 'An Indian multinational educational technology company.',
+                'industry': 'EdTech',
+                'size': '25,000+ employees',
+                'founded': '2011',
+                'location': 'Bangalore, India',
+                'website': 'https://www.byjus.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 20,
+                'total_applicants': 1000,
+                'total_hired': 60,
+                'awaited_approval': 10
+            },
+            {
+                'name': 'PhonePe',
+                'description': 'An Indian digital payments and financial services company.',
+                'industry': 'Fintech/Digital Payments',
+                'size': '5,000+ employees',
+                'founded': '2015',
+                'location': 'Bangalore, India',
+                'website': 'https://www.phonepe.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 14,
+                'total_applicants': 700,
+                'total_hired': 30,
+                'awaited_approval': 5
+            },
+            {
+                'name': 'Razorpay',
+                'description': 'An Indian fintech company that provides payment gateway solutions.',
+                'industry': 'Fintech/Payments',
+                'size': '2,000+ employees',
+                'founded': '2014',
+                'location': 'Bangalore, India',
+                'website': 'https://www.razorpay.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 16,
+                'total_applicants': 800,
+                'total_hired': 35,
+                'awaited_approval': 6
+            },
+            {
+                'name': 'Freshworks Inc.',
+                'description': 'A software company that provides customer experience software.',
+                'industry': 'SaaS/Customer Experience',
+                'size': '5,000+ employees',
+                'founded': '2010',
+                'location': 'Chennai, India',
+                'website': 'https://www.freshworks.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 18,
+                'total_applicants': 900,
+                'total_hired': 40,
+                'awaited_approval': 7
+            },
+            {
+                'name': 'MindTree Limited',
+                'description': 'An Indian multinational information technology and outsourcing company.',
+                'industry': 'IT Services',
+                'size': '25,000+ employees',
+                'founded': '1999',
+                'location': 'Bangalore, India',
+                'website': 'https://www.mindtree.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 22,
+                'total_applicants': 1100,
+                'total_hired': 70,
+                'awaited_approval': 12
+            },
+            {
+                'name': 'Mphasis Limited',
+                'description': 'An Indian multinational information technology services and consulting company.',
+                'industry': 'IT Services',
+                'size': '25,000+ employees',
+                'founded': '2000',
+                'location': 'Bangalore, India',
+                'website': 'https://www.mphasis.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 20,
+                'total_applicants': 1000,
+                'total_hired': 65,
+                'awaited_approval': 10
+            },
+            {
+                'name': 'L&T Infotech',
+                'description': 'A global technology consulting and digital solutions company.',
+                'industry': 'IT Services/Digital Solutions',
+                'size': '25,000+ employees',
+                'founded': '1997',
+                'location': 'Mumbai, India',
+                'website': 'https://www.lntinfotech.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 24,
+                'total_applicants': 1200,
+                'total_hired': 80,
+                'awaited_approval': 15
+            },
+            {
+                'name': 'Tech Mahindra',
+                'description': 'An Indian multinational information technology services and consulting company.',
+                'industry': 'IT Services',
+                'size': '150,000+ employees',
+                'founded': '1986',
+                'location': 'Pune, India',
+                'website': 'https://www.techmahindra.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 28,
+                'total_applicants': 1400,
+                'total_hired': 90,
+                'awaited_approval': 18
+            },
+            {
+                'name': 'Capgemini SE',
+                'description': 'A French multinational information technology services and consulting company.',
+                'industry': 'IT Services/Consulting',
+                'size': '300,000+ employees',
+                'founded': '1967',
+                'location': 'Paris, France',
+                'website': 'https://www.capgemini.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 26,
+                'total_applicants': 1300,
+                'total_hired': 85,
+                'awaited_approval': 16
+            },
+            {
+                'name': 'HCL Technologies',
+                'description': 'An Indian multinational information technology services and consulting company.',
+                'industry': 'IT Services',
+                'size': '200,000+ employees',
+                'founded': '1976',
+                'location': 'Noida, India',
+                'website': 'https://www.hcltech.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 30,
+                'total_applicants': 1500,
+                'total_hired': 100,
+                'awaited_approval': 20
+            },
+            {
+                'name': 'Larsen & Toubro',
+                'description': 'An Indian multinational conglomerate company involved in technology, engineering, construction, and financial services.',
+                'industry': 'Engineering/Construction',
+                'size': '100,000+ employees',
+                'founded': '1938',
+                'location': 'Mumbai, India',
+                'website': 'https://www.larsentoubro.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 25,
+                'total_applicants': 1250,
+                'total_hired': 75,
+                'awaited_approval': 15
+            },
+
+            # Additional Diverse Companies
+            {
+                'name': 'Reliance Industries',
+                'description': 'An Indian multinational conglomerate company involved in energy, petrochemicals, and telecommunications.',
+                'industry': 'Conglomerate/Energy',
+                'size': '200,000+ employees',
+                'founded': '1966',
+                'location': 'Mumbai, India',
+                'website': 'https://www.ril.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 35,
+                'total_applicants': 1750,
+                'total_hired': 120,
+                'awaited_approval': 25
+            },
+            {
+                'name': 'Airbnb Inc.',
+                'description': 'An American online marketplace for lodging and tourism experiences.',
+                'industry': 'Travel/Hospitality Technology',
+                'size': '5,000+ employees',
+                'founded': '2008',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.airbnb.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 12,
+                'total_applicants': 600,
+                'total_hired': 25,
+                'awaited_approval': 4
+            },
+            {
+                'name': 'Uber Technologies Inc.',
+                'description': 'An American mobility as a service provider and technology company.',
+                'industry': 'Transportation Technology',
+                'size': '25,000+ employees',
+                'founded': '2009',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.uber.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 18,
+                'total_applicants': 900,
+                'total_hired': 40,
+                'awaited_approval': 8
+            },
+            {
+                'name': 'Spotify Technology S.A.',
+                'description': 'A Swedish audio streaming and media services provider.',
+                'industry': 'Music Streaming/Technology',
+                'size': '5,000+ employees',
+                'founded': '2006',
+                'location': 'Stockholm, Sweden',
+                'website': 'https://www.spotify.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 14,
+                'total_applicants': 700,
+                'total_hired': 28,
+                'awaited_approval': 5
+            },
+            {
+                'name': 'Atlassian Corporation',
+                'description': 'An Australian software company that develops products for software developers and project managers.',
+                'industry': 'Software Development Tools',
+                'size': '10,000+ employees',
+                'founded': '2002',
+                'location': 'Sydney, Australia',
+                'website': 'https://www.atlassian.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 16,
+                'total_applicants': 800,
+                'total_hired': 32,
+                'awaited_approval': 6
+            },
+            {
+                'name': 'Slack Technologies Inc.',
+                'description': 'An American software company that developed the messaging platform Slack.',
+                'industry': 'Communication Software',
+                'size': '2,500+ employees',
+                'founded': '2009',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.slack.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 10,
+                'total_applicants': 500,
+                'total_hired': 20,
+                'awaited_approval': 3
+            },
+            {
+                'name': 'Twilio Inc.',
+                'description': 'An American cloud communications platform as a service company.',
+                'industry': 'Cloud Communications',
+                'size': '5,000+ employees',
+                'founded': '2008',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.twilio.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 12,
+                'total_applicants': 600,
+                'total_hired': 24,
+                'awaited_approval': 4
+            },
+            {
+                'name': 'Stripe Inc.',
+                'description': 'An American financial services and software as a service company.',
+                'industry': 'Fintech/Payment Processing',
+                'size': '5,000+ employees',
+                'founded': '2010',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.stripe.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 15,
+                'total_applicants': 750,
+                'total_hired': 30,
+                'awaited_approval': 5
+            },
+            {
+                'name': 'Square Inc.',
+                'description': 'An American financial services and digital payments company.',
+                'industry': 'Fintech/Digital Payments',
+                'size': '5,000+ employees',
+                'founded': '2009',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.squareup.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 13,
+                'total_applicants': 650,
+                'total_hired': 26,
+                'awaited_approval': 4
+            },
+            {
+                'name': 'GitLab Inc.',
+                'description': 'An American company that operates GitLab, a web-based DevOps lifecycle tool.',
+                'industry': 'DevOps/Software Development',
+                'size': '1,500+ employees',
+                'founded': '2011',
+                'location': 'San Francisco, CA',
+                'website': 'https://www.gitlab.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 8,
+                'total_applicants': 400,
+                'total_hired': 16,
+                'awaited_approval': 2
+            },
+            {
+                'name': 'Datadog Inc.',
+                'description': 'An American company that provides monitoring and analytics platform for developers.',
+                'industry': 'Monitoring/Analytics',
+                'size': '2,500+ employees',
+                'founded': '2010',
+                'location': 'New York, NY',
+                'website': 'https://www.datadoghq.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 11,
+                'total_applicants': 550,
+                'total_hired': 22,
+                'awaited_approval': 3
+            },
+            {
+                'name': 'MongoDB Inc.',
+                'description': 'An American software company that develops and provides commercial licenses for the MongoDB database.',
+                'industry': 'Database/Software',
+                'size': '3,000+ employees',
+                'founded': '2007',
+                'location': 'New York, NY',
+                'website': 'https://www.mongodb.com',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 9,
+                'total_applicants': 450,
+                'total_hired': 18,
+                'awaited_approval': 2
+            },
+            {
+                'name': 'Elastic N.V.',
+                'description': 'A Dutch-American company that develops Elasticsearch and related tools.',
+                'industry': 'Search/Analytics',
+                'size': '2,000+ employees',
+                'founded': '2012',
+                'location': 'Mountain View, CA',
+                'website': 'https://www.elastic.co',
+                'tier': 'Tier 3',
+                'campus_recruiting': True,
+                'total_active_jobs': 7,
+                'total_applicants': 350,
+                'total_hired': 14,
+                'awaited_approval': 2
+            }
+        ]

@@ -1,0 +1,82 @@
+from django.urls import path
+
+from .views import (
+    JobPostingListView,
+    JobPostingCreateView,
+    JobPostingUpdateView,
+    JobPostingDeleteView,
+    JobPostingListCreateView,
+    JobPostingDetailUpdateDeleteView,
+    JobApplicationCreateView,
+    AppliedJobsListView,
+    AllApplicationsView,
+    JobApplicationStatusUpdateView,
+    JobStatsListView,
+    MyJobApplicationsView,
+    CollegeJobListView,
+    JobApplicationsListView,
+    EnhancedJobListCreateView,
+    EnhancedJobDetailView,
+    EnhancedJobApplicationCreateView,
+    JobApplicationEligibilityView,
+    JobStatsView,
+    CompanyStatsView,
+    ApplicationStatsView,
+    CompanyFormViewSet,
+    CompanyFormDetailView,
+    AdminJobPostingCreateView,
+    JobPublishToggleView,
+    AdminJobListView,
+    CompanyJobsManagementView,
+    # Enhanced Application Management Views
+    EnhancedApplicationsListView,
+    ApplicationDetailView,
+    ApplicationExportView,
+    StudentProfileFieldsView,
+    BulkApplicationUpdateView,
+)
+
+urlpatterns = [
+    # Enhanced API endpoints (main endpoints)
+    path('', EnhancedJobListCreateView.as_view(), name='enhanced-job-list-create'),
+    path('create/', AdminJobPostingCreateView.as_view(), name='admin-job-posting-create'),
+    path('<int:pk>/', EnhancedJobDetailView.as_view(), name='enhanced-job-detail'),
+    path('<int:pk>/can-apply/', JobApplicationEligibilityView.as_view(), name='job-application-eligibility'),
+    path('<int:pk>/toggle-publish/', JobPublishToggleView.as_view(), name='job-publish-toggle'),
+    path('<int:job_id>/apply/', EnhancedJobApplicationCreateView.as_view(), name='enhanced-job-application-create'),
+    path('<int:job_id>/applications/', JobApplicationsListView.as_view(), name='job-applications-list'),
+    
+    # Statistics endpoints
+    path('stats/', JobStatsView.as_view(), name='job-stats-enhanced'),
+    path('stats/companies/', CompanyStatsView.as_view(), name='company-stats'),
+    path('stats/applications/', ApplicationStatsView.as_view(), name='application-stats'),
+    
+    # Legacy endpoints (kept for backward compatibility)
+    path('legacy/', JobPostingListCreateView.as_view(), name='job-list-create'),
+    path('legacy/<int:pk>/', JobPostingDetailUpdateDeleteView.as_view(), name='job-detail-update-delete'),
+    path('<int:pk>/update/', JobPostingUpdateView.as_view(), name='job-posting-update'),
+    path('<int:pk>/delete/', JobPostingDeleteView.as_view(), name='job-posting-delete'),
+    
+    # Application management
+    path('applied/', AppliedJobsListView.as_view(), name='applied-jobs'),
+    path('my-applications/', MyJobApplicationsView.as_view(), name='my-applications'),
+    
+    # Admin views
+    path('admin/', AdminJobListView.as_view(), name='admin-job-list'),
+    path('admin/all-applications/', AllApplicationsView.as_view(), name='all-job-applications'),
+    path('job-stats/', JobStatsListView.as_view(), name='job-stats'),
+    path('applications/<int:pk>/update-status/', JobApplicationStatusUpdateView.as_view(), name='application-status-update'),
+    path('forms/', CompanyFormViewSet.as_view({'get': 'list', 'post': 'create'}), name='company-forms'),
+    path('forms/<uuid:pk>/', CompanyFormDetailView.as_view(), name='company-form-detail'),
+    
+    # Company job management
+    path('company/<int:company_id>/jobs/', CompanyJobsManagementView.as_view(), name='company-jobs-management'),
+    
+    # Enhanced Application Management
+    path('applications/', EnhancedApplicationsListView.as_view(), name='enhanced-applications-list'),
+    path('applications/<int:pk>/', ApplicationDetailView.as_view(), name='application-detail'),
+    path('applications/export/', ApplicationExportView.as_view(), name='applications-export'),
+    path('applications/fields/', StudentProfileFieldsView.as_view(), name='profile-fields'),
+    path('applications/bulk-update/', BulkApplicationUpdateView.as_view(), name='bulk-application-update'),
+]
+

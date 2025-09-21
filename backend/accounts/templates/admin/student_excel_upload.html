@@ -1,0 +1,9 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>Upload Excel to Update Students</h2>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Upload">
+</form>
+<a href="../">← Back to list</a>
+{% endblock %}
