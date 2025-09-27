@@ -108,7 +108,7 @@ frontend/src/
 ### Frontend Pages ✅
 - `/myjobs` - Student application view (working)
 - `/admin/applications` - ✅ Complete applications management dashboard
-- `/admin/jobs/[id]` - Job details (ready for View Applications integration)
+- `/admin/companymanagement/jobs/[id]` - Job details (ready for View Applications integration)
 - Admin dashboard with comprehensive application stats
 
 ## 🎯 Target Features

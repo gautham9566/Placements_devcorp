@@ -38,12 +38,9 @@ export function middleware(request) {
 
   // Block student pages unless logged in as student or admin
   if ((url.pathname.startsWith('/myjobs') || 
-       url.pathname.startsWith('/explore') || 
        url.pathname.startsWith('/jobpostings') || 
        url.pathname.startsWith('/companies') || 
-       url.pathname.startsWith('/company/') || 
-       url.pathname.startsWith('/events') || 
-       url.pathname.startsWith('/inbox')) && 
+       url.pathname.startsWith('/company/') )&& 
       role !== 'STUDENT' && role !== 'ADMIN') {
     url.pathname = '/login';
     return NextResponse.redirect(url);

@@ -27,11 +27,8 @@ export default function AdminLayout({ children }) {
     {
       items: [
         { title: 'Dashboard', href: '/admin/dashboard', icon: <IconHome /> },
-        { title: 'Jobs', href: '/admin/jobs', icon: <IconBriefcase /> },
         { title: 'Applications', href: '/admin/applications', icon: <IconClipboardList /> },
-        { title: 'Posts', href: '/admin/posts', icon: <Megaphone className="w-5 h-5" /> },
         { title: 'Student Management', href: '/admin/student-management', icon: <User className="w-5 h-5" /> },
-        { title: 'Student Analytics', href: '/admin/analytics', icon: <BarChart3 className="w-5 h-5" /> },
         { title: 'Company Management', href: '/admin/companymanagement', icon: <IconMail /> },
         { title: 'Forms', href: '/admin/form', icon: <IconForms /> }
       ]

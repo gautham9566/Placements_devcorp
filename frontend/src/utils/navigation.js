@@ -16,15 +16,8 @@ export const navigationLinks = [
     items: [
       { title: 'My Campus', href: '/', icon: <IconHome /> },
       { title: 'My Jobs', href: '/myjobs', icon: <IconBriefcase /> },
-      { title: 'Explore', href: '/explore', icon: <IconCompass /> },
-      { title: 'Inbox', href: '/inbox', icon: <IconMail /> }
-    ]
-  },
-  {
-    items: [
       { title: 'Job Postings', href: '/jobpostings', icon: <IconBuilding /> },
       { title: 'Companies', href: '/companies', icon: <IconUsers /> },
-      { title: 'Events', href: '/events', icon: <IconCalendarEvent /> },
       { title: 'Calendar', href: '/calendar', icon: <IconCalendarEvent /> },
       { title: 'My Profile', href: '/profile', icon: <IconUser /> },
       { title: 'Settings', href: '/settings', icon: <IconSettings /> }

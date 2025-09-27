@@ -15,11 +15,8 @@ const getPageTitle = (pathname) => {
   const titleMap = {
     '/': 'My Campus',
     '/myjobs': 'My Jobs',
-    '/explore': 'Explore',
-    '/inbox': 'Inbox',
     '/jobpostings': 'Job Postings',
     '/companies': 'Companies',
-    '/events': 'Events',
     '/calendar': 'Calendar',
     '/admin': 'Admin Dashboard',
     '/admin/posts': 'Admin Posts'

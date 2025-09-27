@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { IconArrowLeft, IconCheck } from '@tabler/icons-react';
-import JobPostingForm from '../../../../components/JobPostingForm';
-import { createJob } from '../../../../api/jobs';
-import { fetchSimpleCompanies } from '../../../../api/companies';
+import JobPostingForm from '../../../../../components/JobPostingForm';
+import { createJob } from '../../../../../api/jobs';
+import { fetchSimpleCompanies } from '../../../../../api/companies';
 
 export default function CreateJobPage() {
   const router = useRouter();
@@ -67,7 +67,7 @@ export default function CreateJobPage() {
       
       // Show success message and redirect after a short delay
       setTimeout(() => {
-        router.push('/admin/jobs/listings');
+        router.push('/admin/companymanagement/jobs/listings');
       }, 2000);
       
     } catch (error) {
@@ -82,7 +82,7 @@ export default function CreateJobPage() {
 
   const handleCancel = () => {
     if (window.confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
-      router.push('/admin/jobs/listings');
+      router.push('/admin/companymanagement/jobs/listings');
     }
   };
 
@@ -97,13 +97,13 @@ export default function CreateJobPage() {
           <p className="text-gray-600 mb-4">The job posting has been created and is ready for publication.</p>
           <div className="space-x-3">
             <button
-              onClick={() => router.push('/admin/jobs/listings')}
+              onClick={() => router.push('/admin/companymanagement/jobs/listings')}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               View All Jobs
             </button>
             <button
-              onClick={() => router.push('/admin/jobs/create')}
+              onClick={() => router.push('/admin/companymanagement/jobs/create')}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               Create Another Job
@@ -145,13 +145,13 @@ export default function CreateJobPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => router.push('/admin/jobs/companies')}
+              onClick={() => router.push('/admin/companymanagement/jobs/companies')}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               View Companies
             </button>
             <button
-              onClick={() => router.push('/admin/jobs/listings')}
+              onClick={() => router.push('/admin/companymanagement/jobs/listings')}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               View All Jobs

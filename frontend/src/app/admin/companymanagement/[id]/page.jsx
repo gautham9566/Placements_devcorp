@@ -371,12 +371,12 @@ export default function AdminCompanyDetail({ params }) {
 
   // Add function to handle job edit
   const handleJobEdit = (jobId) => {
-    router.push(`/admin/jobs/edit/${jobId}`);
+    router.push(`/admin/companymanagement/jobs/edit/${jobId}`);
   };
 
   // Add function to handle job view
   const handleJobView = (jobId) => {
-    router.push(`/admin/jobs/${jobId}`);
+    router.push(`/admin/companymanagement/jobs/${jobId}`);
   };
 
   if (loading) {

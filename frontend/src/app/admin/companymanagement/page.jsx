@@ -408,7 +408,7 @@ function CompaniesContent() {
               </button>
 
               <button
-                onClick={() => router.push('/admin/jobs/listings')}
+                onClick={() => router.push('/admin/companymanagement/jobs/listings')}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
               >
                 <IconBriefcase className="w-5 h-5" />
@@ -416,7 +416,7 @@ function CompaniesContent() {
               </button>
 
               <button
-                onClick={() => router.push('/admin/jobs/create')}
+                onClick={() => router.push('/admin/companymanagement/jobs/create')}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
               >
                 <IconPlus className="w-5 h-5" />

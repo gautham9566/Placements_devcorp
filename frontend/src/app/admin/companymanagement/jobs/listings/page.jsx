@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { IconSearch, IconPlus } from '@tabler/icons-react';
-import { listJobsAdmin, toggleJobPublish } from '../../../../api/jobs';
-import { JobTable } from '../../../../components/jobs/JobTable';
-import { JobFilters } from '../../../../components/jobs/JobFilters';
-import { PaginatedList } from '../../../../components/common/PaginatedList';
+import { listJobsAdmin, toggleJobPublish } from '../../../../../api/jobs';
+import { JobTable } from '../../../../../components/jobs/JobTable';
+import { JobFilters } from '../../../../../components/jobs/JobFilters';
+import { PaginatedList } from '../../../../../components/common/PaginatedList';
 
 export default function JobListingsPage() {
   const router = useRouter();
@@ -54,7 +54,7 @@ export default function JobListingsPage() {
     if (max_stipend) params.set('maxStipend', max_stipend);
     if (deadline) params.set('deadline', deadline);
 
-    router.push(`/admin/jobs/listings${params.toString() ? `?${params.toString()}` : ''}`);
+    router.push(`/admin/companymanagement/jobs/listings${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
   // Fetch jobs from API
@@ -189,13 +189,13 @@ export default function JobListingsPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => router.push('/admin/jobs/companies')}
+              onClick={() => router.push('/admin/companymanagement/jobs/companies')}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               View Companies
             </button>
             <button
-              onClick={() => router.push('/admin/jobs/create')}
+              onClick={() => router.push('/admin/companymanagement/jobs/create')}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
             >
               <IconPlus size={18} />
@@ -264,7 +264,7 @@ export default function JobListingsPage() {
               <p className="text-gray-500 text-lg">No job listings found</p>
               <p className="text-gray-400 mb-4">Try adjusting your search criteria or create a new job posting</p>
               <button
-                onClick={() => router.push('/admin/jobs/create')}
+                onClick={() => router.push('/admin/companymanagement/jobs/create')}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Post New Job

@@ -144,7 +144,7 @@ urlpatterns = [
 ## 🔧 Integration Points
 
 ### Update existing job details page:
-In `frontend/src/app/admin/jobs/[id]/page.jsx`, replace the non-functional "View Applications" button:
+In `frontend/src/app/admin/companymanagement/jobs/[id]/page.jsx`, replace the non-functional "View Applications" button:
 
 ```jsx
 // Replace existing button with:

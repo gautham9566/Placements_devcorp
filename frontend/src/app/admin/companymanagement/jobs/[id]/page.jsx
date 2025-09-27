@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { use } from 'react';
 import { ArrowLeft, Edit, Send, X, MapPin, Calendar, DollarSign, Briefcase, Users, Eye } from "lucide-react";
-import { FormattedJobDescription } from '../../../../lib/utils';
-import { getJobById } from '../../../../api/jobs';
+import { FormattedJobDescription } from '../../../../../lib/utils';
+import { getJobById } from '../../../../../api/jobs';
 
 export default function ViewJob({ params }) {
   const unwrappedParams = use(params);
@@ -129,7 +129,7 @@ export default function ViewJob({ params }) {
                 {job.is_published ? 'Published' : 'Draft'}
               </span>
               <button 
-                onClick={() => router.push(`/admin/jobs/edit/${jobId}`)}
+                onClick={() => router.push(`/admin/companymanagement/jobs/edit/${jobId}`)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
               >
                 <Edit className="w-4 h-4 mr-2" />
@@ -284,7 +284,7 @@ export default function ViewJob({ params }) {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
               <div className="space-y-3">
                 <button 
-                  onClick={() => router.push(`/admin/jobs/edit/${jobId}`)}
+                  onClick={() => router.push(`/admin/companymanagement/jobs/edit/${jobId}`)}
                   className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-center"
                 >
                   <Edit className="w-4 h-4 mr-2" />

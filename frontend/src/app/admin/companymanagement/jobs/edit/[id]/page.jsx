@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { use } from 'react';
 import { ArrowLeft, Save, X, Plus, Trash2 } from "lucide-react";
-import { getJobById, updateJob } from '../../../../../api/jobs';
+import { getJobById, updateJob } from '../../../../../../api/jobs';
 
 export default function EditJob({ params }) {
   const unwrappedParams = use(params);
