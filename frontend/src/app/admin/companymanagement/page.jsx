@@ -21,6 +21,7 @@ import {
   Star,
   Heart
 } from "lucide-react";
+import { IconBriefcase, IconPlus } from '@tabler/icons-react';
 
 // Import API services
 import { companiesAPI } from '../../../api/optimized';
@@ -30,7 +31,7 @@ import { getUserId } from '../../../utils/auth';
 function CompaniesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [companies, setCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [tierFilter, setTierFilter] = useState(searchParams.get('tier') || 'ALL');
@@ -56,7 +57,7 @@ function CompaniesContent() {
   // Function to update URL with current state
   const updateURL = (params = {}) => {
     const newParams = new URLSearchParams();
-    
+
     // Always include current values unless overridden
     const currentParams = {
       page: currentPage.toString(),
@@ -108,9 +109,9 @@ function CompaniesContent() {
       // Add sorting
       if (sortBy) {
         params.ordering = sortBy === 'name' ? 'name' :
-                         sortBy === 'jobs' ? '-total_active_jobs' :
-                         sortBy === 'applicants' ? '-total_applicants' :
-                         sortBy === 'tier' ? 'tier' : 'name';
+          sortBy === 'jobs' ? '-total_active_jobs' :
+            sortBy === 'applicants' ? '-total_applicants' :
+              sortBy === 'tier' ? 'tier' : 'name';
       }
 
       // Fetch data from optimized API
@@ -189,7 +190,7 @@ function CompaniesContent() {
       setTierFilter(searchParams.get('tier') || 'ALL');
       setIndustryFilter(searchParams.get('industry') || 'ALL');
       setSortBy(searchParams.get('sort') || 'name');
-      
+
       // Fetch data with new parameters
       fetchCompanies(parseInt(searchParams.get('page')) || 1);
     };
@@ -221,7 +222,7 @@ function CompaniesContent() {
     updateURL({ page: pageNumber.toString() });
     fetchCompanies(pageNumber);
   };
-  
+
   const nextPage = () => {
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
@@ -230,7 +231,7 @@ function CompaniesContent() {
       fetchCompanies(newPage);
     }
   };
-  
+
   const prevPage = () => {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
@@ -288,16 +289,16 @@ function CompaniesContent() {
 
   const toggleFollowCompany = async (e, companyId) => {
     e.stopPropagation(); // Prevent navigation when clicking follow button
-    
+
     try {
       const userId = getUserId();
       if (!userId) {
         alert("Please log in to follow companies");
         return;
       }
-      
+
       const newFollowedCompanies = new Set(followedCompanies);
-      
+
       if (newFollowedCompanies.has(companyId)) {
         await unfollowCompany(companyId, userId);
         newFollowedCompanies.delete(companyId);
@@ -305,7 +306,7 @@ function CompaniesContent() {
         await followCompany(companyId, userId);
         newFollowedCompanies.add(companyId);
       }
-      
+
       setFollowedCompanies(newFollowedCompanies);
     } catch (error) {
       console.error('Error updating follow status:', error);
@@ -333,15 +334,15 @@ function CompaniesContent() {
   const handleCreateCompany = () => {
     router.push('/admin/companymanagement/create');
   };
-  
+
   const handleEditCompany = (e, companyId) => {
     e.stopPropagation(); // Prevent navigation to company detail
     router.push(`/admin/companymanagement/edit/${companyId}`);
   };
-  
+
   const handleDeleteCompany = async (e, companyId) => {
     e.stopPropagation(); // Prevent navigation to company detail
-    
+
     if (confirm('Are you sure you want to delete this company? This action cannot be undone.')) {
       try {
         await deleteCompany(companyId);
@@ -390,17 +391,38 @@ function CompaniesContent() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-6">
-        {/* Header Section */}
+        <div className="mb-8"></div>
         <div className="mb-8">
           <div className="mb-6 flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Company Management</h1>
-            <button
-              onClick={handleCreateCompany}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              <PlusCircle className="w-5 h-5" />
-              <span>Create New Company</span>
-            </button>
+            {/* Left side - Title */}
+            <h1 className="text-3xl font-bold text-gray-900">Company Management</h1>
+
+            {/* Right side - Buttons */}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleCreateCompany}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <PlusCircle className="w-5 h-5" />
+                <span>Create New Company</span>
+              </button>
+
+              <button
+                onClick={() => router.push('/admin/jobs/listings')}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+              >
+                <IconBriefcase className="w-5 h-5" />
+                <span>View All Jobs</span>
+              </button>
+
+              <button
+                onClick={() => router.push('/admin/jobs/create')}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+              >
+                <IconPlus className="w-5 h-5" />
+                <span>Post New Job</span>
+              </button>
+            </div>
           </div>
 
           {/* Stats Cards */}
@@ -658,13 +680,12 @@ function CompaniesContent() {
               <button
                 onClick={prevPage}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 rounded-md border ${
-                  currentPage === 1 ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                className={`px-4 py-2 rounded-md border ${currentPage === 1 ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
+                  }`}
               >
                 Previous
               </button>
-              
+
               {/* Generate page numbers */}
               {[...Array(Math.min(5, totalPages))].map((_, i) => {
                 // Logic to display pages around current page
@@ -678,29 +699,27 @@ function CompaniesContent() {
                 } else {
                   pageNum = currentPage - 2 + i;
                 }
-                
+
                 return (
                   <button
                     key={pageNum}
                     onClick={() => paginate(pageNum)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-md ${
-                      currentPage === pageNum
+                    className={`w-10 h-10 flex items-center justify-center rounded-md ${currentPage === pageNum
                         ? 'bg-blue-500 text-white'
                         : 'text-gray-700 hover:bg-gray-100'
-                    }`}
+                      }`}
                     aria-current={currentPage === pageNum ? 'page' : undefined}
                   >
                     {pageNum}
                   </button>
                 );
               })}
-              
+
               <button
                 onClick={nextPage}
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 rounded-md border ${
-                  currentPage === totalPages ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                className={`px-4 py-2 rounded-md border ${currentPage === totalPages ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
+                  }`}
               >
                 Next
               </button>
