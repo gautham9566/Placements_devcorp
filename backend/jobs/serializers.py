@@ -411,14 +411,64 @@ class StatsSerializer(serializers.Serializer):
 
 
 class CompanyFormSerializer(serializers.ModelSerializer):
+    """Serializer for the CompanyForm model"""
     class Meta:
         model = CompanyForm
-        fields = ['id', 'company', 'key', 'created_at', 'submitted', 'details']
+        fields = '__all__'
         read_only_fields = ['id', 'created_at']
-        extra_kwargs = {
-            'key': {'required': False},
-            'submitted': {'required': False},
-            'details': {'required': False}
-        }
+        
+    def validate(self, data):
+        """
+        Validate form data
+        """
+        instance_submitted = False
+        existing_details = {}
+
+        if self.instance is not None:
+            instance_submitted = bool(self.instance.submitted)
+            existing_details = self.instance.details or {}
+
+        submitted_flag = data.get('submitted')
+        is_now_submitted = bool(submitted_flag if submitted_flag is not None else instance_submitted)
+
+        details_payload = data.get('details')
+        if details_payload is None:
+            details_payload = existing_details
+
+        # If the form is being marked as submitted (either new submission or already submitted)
+        if is_now_submitted:
+            if not details_payload:
+                raise serializers.ValidationError({
+                    "details": "Job details are required when marking as submitted."
+                })
+
+            details_dict = details_payload if isinstance(details_payload, dict) else {}
+            optional_config = details_dict.get('optionalFields') or {}
+
+            # Required fields for downstream job creation. Key job attributes stay required
+            # while companies can opt out of skills/deadline collection if desired.
+            required_fields = ['title', 'description', 'location']
+            if optional_config.get('includeDeadline', True):
+                required_fields.append('deadline')
+            if optional_config.get('includeSkills', True):
+                required_fields.append('skills')
+            missing_fields = [field for field in required_fields if not details_payload.get(field)]
+
+            if missing_fields:
+                raise serializers.ValidationError({
+                    "details": f"Missing required fields: {', '.join(missing_fields)}"
+                })
+        
+        return data
+    
+    def create(self, validated_data):
+        """Create a new form"""
+        # Generate a key if not provided
+        if 'key' not in validated_data:
+            import random
+            import string
+            validated_data['key'] = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        
+        return super().create(validated_data)
 
 

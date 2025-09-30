@@ -675,55 +675,91 @@ function CompaniesContent() {
 
         {/* Pagination */}
         {companies.length > 0 && totalPages > 1 && (
-          <div className="mt-8 flex justify-center">
-            <nav className="flex items-center space-x-2" aria-label="Pagination">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 mt-8">
+            <div className="flex-1 flex justify-between sm:hidden">
               <button
-                onClick={prevPage}
+                onClick={() => paginate(Math.max(currentPage - 1, 1))}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 rounded-md border ${currentPage === 1 ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                  currentPage === 1
+                    ? 'bg-gray-100 text-gray-400'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 Previous
               </button>
-
-              {/* Generate page numbers */}
-              {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                // Logic to display pages around current page
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => paginate(pageNum)}
-                    className={`w-10 h-10 flex items-center justify-center rounded-md ${currentPage === pageNum
-                        ? 'bg-blue-500 text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    aria-current={currentPage === pageNum ? 'page' : undefined}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
               <button
-                onClick={nextPage}
+                onClick={() => paginate(Math.min(currentPage + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 rounded-md border ${currentPage === totalPages ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                  currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 Next
               </button>
-            </nav>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                  <span className="font-medium">{totalPages}</span> ({totalCount} total companies)
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => paginate(Math.max(currentPage - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                      currentPage === 1
+                        ? 'text-gray-300'
+                        : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  {/* Page Numbers */}
+                  {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = idx + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = idx + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + idx;
+                    } else {
+                      pageNum = currentPage - 2 + idx;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => paginate(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => paginate(Math.min(currentPage + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                      currentPage === totalPages
+                        ? 'text-gray-300'
+                        : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </nav>
+              </div>
+            </div>
           </div>
         )}
       </div>

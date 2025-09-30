@@ -100,48 +100,78 @@ const TicketsPage = () => {
     const pageNumbers = getPageNumbers();
 
     return (
-      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50 mt-6">
-        <div className="text-sm text-gray-700">
-          Page {currentPage} of {totalPages} ({totalTickets} total tickets)
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 mt-6">
+        <div className="flex-1 flex justify-between sm:hidden">
           <button
-            onClick={() => setCurrentPage(currentPage - 1)}
+            onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
             disabled={currentPage === 1}
-            className={`px-3 py-2 rounded border text-sm ${
-              currentPage === 1 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200' 
-                : 'bg-white hover:bg-gray-50 border-gray-300 text-gray-700'
+            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+              currentPage === 1
+                ? 'bg-gray-100 text-gray-400'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
             Previous
           </button>
-          <div className="flex gap-1">
-            {pageNumbers.map(pageNum => (
-              <button
-                key={pageNum}
-                onClick={() => setCurrentPage(pageNum)}
-                className={`px-3 py-2 rounded text-sm ${
-                  pageNum === currentPage
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
-                }`}
-              >
-                {pageNum}
-              </button>
-            ))}
-          </div>
           <button
-            onClick={() => setCurrentPage(currentPage + 1)}
+            onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className={`px-3 py-2 rounded border text-sm ${
-              currentPage === totalPages 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200' 
-                : 'bg-white hover:bg-gray-50 border-gray-300 text-gray-700'
+            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+              currentPage === totalPages
+                ? 'bg-gray-100 text-gray-400'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
             Next
           </button>
+        </div>
+        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-gray-700">
+              Showing page <span className="font-medium">{currentPage}</span> of{' '}
+              <span className="font-medium">{totalPages}</span> ({totalTickets} total tickets)
+            </p>
+          </div>
+          <div>
+            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+              <button
+                onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+                disabled={currentPage === 1}
+                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                  currentPage === 1
+                    ? 'text-gray-300'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                Previous
+              </button>
+              {/* Page Numbers */}
+              {pageNumbers.map(pageNum => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                    pageNum === currentPage
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                  currentPage === totalPages
+                    ? 'text-gray-300'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                Next
+              </button>
+            </nav>
+          </div>
         </div>
       </div>
     );

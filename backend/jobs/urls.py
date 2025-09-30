@@ -1,5 +1,5 @@
-from django.urls import path
-
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
     JobPostingListView,
     JobPostingCreateView,
@@ -35,6 +35,9 @@ from .views import (
     StudentProfileFieldsView,
     BulkApplicationUpdateView,
 )
+
+router = DefaultRouter()
+router.register(r'forms', CompanyFormViewSet)
 
 urlpatterns = [
     # Enhanced API endpoints (main endpoints)
@@ -78,5 +81,8 @@ urlpatterns = [
     path('applications/export/', ApplicationExportView.as_view(), name='applications-export'),
     path('applications/fields/', StudentProfileFieldsView.as_view(), name='profile-fields'),
     path('applications/bulk-update/', BulkApplicationUpdateView.as_view(), name='bulk-application-update'),
+    
+    # Forms API
+    path('', include(router.urls)),
 ]
 

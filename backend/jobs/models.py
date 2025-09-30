@@ -95,7 +95,28 @@ class CompanyForm(models.Model):
     key = models.CharField(max_length=20, blank=True)  # Make key optional
     created_at = models.DateTimeField(auto_now_add=True)
     submitted = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('approved', 'Approved'),
+            ('posted', 'Posted'),
+            ('rejected', 'Rejected')
+        ],
+        default='pending'
+    )
     details = models.JSONField(null=True, blank=True)
     
     class Meta:
         ordering = ['-created_at']
+        
+    def __str__(self):
+        return f"{self.company} Form ({self.status})"
+    
+    def save(self, *args, **kwargs):
+        # Generate a random key if not provided
+        if not self.key:
+            import random
+            import string
+            self.key = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        super().save(*args, **kwargs)

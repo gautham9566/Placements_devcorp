@@ -358,40 +358,95 @@ const OptimizedStudentManagement = () => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6 pagination">
-            <div className="text-sm text-gray-600 page-number">
-              Page {currentPage} of {totalPages}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
+                disabled={currentPage === 1}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                  currentPage === 1
+                    ? 'bg-gray-100 text-gray-400'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`
+              }
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                  currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`
+              }
+              >
+                Next
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={!paginationInfo.hasPrevious}
-                className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              
-              {pageNumbers.map(pageNum => (
-                <button
-                  key={pageNum}
-                  onClick={() => handlePageChange(pageNum)}
-                  className={`px-3 py-2 border rounded-lg ${
-                    pageNum === currentPage
-                      ? 'bg-blue-600 text-white border-blue-600 active'
-                      : 'border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              ))}
-              
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={!paginationInfo.hasNext}
-                className="p-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                  <span className="font-medium">{totalPages}</span> ({totalCount} total students)
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                      currentPage === 1
+                        ? 'text-gray-300'
+                        : 'text-gray-500 hover:bg-gray-50'
+                    }`
+                  }
+                  >
+                    Previous
+                  </button>
+                  {/* Page Numbers */}
+                  {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = idx + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = idx + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + idx;
+                    } else {
+                      pageNum = currentPage - 2 + idx;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
+                        }`
+                      }
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                      currentPage === totalPages
+                        ? 'text-gray-300'
+                        : 'text-gray-500 hover:bg-gray-50'
+                    }`
+                  }
+                  >
+                    Next
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
         )}

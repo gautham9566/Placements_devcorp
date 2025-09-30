@@ -1,8 +1,10 @@
 from rest_framework import viewsets, generics, permissions, status
 from rest_framework.response import Response
-from .models import CompanyForm
-from .serializers import CompanyFormSerializer
-from rest_framework import serializers
+from rest_framework.decorators import action
+from .models import CompanyForm, JobPosting
+from .serializers import CompanyFormSerializer, JobPostingCreateUpdateSerializer
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -34,7 +36,7 @@ from .serializers import (
 # EmployerProfile removed
 from .utils import StandardResultsSetPagination, get_paginated_response, get_correct_pagination_data, ApplicationExportService
 from django.contrib.auth import get_user_model
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 
 User = get_user_model()
@@ -422,7 +424,6 @@ class CollegeJobListView(generics.ListAPIView):
         
         serializer = self.get_serializer(queryset, many=True)
         return Response({'data': serializer.data})
-
 
 class JobApplicationsListView(generics.ListAPIView):
     serializer_class = JobApplicationSerializer
@@ -878,7 +879,59 @@ class CompanyFormViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # All authenticated users can see all forms (admin interface)
         # TODO: Add creator field to CompanyForm model to filter by ownership
-        return CompanyForm.objects.all()
+        queryset = CompanyForm.objects.all()
+
+        params = self.request.query_params if hasattr(self, 'request') else {}
+
+        # Filter by status (supports comma-separated values and special keywords)
+        status_param = params.get('status')
+        if status_param:
+            status_aliases = {
+                'pending': 'pending',
+                'pending_review': 'pending',
+                'pending-review': 'pending',
+                'review': 'pending',
+                'approved': 'approved',
+                'published': 'posted',
+                'posted': 'posted',
+                'rejected': 'rejected',
+                'unpublished': 'pending',
+            }
+            normalized_statuses = [value.strip().lower() for value in status_param.split(',') if value.strip()]
+            status_filters = [status_aliases.get(value) for value in normalized_statuses if status_aliases.get(value) in {'pending', 'approved', 'posted', 'rejected'}]
+
+            if status_filters:
+                queryset = queryset.filter(status__in=set(status_filters))
+
+            # Support virtual filters for submitted/not-submitted shortcuts
+            if 'submitted' in normalized_statuses and 'not_submitted' not in normalized_statuses:
+                queryset = queryset.filter(submitted=True)
+            if 'not_submitted' in normalized_statuses and 'submitted' not in normalized_statuses:
+                queryset = queryset.filter(submitted=False)
+
+        submitted_param = params.get('submitted')
+        if submitted_param is not None:
+            submitted_value = str(submitted_param).lower() in {'1', 'true', 'yes', 't'}
+            queryset = queryset.filter(submitted=submitted_value)
+
+        company_param = params.get('company') or params.get('company_name')
+        if company_param:
+            queryset = queryset.filter(company__icontains=company_param.strip())
+
+        search_param = params.get('search')
+        if search_param:
+            queryset = queryset.filter(company__icontains=search_param.strip())
+
+        ordering_param = params.get('ordering')
+        if ordering_param:
+            allowed_fields = {'created_at', '-created_at', 'company', '-company', 'status', '-status'}
+            ordering_values = [field for field in ordering_param.split(',') if field in allowed_fields]
+            if ordering_values:
+                queryset = queryset.order_by(*ordering_values)
+        else:
+            queryset = queryset.order_by('-created_at')
+
+        return queryset
     
     def perform_create(self, serializer):
         # Generate a random key if not provided
@@ -897,6 +950,88 @@ class CompanyFormViewSet(viewsets.ModelViewSet):
             print(f"Error creating form: {str(e)}")
             return Response(
                 {"error": str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=True, methods=['post'])
+    def approve(self, request, pk=None):
+        """Approve a form"""
+        form = self.get_object()
+        form.status = 'approved'
+        form.save()
+        return Response({'message': 'Form approved successfully'})
+    
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        """Reject a form"""
+        form = self.get_object()
+        form.status = 'rejected'
+        form.save()
+        return Response({'message': 'Form rejected successfully'})
+    
+    @action(detail=True, methods=['post'])
+    def convert_to_job(self, request, pk=None):
+        """Convert an approved form to a job posting"""
+        form = self.get_object()
+        
+        if form.status != 'approved':
+            return Response(
+                {'error': 'Only approved forms can be converted to job postings'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not form.submitted or not form.details:
+            return Response(
+                {'error': 'Form must be submitted with details to create a job'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Create a job from the form details
+        try:
+            from companies.models import Company
+            
+            # Get or create company
+            company, created = Company.objects.get_or_create(
+                name=form.company,
+                defaults={
+                    'description': f'{form.company} - Company profile',
+                }
+            )
+            
+            # Extract job details from form
+            details = form.details
+            
+            # Create job posting
+            job = JobPosting.objects.create(
+                company=company,
+                title=details.get('title', ''),
+                description=details.get('description', ''),
+                location=details.get('location', ''),
+                job_type=details.get('jobType', 'FULL_TIME'),
+                salary_min=float(details.get('salaryMin', 0)) if details.get('salaryMin') else None,
+                salary_max=float(details.get('salaryMax', 0)) if details.get('salaryMax') else None,
+                required_skills=details.get('skills', ''),
+                application_deadline=details.get('deadline'),
+                is_active=True,
+                is_published=False,  # Start as unpublished
+                on_campus=True
+            )
+            
+            # Mark form as posted
+            form.status = 'posted'
+            form.save()
+            
+            # Return job details
+            return Response({
+                'message': 'Job created successfully',
+                'job_id': job.id,
+                'job_title': job.title,
+                'company': company.name,
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to create job: {str(e)}'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
