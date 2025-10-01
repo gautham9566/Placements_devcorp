@@ -5,7 +5,7 @@ import { IconSearch, IconX, IconPlus, IconTrash } from '@tabler/icons-react';
 import { createJob } from '../api/jobs';
 
 // Job Posting Form Component
-export default function JobPostingForm({ companies, onSubmit, onCancel, initialData = {} }) {
+export default function JobPostingForm({ companies, onSubmit, onCancel, initialData = {}, companyDisabled = false }) {
   const [formData, setFormData] = useState({
     title: initialData.title || '',
     location: initialData.location || '',
@@ -179,16 +179,21 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
               <input
                 type="text"
                 value={companySearchQuery}
-                onChange={(e) => handleCompanySearchChange(e.target.value)}
-                onFocus={() => setShowCompanyDropdown(true)}
-                placeholder="Search for a company..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => !companyDisabled && handleCompanySearchChange(e.target.value)}
+                onFocus={() => !companyDisabled && setShowCompanyDropdown(true)}
+                placeholder={companyDisabled ? "Company is pre-selected" : "Search for a company..."}
+                className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  companyDisabled ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
+                disabled={companyDisabled}
                 required
               />
               {selectedCompanyName && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-green-600 font-medium">Selected</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      {companyDisabled ? 'Pre-selected' : 'Selected'}
+                    </span>
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   </div>
                 </div>
@@ -196,7 +201,7 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
             </div>
             
             {/* Company Dropdown */}
-            {showCompanyDropdown && companySearchQuery && (
+            {!companyDisabled && showCompanyDropdown && companySearchQuery && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 {filteredCompanies.length > 0 ? (
                   <div className="py-1">

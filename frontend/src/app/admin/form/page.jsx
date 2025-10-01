@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { IconPlus, IconCopy, IconCheck, IconSearch, IconBuilding, IconEdit, IconExternalLink, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
-import { getForms, createForm, approveForm, rejectForm } from '../../../api/forms';
+import { getForms, createForm, approveForm, rejectForm, convertFormToJob } from '../../../api/forms';
+import { toggleJobPublish } from '../../../api/jobs';
 import { fetchCompanies } from '../../../data/jobsData';
-import FormsSidebar from '../../../components/ui/FormsSidebar';
 
 export default function AdminFormsPage() {
   const router = useRouter();
@@ -21,6 +21,15 @@ export default function AdminFormsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [copiedKey, setCopiedKey] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 10; // Items per page
+  
+  // Search state for each tab
+  const [searchTerm, setSearchTerm] = useState('');
 
   // hydrate active tab from URL or local storage
   useEffect(() => {
@@ -45,12 +54,21 @@ export default function AdminFormsPage() {
     }
   }, [searchParams, activeTab, router]);
   
-  const loadForms = useCallback(async (status) => {
+  const loadForms = useCallback(async (status, page = 1, search = '') => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
       let response;
-      const baseParams = { ordering: '-created_at' };
+      const baseParams = { 
+        ordering: '-created_at',
+        page: page,
+        page_size: pageSize
+      };
+      
+      // Add search parameter if provided
+      if (search && search.trim()) {
+        baseParams.search = search.trim();
+      }
 
       if (status === 'pending') {
         response = await getForms({ ...baseParams, status: ['pending'], submitted: true });
@@ -70,15 +88,26 @@ export default function AdminFormsPage() {
             : [];
 
       setForms(formsData);
+      
+      // Set pagination data
+      if (payload?.count !== undefined) {
+        setTotalCount(payload.count);
+        setTotalPages(Math.ceil(payload.count / pageSize));
+      } else {
+        setTotalCount(formsData.length);
+        setTotalPages(1);
+      }
     } catch (error) {
       console.error('Error loading forms:', error);
       console.error('Error details:', error.response || error.message);
       setForms([]);
       setErrorMessage('Failed to load forms. Please check the console for details.');
+      setTotalCount(0);
+      setTotalPages(1);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [pageSize]);
 
   const loadCompanies = useCallback(async () => {
     try {
@@ -91,14 +120,35 @@ export default function AdminFormsPage() {
   }, []);
 
   useEffect(() => {
-    // Load forms based on active tab
-    loadForms(activeTab);
+    // Load forms based on active tab, resetting to page 1 when tab changes
+    setCurrentPage(1);
+    loadForms(activeTab, 1, searchTerm);
   }, [activeTab, loadForms]);
 
   useEffect(() => {
     // Load companies once for dropdown suggestions
     loadCompanies();
   }, [loadCompanies]);
+  
+  // Handle page changes
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    loadForms(activeTab, newPage, searchTerm);
+  };
+  
+  // Handle search
+  const handleSearch = () => {
+    setCurrentPage(1);
+    loadForms(activeTab, 1, searchTerm);
+  };
+  
+  // Handle search input key press
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearch();
+    }
+  };
 
   // Switch tabs and update URL
   const handleTabChange = (tab) => {
@@ -191,15 +241,27 @@ Please share this link and key with the company.`);
   const handleFormApproval = async (formId, approve = true) => {
     try {
       if (approve) {
+        // Step 1: Approve the form
         await approveForm(formId);
+        
+        // Step 2: Convert form to job (creates a job posting)
+        const jobResponse = await convertFormToJob(formId);
+        console.log('Job creation response:', jobResponse);
+        
+        // Step 3: Publish the job automatically
+        if (jobResponse?.data?.job_id) {
+          await toggleJobPublish(jobResponse.data.job_id);
+          alert(`Form approved and job published successfully!\n\nJob Title: ${jobResponse.data.job_title}\nCompany: ${jobResponse.data.company}`);
+        } else {
+          alert('Form approved and job created successfully!');
+        }
       } else {
         await rejectForm(formId);
+        alert('Form rejected successfully!');
       }
-      
-      alert(`Form ${approve ? 'approved' : 'rejected'} successfully!`);
 
-      // Refresh forms to reflect latest status and remove items from filtered views
-      await loadForms(activeTab);
+      // Refresh forms to reflect latest status
+      await loadForms(activeTab, currentPage, searchTerm);
     } catch (error) {
       console.error(`Error ${approve ? 'approving' : 'rejecting'} form:`, error);
       alert(`Failed to ${approve ? 'approve' : 'reject'} form. Please try again.`);
@@ -208,17 +270,11 @@ Please share this link and key with the company.`);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Main content layout */}
-      <div className="flex">
-        {/* Sidebar - with position:sticky */}
-        <div className="w-64 sticky top-0 h-screen">
-          <FormsSidebar className="h-full" />
-        </div>
-        
+      {/* Main content - sidebar removed */}
+      <div className="container mx-auto px-4 py-6">
         {/* Main Content */}
-        <div className="flex-1 p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-semibold text-gray-900">Forms Dashboard</h1>
               <button
                 onClick={() => setShowPopup(true)}
@@ -265,6 +321,32 @@ Please share this link and key with the company.`);
                 </nav>
               </div>
             </div>
+            
+            {/* Search Bar */}
+            <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 mb-6">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by company name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  onClick={handleSearch}
+                  className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap transition-colors"
+                >
+                  Search
+                </button>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                Showing {forms.length} of {totalCount} forms (Page {currentPage} of {totalPages})
+              </div>
+            </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">
@@ -280,137 +362,226 @@ Please share this link and key with the company.`);
               ) : forms.length === 0 ? (
                 <p className="text-gray-500 text-center py-10">No forms found in this category.</p>
               ) : (
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                  {Array.isArray(forms) && forms.map((form) => (
-                    <div
-                      key={form.id}
-                      className="border border-gray-200 rounded-lg p-4 mb-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900">{form.company}</h3>
-                          <div className="flex gap-3 mt-1">
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-gray-500">Key: {form.key}</span>
-                              <button
-                                onClick={(e) => handleCopyKey(e, form.key)}
-                                className="p-1 hover:bg-gray-100 rounded-full"
-                                title="Copy key"
-                              >
-                                <IconCopy size={14} className={copiedKey ? "text-green-500" : "text-gray-400"} />
-                              </button>
-                            </div>
-                            <p className="text-xs text-gray-500">
-                              Status: {form.submitted ? 
-                                <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">Completed</span> : 
-                                <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Not Submitted</span>}
-                            </p>
-                            {form.status && (
-                              <p className="text-xs">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  form.status === 'approved' ? 'bg-blue-100 text-blue-800' : 
-                                  form.status === 'posted' ? 'bg-green-100 text-green-800' : 
-                                  form.status === 'rejected' ? 'bg-red-100 text-red-800' : 
-                                  'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
-                                </span>
-                              </p>
-                            )}
-                          </div>
-                          
-                          {/* Show job title if available */}
-                          {form.details?.title && (
-                            <p className="text-sm text-gray-700 mt-2">
-                              <span className="font-medium">Job:</span> {form.details.title}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={`/forms/${form.id}`}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <IconExternalLink size={16} />
-                            Open Form
-                          </a>
-                          <button
-                            onClick={(e) => handleCopyLink(e, form.id)}
-                            className="p-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors"
-                            title="Copy form link"
-                          >
-                            {copiedFormId === form.id ? (
-                              <IconCheck size={18} className="text-green-500" />
-                            ) : (
-                              <IconCopy size={18} />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* Form Actions */}
-                      <div className="mt-4 border-t pt-4 flex justify-between items-center">
-                        {/* Status Display */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-500">Created: {new Date(form.created_at).toLocaleDateString()}</span>
-                        </div>
-                        
-                        {/* Buttons */}
-                        <div className="flex gap-2">
-                          {/* Conditional buttons based on form status */}
-                          {form.submitted && form.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleFormApproval(form.id, true)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded hover:bg-green-200"
-                                title="Approve form"
-                              >
-                                <IconThumbUp size={16} />
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleFormApproval(form.id, false)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-700 rounded hover:bg-red-200"
-                                title="Reject form"
-                              >
-                                <IconThumbDown size={16} />
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          
-                          {form.status === 'approved' && (
-                            <button
-                              onClick={() => router.push(`/admin/companymanagement`)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                            >
-                              <IconExternalLink size={16} />
-                              Manage Jobs
-                            </button>
-                          )}
-                          
-                          {/* View Details for submitted forms */}
-                          {form.submitted && (
-                            <button
-                              onClick={() => router.push(`/admin/form/edit/${form.id}`)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                            >
-                              <IconEdit size={16} />
-                              View Details
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="max-h-[70vh] overflow-y-auto border border-gray-200 rounded-lg">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company / Job</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submission</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Form Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {Array.isArray(forms) && forms.map((form) => (
+                          <tr key={form.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-gray-900">{form.company}</span>
+                                {form.details?.title && (
+                                  <span className="text-xs text-gray-500 mt-0.5">Job: {form.details.title}</span>
+                                )}
+                                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                                  <span>ID: {form.id}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${form.submitted ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {form.submitted ? 'Submitted' : 'Not Submitted'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                form.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                                form.status === 'posted' ? 'bg-green-100 text-green-800' :
+                                form.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {(form.status || 'Pending').charAt(0).toUpperCase() + (form.status || 'pending').slice(1)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-700">{form.key}</span>
+                                <button
+                                  onClick={(e) => handleCopyKey(e, form.key)}
+                                  className="p-1 rounded-full hover:bg-gray-100"
+                                  title="Copy key"
+                                >
+                                  <IconCopy size={14} className={copiedKey ? 'text-green-500' : 'text-gray-400'} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(form.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex flex-wrap gap-2">
+                                <a
+                                  href={`/forms/${form.id}`}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <IconExternalLink size={14} />
+                                  Open
+                                </a>
+                                <button
+                                  onClick={(e) => handleCopyLink(e, form.id)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100"
+                                  title="Copy form link"
+                                >
+                                  {copiedFormId === form.id ? (
+                                    <IconCheck size={14} className="text-green-500" />
+                                  ) : (
+                                    <IconCopy size={14} />
+                                  )}
+                                  Link
+                                </button>
+                                {form.submitted && form.status === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleFormApproval(form.id, true)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200"
+                                      title="Approve form"
+                                    >
+                                      <IconThumbUp size={14} />
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => handleFormApproval(form.id, false)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded hover:bg-red-200"
+                                      title="Reject form"
+                                    >
+                                      <IconThumbDown size={14} />
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                                {form.status === 'approved' && (
+                                  <button
+                                    onClick={() => router.push('/admin/companymanagement')}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200"
+                                  >
+                                    <IconExternalLink size={14} />
+                                    Manage Jobs
+                                  </button>
+                                )}
+                                {form.submitted && (
+                                  <button
+                                    onClick={() => router.push(`/admin/form/edit/${form.id}`)}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                                  >
+                                    <IconEdit size={14} />
+                                    View
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 mt-4">
+                <div className="flex-1 flex justify-between sm:hidden">
+                  <button
+                    onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                      currentPage === 1
+                        ? 'bg-gray-100 text-gray-400'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                      currentPage === totalPages
+                        ? 'bg-gray-100 text-gray-400'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                      <span className="font-medium">{totalPages}</span> ({totalCount} total forms)
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                      <button
+                        onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                          currentPage === 1
+                            ? 'text-gray-300'
+                            : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      {/* Page Numbers */}
+                      {[...Array(Math.min(5, totalPages))].map((_, idx) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = idx + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = idx + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + idx;
+                        } else {
+                          pageNum = currentPage - 2 + idx;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === pageNum
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                          currentPage === totalPages
+                            ? 'text-gray-300'
+                            : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </div>
 
       {/* Create Form Popup - Simplified to just company name */}
       {showPopup && (

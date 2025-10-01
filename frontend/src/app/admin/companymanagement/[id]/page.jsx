@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { use } from 'react';
 import {
@@ -36,7 +36,8 @@ import {
   X,
   Plus,
   FileText,
-  Send
+  Send,
+  Search
 } from "lucide-react";
 
 // Import the API functions
@@ -47,7 +48,7 @@ import {
   updateCompany,
   getFollowersCount
 } from '../../../../api/companies';
-import { getFormsForCompany, updateForm } from '../../../../api/forms';
+import { getFormsForCompany, updateForm, approveForm, convertFormToJob } from '../../../../api/forms';
 import { createJob, listJobsAdmin, toggleJobPublish } from '../../../../api/jobs';
 import { getUserId } from '../../../../utils/auth';
 import JobPostingForm from '../../../../components/JobPostingForm';
@@ -69,13 +70,22 @@ export default function AdminCompanyDetail({ params }) {
   
   // Job management state
   const [pendingForms, setPendingForms] = useState([]);
-  const [approvedForms, setApprovedForms] = useState([]);
   const [publishedForms, setPublishedForms] = useState([]);
   const [publishedJobs, setPublishedJobs] = useState([]);
   const [unpublishedJobs, setUnpublishedJobs] = useState([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedForm, setSelectedForm] = useState(null);
   const [showJobCreationModal, setShowJobCreationModal] = useState(false);
+  
+  // Pagination and search state for To be Published tab
+  const [toPublishPage, setToPublishPage] = useState(1);
+  const [toPublishSearch, setToPublishSearch] = useState('');
+  const toPublishPerPage = 10;
+  
+  // Pagination and search state for Published tab
+  const [publishedPage, setPublishedPage] = useState(1);
+  const [publishedSearch, setPublishedSearch] = useState('');
+  const publishedPerPage = 10;
 
   useEffect(() => {
     loadCompanyData();
@@ -156,22 +166,17 @@ export default function AdminCompanyDetail({ params }) {
 
       const pendingCompanyForms = companyForms.filter((form) => {
         const status = (form.status || '').toLowerCase();
-        return !status || status === 'pending';
+        // Include pending forms (forms that need review before publishing)
+        return !status || status === 'pending' || status === 'pending_review';
       });
 
-      const approvedCompanyForms = companyForms.filter((form) => {
+      const publishedCompanyForms = companyForms.filter((form) => {
         const status = (form.status || '').toLowerCase();
-        return status === 'approved';
-      });
-
-      const postedCompanyForms = companyForms.filter((form) => {
-        const status = (form.status || '').toLowerCase();
-        return status === 'posted';
+        return status === 'approved' || status === 'posted';
       });
 
       setPendingForms(pendingCompanyForms);
-      setApprovedForms(approvedCompanyForms);
-      setPublishedForms(postedCompanyForms);
+      setPublishedForms(publishedCompanyForms);
       
       // Load published jobs for this company
       try {
@@ -256,9 +261,8 @@ export default function AdminCompanyDetail({ params }) {
     } catch (error) {
       console.error("❌ Error loading job data:", error);
       console.error("❌ Error details:", error.response?.data);
-      setPendingForms([]);
-      setApprovedForms([]);
-      setPublishedForms([]);
+  setPendingForms([]);
+  setPublishedForms([]);
       setPublishedJobs([]);
       setUnpublishedJobs([]);
     } finally {
@@ -353,10 +357,6 @@ export default function AdminCompanyDetail({ params }) {
       setSelectedForm(null);
       
       // Remove the form from approved forms since it's now published
-      if (sourceForm) {
-        setApprovedForms(prev => prev.filter(form => form.key !== sourceForm.key));
-      }
-      
       // Reload job data to show the new job in Published section
       await loadJobData();
       
@@ -401,7 +401,40 @@ export default function AdminCompanyDetail({ params }) {
 
   // Add function to handle job view
   const handleJobView = (jobId) => {
-    router.push(`/admin/companymanagement/jobs/${jobId}`);
+    router.push(`/jobs/${jobId}`);
+  };
+  
+  // Add function to handle form publishing with auto-approve
+  const handlePublishForm = async (formId) => {
+    if (!confirm('This will approve and publish the job posting. Continue?')) {
+      return;
+    }
+    
+    try {
+      setLoadingJobs(true);
+      
+      // Step 1: Approve the form
+      await approveForm(formId);
+      
+      // Step 2: Convert form to job (creates a job posting)
+      const jobResponse = await convertFormToJob(formId);
+      
+      // Step 3: Publish the job automatically
+      if (jobResponse?.data?.job_id) {
+        await toggleJobPublish(jobResponse.data.job_id);
+        alert(`Job published successfully!\n\nJob Title: ${jobResponse.data.job_title}\nCompany: ${jobResponse.data.company}`);
+      } else {
+        alert('Form approved and job created successfully!');
+      }
+      
+      // Refresh job data
+      await loadJobData();
+    } catch (error) {
+      console.error('Error publishing form:', error);
+      alert('Failed to publish form. Please try again.');
+    } finally {
+      setLoadingJobs(false);
+    }
   };
 
   if (loading) {
@@ -749,24 +782,11 @@ export default function AdminCompanyDetail({ params }) {
                     Refresh Data
                   </button>
                   <button
-                    onClick={() => {
-                      // Add a test form for debugging
-                      const testForm = {
-                        id: 'test-123',
-                        key: 'TEST-FORM',
-                        company: company.name,
-                        status: 'posted',
-                        details: {
-                          description: 'Test job description',
-                          skills: 'React, Node.js',
-                          deadline: '2024-12-31'
-                        }
-                      };
-                      setApprovedForms([testForm]);
-                    }}
-                    className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                    onClick={() => router.push(`/admin/jobs/create?company_id=${companyId}&company_name=${encodeURIComponent(company.name)}`)}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                   >
-                    Add Test Form
+                    <Plus className="w-4 h-4" />
+                    Post New Job
                   </button>
                   <div className="text-sm text-gray-500">
                     Manage job postings from approved forms
@@ -777,15 +797,14 @@ export default function AdminCompanyDetail({ params }) {
               {/* Pass the handlers to JobManagementTabs */}
               <JobManagementTabs 
                 pendingForms={pendingForms}
-                approvedForms={approvedForms}
                 publishedForms={publishedForms}
                 publishedJobs={publishedJobs}
                 unpublishedJobs={unpublishedJobs}
                 loadingJobs={loadingJobs}
-                onCreateJobFromForm={handleCreateJobFromForm}
                 onPublishToggle={handleJobPublishToggle}
                 onEditJob={handleJobEdit}
                 onViewJob={handleJobView}
+                onPublishForm={handlePublishForm}
               />
             </div>
           )}
@@ -840,125 +859,78 @@ export default function AdminCompanyDetail({ params }) {
 // Job Management Tabs Component
 function JobManagementTabs({ 
   pendingForms = [],
-  approvedForms = [],
   publishedForms = [],
   publishedJobs = [], 
   unpublishedJobs = [], 
   loadingJobs, 
-  onCreateJobFromForm,
   onPublishToggle,
   onEditJob,
-  onViewJob 
+  onViewJob,
+  onPublishForm
 }) {
   const router = useRouter();
   const [activeJobTab, setActiveJobTab] = useState('to-publish');
+  
+  // Pagination and search for To be Published
+  const [toPublishPage, setToPublishPage] = useState(1);
+  const [toPublishSearch, setToPublishSearch] = useState('');
+  const toPublishPerPage = 10;
+  
+  // Pagination and search for Published
+  const [publishedPage, setPublishedPage] = useState(1);
+  const [publishedSearch, setPublishedSearch] = useState('');
+  const publishedPerPage = 10;
 
-  const toPublishCount = (pendingForms?.length || 0) + (approvedForms?.length || 0) + (unpublishedJobs?.length || 0);
-  const publishedCount = (publishedForms?.length || 0) + (publishedJobs?.length || 0);
-
-  const renderFormCard = (form, actions = []) => {
-    const rawStatus = (form.status || (form.submitted ? 'submitted' : 'draft')).replace(/_/g, ' ');
-    const statusLabel = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
-    const createdAt = form.created_at ? new Date(form.created_at) : null;
-    const deadline = form.details?.deadline ? new Date(form.details.deadline) : null;
-
-    return (
-      <div key={form.id} className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <div>
-              <h4 className="text-base font-semibold text-gray-900">
-                {form.details?.title || `Job form for ${form.company}`}
-              </h4>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {form.details?.location ? `Location: ${form.details.location}` : 'Location not provided'}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                Status: {statusLabel}
-              </span>
-              {form.key && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                  Key: {form.key}
-                </span>
-              )}
-              {createdAt && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                  Submitted {createdAt.toLocaleDateString()}
-                </span>
-              )}
-              {deadline && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                  Deadline {deadline.toLocaleDateString()}
-                </span>
-              )}
-            </div>
-            {form.details?.description && (
-              <p className="text-sm text-gray-600">
-                {form.details.description.length > 180
-                  ? `${form.details.description.slice(0, 177)}...`
-                  : form.details.description}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2 justify-end">
-            {actions}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const buildFormActions = (form, type) => {
-    const actions = [];
-
-    const reviewButton = (
-      <button
-        key="review"
-        onClick={() => router.push(`/admin/form/edit/${form.id}`)}
-        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200"
-      >
-        <FileText className="w-3 h-3" />
-        Review Form
-      </button>
-    );
-
-    const openLink = (
-      <a
-        key="open"
-        href={`/forms/${form.id}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100"
-      >
-        <ExternalLink className="w-3 h-3" />
-        Open Submission
-      </a>
-    );
-
-    if (type === 'pending') {
-      actions.push(reviewButton, openLink);
-    } else if (type === 'approved') {
-      if (onCreateJobFromForm) {
-        actions.push(
-          <button
-            key="create"
-            onClick={() => onCreateJobFromForm(form)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700"
-          >
-            <Send className="w-3 h-3" />
-            Create Job
-          </button>
-        );
+  const pendingFormCount = pendingForms?.length || 0;
+  const publishedFormCount = publishedForms?.length || 0;
+  const toPublishCount = (pendingFormCount + unpublishedJobs?.length) || 0;
+  const publishedCount = publishedJobs?.length || 0;
+  
+  // Filter and paginate To be Published items
+  const filteredToPublish = React.useMemo(() => {
+    const allItems = [
+      ...pendingForms.map(f => ({ ...f, type: 'form' })),
+      ...unpublishedJobs.map(j => ({ ...j, type: 'job' }))
+    ];
+    
+    if (!toPublishSearch.trim()) return allItems;
+    
+    const search = toPublishSearch.toLowerCase();
+    return allItems.filter(item => {
+      if (item.type === 'form') {
+        return (item.details?.title || '').toLowerCase().includes(search) ||
+               (item.details?.location || '').toLowerCase().includes(search);
+      } else {
+        return (item.title || '').toLowerCase().includes(search) ||
+               (item.location || '').toLowerCase().includes(search);
       }
-      actions.push(reviewButton, openLink);
-    } else if (type === 'published') {
-      actions.push(reviewButton, openLink);
-    }
-
-    return actions;
-  };
+    });
+  }, [pendingForms, unpublishedJobs, toPublishSearch]);
+  
+  const paginatedToPublish = React.useMemo(() => {
+    const start = (toPublishPage - 1) * toPublishPerPage;
+    return filteredToPublish.slice(start, start + toPublishPerPage);
+  }, [filteredToPublish, toPublishPage, toPublishPerPage]);
+  
+  const toPublishTotalPages = Math.ceil(filteredToPublish.length / toPublishPerPage);
+  
+  // Filter and paginate Published items
+  const filteredPublished = React.useMemo(() => {
+    if (!publishedSearch.trim()) return publishedJobs;
+    
+    const search = publishedSearch.toLowerCase();
+    return publishedJobs.filter(job =>
+      (job.title || '').toLowerCase().includes(search) ||
+      (job.location || '').toLowerCase().includes(search)
+    );
+  }, [publishedJobs, publishedSearch]);
+  
+  const paginatedPublished = React.useMemo(() => {
+    const start = (publishedPage - 1) * publishedPerPage;
+    return filteredPublished.slice(start, start + publishedPerPage);
+  }, [filteredPublished, publishedPage, publishedPerPage]);
+  
+  const publishedTotalPages = Math.ceil(filteredPublished.length / publishedPerPage);
 
   if (loadingJobs) {
     return (
@@ -999,40 +971,37 @@ function JobManagementTabs({
       {/* Job Content */}
       <div className="space-y-6">
         {activeJobTab === 'to-publish' && (
-          <div className="space-y-8">
+          <div className="space-y-4">
+            {/* Search Bar */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search by title or location..."
+                  value={toPublishSearch}
+                  onChange={(e) => {
+                    setToPublishSearch(e.target.value);
+                    setToPublishPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="text-sm text-gray-600">
+                Showing {paginatedToPublish.length} of {filteredToPublish.length} items
+              </div>
+            </div>
+            
+            {/* Combined Section for Pending Forms and Unpublished Jobs */}
             <section>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Pending Review Forms</h3>
-              {pendingForms.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
-                  No submitted forms are waiting for review for this company.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {pendingForms.map((form) => renderFormCard(form, buildFormActions(form, 'pending')))}
-                </div>
-              )}
-            </section>
-
-            <section>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Approved Forms (Ready to Publish)</h3>
-              {approvedForms.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
-                  No approved forms are awaiting publication right now.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {approvedForms.map((form) => renderFormCard(form, buildFormActions(form, 'approved')))}
-                </div>
-              )}
-            </section>
-
-            <section>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Unpublished Job Listings</h3>
-              {unpublishedJobs.length === 0 ? (
+              {filteredToPublish.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                   <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 text-lg">No unpublished jobs</p>
-                  <p className="text-gray-400 text-sm">Jobs created but not yet published will appear here</p>
+                  <p className="text-gray-500 text-lg">
+                    {toPublishSearch ? 'No results found' : 'No unpublished jobs'}
+                  </p>
+                  <p className="text-gray-400 text-sm">
+                    {toPublishSearch ? 'Try a different search term' : 'Jobs created but not yet published will appear here'}
+                  </p>
                 </div>
               ) : (
                 <div className="bg-white shadow-sm rounded-lg overflow-hidden">
@@ -1064,28 +1033,56 @@ function JobManagementTabs({
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {unpublishedJobs.map((job) => (
-                          <tr key={job.id} className="hover:bg-gray-50">
+                        {paginatedToPublish.map((item) => (
+                          <tr key={item.type === 'form' ? `form-${item.id}` : `job-${item.id}`} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div>
-                                <div className="text-sm font-medium text-gray-900">{job.title}</div>
-                                <div className="text-sm text-gray-500">ID: {job.id}</div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{job.location}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{job.job_type}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {job.salary_max ? `Up to $${job.salary_max.toLocaleString()}` : 'Not specified'}
+                                <div className="text-sm font-medium text-gray-900">
+                                  {item.type === 'form' ? (item.details?.title || 'Untitled Position') : item.title}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ID: {item.id?.toString().substring(0, 8)}...
+                                </div>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">
-                                {job.application_deadline ? new Date(job.application_deadline).toLocaleDateString() : 'Not specified'}
+                                {item.type === 'form' ? (item.details?.location || 'N/A') : (item.location || 'N/A')}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {item.type === 'form' ? (
+                                  item.details?.jobType === 'FULL_TIME' ? 'Full Time' :
+                                  item.details?.jobType === 'PART_TIME' ? 'Part Time' :
+                                  item.details?.jobType === 'INTERNSHIP' ? 'Internship' :
+                                  item.details?.jobType === 'CONTRACT' ? 'Contract' :
+                                  item.details?.jobType || 'INTERNSHIP'
+                                ) : (
+                                  item.job_type === 'FULL_TIME' ? 'Full Time' :
+                                  item.job_type === 'PART_TIME' ? 'Part Time' :
+                                  item.job_type === 'INTERNSHIP' ? 'Internship' :
+                                  item.job_type === 'CONTRACT' ? 'Contract' :
+                                  item.job_type || 'INTERNSHIP'
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {item.type === 'form' ? (
+                                  item.details?.salaryMax ? `Up to $${item.details.salaryMax}` : 'Not specified'
+                                ) : (
+                                  item.salary_max ? `Up to $${item.salary_max.toLocaleString()}` : 'Not specified'
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {item.type === 'form' ? (
+                                  item.details?.deadline ? new Date(item.details.deadline).toLocaleDateString() : 'Not specified'
+                                ) : (
+                                  item.application_deadline ? new Date(item.application_deadline).toLocaleDateString() : 'Not specified'
+                                )}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -1095,20 +1092,41 @@ function JobManagementTabs({
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex space-x-2">
-                                <button
-                                  onClick={() => onPublishToggle(job.id, false)}
-                                  className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                                >
-                                  <Send className="w-3 h-3 mr-1" />
-                                  Publish
-                                </button>
-                                <button
-                                  onClick={() => onEditJob(job.id)}
-                                  className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                >
-                                  <Edit className="w-3 h-3 mr-1" />
-                                  Edit
-                                </button>
+                                {item.type === 'form' ? (
+                                  <>
+                                    <button
+                                      onClick={() => onPublishForm(item.id)}
+                                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                    >
+                                      <Send className="w-3 h-3 mr-1" />
+                                      Publish
+                                    </button>
+                                    <button
+                                      onClick={() => router.push(`/admin/form/edit/${item.id}`)}
+                                      className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                      <Edit className="w-3 h-3 mr-1" />
+                                      Edit
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => onPublishToggle(item.id, false)}
+                                      className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                    >
+                                      <Send className="w-3 h-3 mr-1" />
+                                      Publish
+                                    </button>
+                                    <button
+                                      onClick={() => onEditJob(item.id)}
+                                      className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                      <Edit className="w-3 h-3 mr-1" />
+                                      Edit
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1116,6 +1134,33 @@ function JobManagementTabs({
                       </tbody>
                     </table>
                   </div>
+                  
+                  {/* Pagination for To be Published */}
+                  {toPublishTotalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
+                      <div className="flex justify-between items-center w-full">
+                        <div className="text-sm text-gray-700">
+                          Page {toPublishPage} of {toPublishTotalPages}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setToPublishPage(p => Math.max(1, p - 1))}
+                            disabled={toPublishPage === 1}
+                            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Previous
+                          </button>
+                          <button
+                            onClick={() => setToPublishPage(p => Math.min(toPublishTotalPages, p + 1))}
+                            disabled={toPublishPage === toPublishTotalPages}
+                            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -1124,25 +1169,48 @@ function JobManagementTabs({
 
         {activeJobTab === 'published' && (
           <div className="space-y-8">
-            <section>
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Approved Forms (Published)</h3>
-              {publishedForms.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 text-sm text-gray-500">
-                  No forms have been marked as published for this company yet.
+            {publishedFormCount > 0 && (
+              <section className="border border-blue-200 bg-blue-50 text-blue-800 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide">Approved & Published Forms</h3>
+                  <p className="text-sm">
+                    {publishedFormCount} form{publishedFormCount === 1 ? '' : 's'} are available in the Forms Dashboard for deeper review or updates.
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {publishedForms.map((form) => renderFormCard(form, buildFormActions(form, 'published')))}
-                </div>
-              )}
-            </section>
+                <button
+                  onClick={() => router.push('/admin/form?tab=approved')}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View Forms
+                </button>
+              </section>
+            )}
 
             <section>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Published Job Listings</h3>
-              {publishedJobs.length === 0 ? (
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Published Job Listings</h3>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search published jobs..."
+                    value={publishedSearch}
+                    onChange={(e) => {
+                      setPublishedSearch(e.target.value);
+                      setPublishedPage(1); // Reset to first page on search
+                    }}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                </div>
+              </div>
+              
+              {paginatedPublished.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                   <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 text-lg">No published jobs</p>
+                  <p className="text-gray-500 text-lg">
+                    {publishedSearch ? 'No matching published jobs' : 'No published jobs'}
+                  </p>
                   <p className="text-gray-400 text-sm">Published jobs will appear here</p>
                 </div>
               ) : (
@@ -1175,7 +1243,7 @@ function JobManagementTabs({
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {publishedJobs.map((job) => (
+                        {paginatedPublished.map((job) => (
                           <tr key={job.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div>
@@ -1234,6 +1302,33 @@ function JobManagementTabs({
                       </tbody>
                     </table>
                   </div>
+                  
+                  {/* Pagination for Published */}
+                  {publishedTotalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
+                      <div className="flex justify-between items-center w-full">
+                        <div className="text-sm text-gray-700">
+                          Page {publishedPage} of {publishedTotalPages}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setPublishedPage(p => Math.max(1, p - 1))}
+                            disabled={publishedPage === 1}
+                            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Previous
+                          </button>
+                          <button
+                            onClick={() => setPublishedPage(p => Math.min(publishedTotalPages, p + 1))}
+                            disabled={publishedPage === publishedTotalPages}
+                            className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </section>

@@ -1,26 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { getFormById, updateForm } from '../../../api/forms';
+import JobPostingForm from '../../../components/JobPostingForm';
 
 export default function CompanyFormPage() {
   const { id } = useParams();
-  const router = useRouter();
   const [hasAccess, setHasAccess] = useState(false);
   const [accessKey, setAccessKey] = useState('');
   const [form, setForm] = useState(null);
-  const [formFields, setFormFields] = useState({
-    title: '',
-    description: '',
-    location: '',
-    jobType: 'FULL_TIME',
-    salaryMin: '',
-    salaryMax: '',
-    deadline: '',
-    skills: '',
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -30,11 +19,6 @@ export default function CompanyFormPage() {
         setLoading(true);
         const response = await getFormById(id);
         setForm(response.data);
-        
-        // If form is already submitted, populate the form fields
-        if (response.data.submitted && response.data.details) {
-          setFormFields(response.data.details);
-        }
         
         // Check if user has access
         const token = localStorage.getItem(`form-access-${id}`);
@@ -63,57 +47,51 @@ export default function CompanyFormPage() {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleJobSubmit = async (jobData) => {
     try {
-      // Validate required fields
-      if (!formFields.title) {
-        alert('Please enter a job title');
-        return;
-      }
-      if (!formFields.description) {
-        alert('Please enter a job description');
-        return;
-      }
-      if (!formFields.skills) {
-        alert('Please enter required skills');
-        return;
-      }
-      if (!formFields.location) {
-        alert('Please enter job location');
-        return;
-      }
-      if (!formFields.deadline) {
-        alert('Please enter application deadline');
-        return;
-      }
-      
+      // Map JobPostingForm data to the format expected by the backend
+      const formattedDetails = {
+        title: jobData.title || '',
+        description: jobData.description || '',
+        location: jobData.location || '',
+        jobType: jobData.job_type || 'FULL_TIME',
+        skills: jobData.required_skills || '',
+        salaryMin: jobData.salary_min || '',
+        salaryMax: jobData.salary_max || '',
+        deadline: jobData.application_deadline || '',
+        // Additional fields from JobPostingForm
+        interview_rounds: jobData.interview_rounds || [],
+        additional_fields: jobData.additional_fields || [],
+        requirements: jobData.requirements || [],
+        benefits: jobData.benefits || [],
+        duration: jobData.duration || ''
+      };
+
       await updateForm(id, {
-        submitted: true,
-        details: formFields
+        details: formattedDetails,
+        submitted: true
       });
       
-      // Clear access token from localStorage
-      localStorage.removeItem(`form-access-${id}`);
-      router.push('/thank-you');
+      alert('Job posting submitted successfully!');
+      window.location.reload();
     } catch (error) {
       console.error('Error submitting form:', error);
       alert('Failed to submit form. Please try again.');
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setFormFields(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleCancel = () => {
+    if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+      window.location.reload();
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="bg-white p-6 rounded-lg shadow w-full max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading form...</p>
+          <p className="text-gray-600">Loading form...</p>
         </div>
       </div>
     );
@@ -121,203 +99,125 @@ export default function CompanyFormPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="bg-white p-6 rounded-lg shadow w-full max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md px-4">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h2 className="text-lg font-bold mb-2 text-gray-900">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={() => window.history.back()}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Go Back
+            Retry
           </button>
         </div>
       </div>
     );
   }
 
-  if (!form) return <div className="p-6">Form not found.</div>;
+  if (form?.submitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md px-4">
+          <div className="text-green-500 text-5xl mb-4">✓</div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Form Already Submitted</h2>
+          <p className="text-gray-600">
+            This form has already been submitted. Thank you for your submission!
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  // If access key is required, show the access form
   if (!hasAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-        <div className="bg-white p-6 rounded-lg shadow w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full mx-4">
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{form.company} Job Form</h2>
-            <p className="text-gray-600">Please enter the access key that was provided to you.</p>
+            <div className="text-4xl mb-4">🔐</div>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+              Job Posting Form
+            </h1>
+            <p className="text-gray-600">
+              Enter your access key to continue
+            </p>
           </div>
-          
-          <div className="border-t border-gray-200 pt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Access Key</label>
-            <input
-              type="text"
-              value={accessKey}
-              onChange={(e) => setAccessKey(e.target.value)}
-              className="w-full p-3 border rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 text-black"
-              placeholder="Enter the access key"
-            />
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Access Key
+              </label>
+              <input
+                type="text"
+                value={accessKey}
+                onChange={(e) => setAccessKey(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAccess()}
+                placeholder="Enter your access key"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            </div>
+
             <button
               onClick={handleAccess}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
-              Submit Key
+              Access Form
             </button>
+          </div>
+
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-900">
+              <strong>Company:</strong> {form?.company}
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
+  // Prepare initial data with company name pre-filled
+  const initialData = {
+    company_name: form?.company || '',
+    company_id: form?.company || '',
+    // Map form details to JobPostingForm format
+    title: form?.details?.title || '',
+    description: form?.details?.description || '',
+    location: form?.details?.location || '',
+    job_type: form?.details?.jobType || 'FULL_TIME',
+    required_skills: form?.details?.skills || '',
+    salary_min: form?.details?.salaryMin || '',
+    salary_max: form?.details?.salaryMax || '',
+    application_deadline: form?.details?.deadline || '',
+    interview_rounds: form?.details?.interview_rounds || [],
+    additional_fields: form?.details?.additional_fields || [],
+    requirements: form?.details?.requirements || [],
+    benefits: form?.details?.benefits || [],
+    duration: form?.details?.duration || ''
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-black mb-2">Job Details for {form.company}</h2>
-          {form.status && (
-            <div className="mb-2">
-              <span className={`px-2 py-1 rounded-full text-sm font-medium ${
-                form.status === 'approved' ? 'bg-blue-100 text-blue-800' : 
-                form.status === 'posted' ? 'bg-green-100 text-green-800' : 
-                form.status === 'rejected' ? 'bg-red-100 text-red-800' : 
-                'bg-yellow-100 text-yellow-800'
-              }`}>
-                Status: {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
-              </span>
-            </div>
-          )}
-          <p className="text-sm text-gray-600">Please fill in the following details about the job position.</p>
-        </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-5xl mx-auto px-4">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+            <h1 className="text-2xl font-bold text-white">
+              Submit Job Posting
+            </h1>
+            <p className="text-blue-100 mt-1">
+              Company: {form?.company}
+            </p>
+          </div>
 
-        <div className="space-y-4">
-          {/* Job Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Job Title *
-            </label>
-            <input
-              type="text"
-              value={formFields.title || ''}
-              onChange={(e) => handleInputChange('title', e.target.value)}
-              placeholder="e.g., Software Engineer"
-              className="w-full border p-2 rounded focus:ring-2 text-black focus:ring-blue-500"
-              required
+          <div className="p-6">
+            <JobPostingForm
+              companies={[{ id: form?.company, name: form?.company, companyName: form?.company }]}
+              onSubmit={handleJobSubmit}
+              onCancel={handleCancel}
+              initialData={initialData}
+              companyDisabled={true}
             />
-          </div>
-          
-          {/* Job Location */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Location *
-            </label>
-            <input
-              type="text"
-              value={formFields.location || ''}
-              onChange={(e) => handleInputChange('location', e.target.value)}
-              placeholder="e.g., New York, NY"
-              className="w-full border p-2 rounded focus:ring-2 text-black focus:ring-blue-500"
-              required
-            />
-          </div>
-          
-          {/* Job Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Job Type *
-            </label>
-            <select
-              value={formFields.jobType || 'FULL_TIME'}
-              onChange={(e) => handleInputChange('jobType', e.target.value)}
-              className="w-full border p-2 rounded focus:ring-2 text-black focus:ring-blue-500"
-              required
-            >
-              <option value="FULL_TIME">Full Time</option>
-              <option value="PART_TIME">Part Time</option>
-              <option value="INTERNSHIP">Internship</option>
-              <option value="CONTRACT">Contract</option>
-            </select>
-          </div>
-
-          {/* Job Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Job Description *
-            </label>
-            <textarea
-              rows={5}
-              placeholder="Detailed job description"
-              value={formFields.description || ''}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              className="w-full border p-3 rounded focus:ring-2 text-black focus:ring-blue-500"
-              required
-            ></textarea>
-          </div>
-
-          {/* Required Skills */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Required Skills *
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Required skills (comma-separated)"
-              value={formFields.skills || ''}
-              onChange={(e) => handleInputChange('skills', e.target.value)}
-              className="w-full border p-2 rounded focus:ring-2 text-black focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {/* Salary Range */}
-          <div className="flex gap-4">
-            <div className="w-1/2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Min Salary
-              </label>
-              <input
-                type="number"
-                placeholder="e.g., 50000"
-                value={formFields.salaryMin || ''}
-                onChange={(e) => handleInputChange('salaryMin', e.target.value)}
-                className="w-full border p-2 rounded focus:ring-2 text-black focus:ring-blue-500"
-              />
-            </div>
-            <div className="w-1/2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Salary
-              </label>
-              <input
-                type="number"
-                placeholder="e.g., 80000"
-                value={formFields.salaryMax || ''}
-                onChange={(e) => handleInputChange('salaryMax', e.target.value)}
-                className="w-full border p-2 rounded focus:ring-2 text-black focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Application Deadline */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Application Deadline *
-            </label>
-            <input
-              type="date"
-              value={formFields.deadline || ''}
-              onChange={(e) => handleInputChange('deadline', e.target.value)}
-              className="w-full border p-2 rounded focus:ring-2 text-black focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="pt-4">
-            <button
-              onClick={handleSubmit}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Submit Job Details
-            </button>
           </div>
         </div>
       </div>

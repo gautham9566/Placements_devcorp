@@ -132,7 +132,7 @@ export default function CreateJobPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => router.push('/admin/jobs')}
+              onClick={() => router.push('/admin/companymanagement')}
               className="flex items-center text-gray-600 hover:text-gray-900"
             >
               <IconArrowLeft size={20} className="mr-2" />
