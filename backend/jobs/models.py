@@ -23,6 +23,13 @@ class JobPosting(models.Model):
     is_published = models.BooleanField(default=False)  # True = Published, False = Draft/To be Published
     interview_rounds = models.JSONField(default=list, blank=True, help_text="List of interview rounds with name, date, and time")
     additional_fields = models.JSONField(default=list, blank=True, help_text="Custom fields for job application form")
+    allowed_passout_years = models.JSONField(default=list, blank=True, help_text="List of passout years that can view and apply for this job. Empty list means all students can view.")
+    allowed_departments = models.JSONField(default=list, blank=True, help_text="List of departments that can view and apply for this job. Empty list means all students can view.")
+    arrears_requirement = models.CharField(max_length=20, choices=[
+        ('NO_RESTRICTION', 'No restriction on arrears'),
+        ('ALLOW_WITH_ARREARS', 'Allow students with active arrears'),
+        ('NO_ARREARS_ALLOWED', 'Students must have no active arrears'),
+    ], default='NO_RESTRICTION', help_text="Arrears requirement for applicants")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     on_campus = models.BooleanField(default=True)  # True = On-campus, False = Off-campus

@@ -50,13 +50,35 @@ class JobPostingCreateUpdateSerializer(serializers.ModelSerializer):
         required=False,
         help_text="Custom fields for job application form"
     )
+    allowed_passout_years = serializers.ListField(
+        child=serializers.IntegerField(),
+        allow_empty=True,
+        required=False,
+        help_text="List of passout years that can view and apply for this job. Empty list means all students can view."
+    )
+    allowed_departments = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=True,
+        required=False,
+        help_text="List of departments that can view and apply for this job. Empty list means all students can view."
+    )
+    arrears_requirement = serializers.ChoiceField(
+        choices=[
+            ('NO_RESTRICTION', 'No restriction on arrears'),
+            ('ALLOW_WITH_ARREARS', 'Allow students with active arrears'),
+            ('NO_ARREARS_ALLOWED', 'Students must have no active arrears'),
+        ],
+        default='NO_RESTRICTION',
+        required=False,
+        help_text="Arrears requirement for applicants"
+    )
     
     class Meta:
         model = JobPosting
         fields = ('id', 'title', 'description', 'location', 'job_type', 
                   'salary_min', 'salary_max', 'required_skills', 
                   'application_deadline', 'is_active', 'is_published',
-                  'interview_rounds', 'additional_fields')
+                  'interview_rounds', 'additional_fields', 'allowed_passout_years', 'allowed_departments', 'arrears_requirement')
         read_only_fields = ('id',)
     
     def validate_interview_rounds(self, value):

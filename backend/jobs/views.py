@@ -98,7 +98,34 @@ class JobPostingListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return JobPosting.objects.filter(is_active=True)
+        queryset = JobPosting.objects.filter(is_active=True, is_published=True)
+        
+        # Get the current user's student profile
+        user = self.request.user
+        try:
+            student_profile = user.student_profile
+            user_passout_year = student_profile.passout_year
+            
+            # Filter jobs in Python since JSONField queries can be complex
+            filtered_jobs = []
+            for job in queryset:
+                allowed_years = job.allowed_passout_years or []
+                if not allowed_years or user_passout_year in allowed_years:
+                    filtered_jobs.append(job)
+            
+            # Convert back to queryset-like object
+            from django.db.models import QuerySet
+            if filtered_jobs:
+                job_ids = [job.id for job in filtered_jobs]
+                queryset = JobPosting.objects.filter(id__in=job_ids)
+            else:
+                queryset = JobPosting.objects.none()
+                
+        except:
+            # If user doesn't have a student profile or passout_year, show all jobs
+            pass
+            
+        return queryset
 
 class JobPostingCreateView(generics.CreateAPIView):
     serializer_class = JobPostingCreateUpdateSerializer
@@ -499,6 +526,47 @@ class EnhancedJobListCreateView(generics.ListCreateAPIView):
                 Q(description__icontains=search) |
                 Q(company__name__icontains=search)
             )
+
+        # Filter by student's passout year for non-admin users
+        if not self.request.user.is_staff:
+            try:
+                student_profile = self.request.user.student_profile
+                user_passout_year = student_profile.passout_year
+                user_department = student_profile.branch
+                user_active_arrears = student_profile.active_arrears or 0
+                
+                # Filter jobs where allowed_passout_years is empty (all students) 
+                # or contains the user's passout year
+                allowed_jobs = []
+                for job in queryset:
+                    allowed_years = job.allowed_passout_years or []
+                    allowed_depts = job.allowed_departments or []
+                    
+                    # Check passout year filter
+                    year_allowed = not allowed_years or user_passout_year in allowed_years
+                    # Check department filter
+                    dept_allowed = not allowed_depts or user_department in allowed_depts
+                    # Check arrears filter
+                    if job.arrears_requirement == 'NO_RESTRICTION':
+                        arrears_allowed = True
+                    elif job.arrears_requirement == 'ALLOW_WITH_ARREARS':
+                        arrears_allowed = True  # Allow any student
+                    elif job.arrears_requirement == 'NO_ARREARS_ALLOWED':
+                        arrears_allowed = user_active_arrears == 0
+                    else:
+                        arrears_allowed = True  # Default to allow
+                    
+                    if year_allowed and dept_allowed and arrears_allowed:
+                        allowed_jobs.append(job.id)
+                
+                if allowed_jobs:
+                    queryset = queryset.filter(id__in=allowed_jobs)
+                else:
+                    queryset = queryset.none()
+                    
+            except:
+                # If user doesn't have a student profile or passout_year, show all jobs
+                pass
 
         return queryset
 

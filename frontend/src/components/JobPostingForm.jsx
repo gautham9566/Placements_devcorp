@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { IconSearch, IconX, IconPlus, IconTrash } from '@tabler/icons-react';
 import { createJob } from '../api/jobs';
 
 // Job Posting Form Component
-export default function JobPostingForm({ companies, onSubmit, onCancel, initialData = {}, companyDisabled = false }) {
+export default function JobPostingForm({ companies, onSubmit, onCancel, initialData = {}, companyDisabled = false, passoutYears = [], selectedPassoutYears = [], onPassoutYearsChange, departments = [], selectedDepartments = [], onDepartmentsChange, arrearsRequirement = 'NO_RESTRICTION', onArrearsRequirementChange }) {
   const [formData, setFormData] = useState({
     title: initialData.title || '',
     location: initialData.location || '',
@@ -34,6 +34,12 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
   const [companySearchQuery, setCompanySearchQuery] = useState(initialData.company_name || '');
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [selectedCompanyName, setSelectedCompanyName] = useState(initialData.company_name || '');
+
+  // Passout years dropdown state
+  const [showPassoutYearsDropdown, setShowPassoutYearsDropdown] = useState(false);
+
+  // Departments dropdown state
+  const [showDepartmentsDropdown, setShowDepartmentsDropdown] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -143,7 +149,9 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
         salary_max: parseFloat(formData.salary_max) || 0,
         requirements: formData.requirements.filter(req => req.trim()),
         skills: formData.skills.filter(skill => skill.trim()),
-        benefits: formData.benefits.filter(benefit => benefit.trim())
+        benefits: formData.benefits.filter(benefit => benefit.trim()),
+        allowed_passout_years: selectedPassoutYears,
+        allowed_departments: selectedDepartments
       };
 
       await onSubmit(jobData);
@@ -154,6 +162,20 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
       setIsSubmitting(false);
     }
   };
+
+  // Close dropdown when clicking outside
+  // useEffect(() => {
+  //   const handleClickOutside = (event) => {
+  //     if (!event.target.closest('.passout-years-dropdown')) {
+  //       setShowPassoutYearsDropdown(false);
+  //     }
+  //   };
+
+  //   document.addEventListener('mousedown', handleClickOutside);
+  //   return () => {
+  //     document.removeEventListener('mousedown', handleClickOutside);
+  //   };
+  // }, []);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -350,19 +372,145 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
             </div>
           </div>
 
-          {/* Job Description */}
+          {/* Passout Years Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Job Description *
+              Allowed Passout Years
             </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Enter job description"
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+            <p className="text-sm text-gray-500 mb-3">
+              Select the passout years that can view and apply for this job. If none are selected, all students can view the job.
+            </p>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowPassoutYearsDropdown(!showPassoutYearsDropdown)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {selectedPassoutYears.length > 0
+                  ? `${selectedPassoutYears.length} selected (${selectedPassoutYears.join(', ')})`
+                  : 'Select passout years'
+                }
+              </button>
+              {showPassoutYearsDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto passout-years-dropdown">
+                  {passoutYears.length > 0 ? (
+                    passoutYears.map(year => (
+                      <label key={year} className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedPassoutYears.includes(year)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const newSelected = [...selectedPassoutYears, year];
+                              onPassoutYearsChange(newSelected);
+                            } else {
+                              const newSelected = selectedPassoutYears.filter(y => y !== year);
+                              onPassoutYearsChange(newSelected);
+                            }
+                          }}
+                          className="mr-2"
+                        />
+                        {year}
+                      </label>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-gray-500">No passout years available</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Departments Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Allowed Departments
+            </label>
+            <p className="text-sm text-gray-500 mb-3">
+              Select the departments that can view and apply for this job. If none are selected, all students can view the job.
+            </p>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowDepartmentsDropdown(!showDepartmentsDropdown)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {selectedDepartments.length > 0
+                  ? `${selectedDepartments.length} selected (${selectedDepartments.join(', ')})`
+                  : 'Select departments'
+                }
+              </button>
+              {showDepartmentsDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto departments-dropdown">
+                  {departments.length > 0 ? (
+                    departments.map(dept => (
+                      <label key={dept} className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedDepartments.includes(dept)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const newSelected = [...selectedDepartments, dept];
+                              onDepartmentsChange(newSelected);
+                            } else {
+                              const newSelected = selectedDepartments.filter(d => d !== dept);
+                              onDepartmentsChange(newSelected);
+                            }
+                          }}
+                          className="mr-2"
+                        />
+                        {dept}
+                      </label>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-gray-500">No departments available</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Arrears Requirement */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Arrears Requirement
+            </label>
+            <p className="text-sm text-gray-500 mb-3">
+              Set requirements for student arrears status. If no restriction is selected, all students can view the job.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="filterArrears"
+                  checked={arrearsRequirement !== 'NO_RESTRICTION'}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      onArrearsRequirementChange('ALLOW_WITH_ARREARS');
+                    } else {
+                      onArrearsRequirementChange('NO_RESTRICTION');
+                    }
+                  }}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="filterArrears" className="ml-2 block text-sm text-gray-900">
+                  Filter by arrears status
+                </label>
+              </div>
+              
+              {arrearsRequirement !== 'NO_RESTRICTION' && (
+                <div className="ml-6">
+                  <select
+                    value={arrearsRequirement}
+                    onChange={(e) => onArrearsRequirementChange(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="ALLOW_WITH_ARREARS">Allow students with active arrears</option>
+                    <option value="NO_ARREARS_ALLOWED">Only students with no active arrears</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Required Skills */}
@@ -536,4 +684,4 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
       </div>
     </div>
   );
-} 
+}

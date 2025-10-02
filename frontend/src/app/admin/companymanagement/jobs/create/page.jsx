@@ -6,6 +6,7 @@ import { IconArrowLeft, IconCheck } from '@tabler/icons-react';
 import JobPostingForm from '../../../../../components/JobPostingForm';
 import { createJob } from '../../../../../api/jobs';
 import { fetchSimpleCompanies } from '../../../../../api/companies';
+import { studentsAPI } from '../../../../../api/optimized';
 
 export default function CreateJobPage() {
   const router = useRouter();
@@ -14,32 +15,62 @@ export default function CreateJobPage() {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [passoutYears, setPassoutYears] = useState([]);
+  const [selectedPassoutYears, setSelectedPassoutYears] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [arrearsRequirement, setArrearsRequirement] = useState('NO_RESTRICTION');
 
-  // Fetch companies on component mount
+  // Fetch companies and passout years on component mount
   useEffect(() => {
-    const fetchCompanies = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
+        // Fetch companies
         console.log('Fetching companies for job creation...');
-        const response = await fetchSimpleCompanies();
-        
-        if (response.success && Array.isArray(response.data)) {
-          setCompanies(response.data);
-          console.log(`Loaded ${response.data.length} companies for job creation`);
-          setError(null);
+        const companiesResponse = await fetchSimpleCompanies();
+        if (companiesResponse.success && Array.isArray(companiesResponse.data)) {
+          setCompanies(companiesResponse.data);
+          console.log(`Loaded ${companiesResponse.data.length} companies for job creation`);
         } else {
-          throw new Error(response.error || 'Failed to fetch companies');
+          throw new Error(companiesResponse.error || 'Failed to fetch companies');
         }
+
+        // Fetch passout years from student metadata API
+        console.log('Fetching passout years...');
+        const studentsResponse = await studentsAPI.getStudents({ page_size: 1 });
+        console.log('Students API response:', studentsResponse);
+        if (studentsResponse.metadata && studentsResponse.metadata.available_years) {
+          setPassoutYears(studentsResponse.metadata.available_years);
+          console.log(`Loaded ${studentsResponse.metadata.available_years.length} passout years`);
+        } else {
+          console.warn('No passout years metadata found in response:', studentsResponse);
+          setPassoutYears([]);
+        }
+
+        // Fetch departments from student metadata API
+        console.log('Fetching departments...');
+        if (studentsResponse.metadata && studentsResponse.metadata.available_departments) {
+          setDepartments(studentsResponse.metadata.available_departments);
+          console.log(`Loaded ${studentsResponse.metadata.available_departments.length} departments`);
+        } else {
+          console.warn('No departments metadata found in response:', studentsResponse);
+          setDepartments([]);
+        }
+
+        setError(null);
       } catch (err) {
-        console.error('Failed to fetch companies:', err);
-        setError('Failed to load companies. Please check your connection and try again.');
+        console.error('Failed to fetch data:', err);
+        setError('Failed to load data. Please check your connection and try again.');
         setCompanies([]);
+        setPassoutYears([]);
+        setDepartments([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCompanies();
+    fetchData();
   }, []);
 
   const handleCreateJob = async (jobData) => {
@@ -58,7 +89,10 @@ export default function CreateJobPage() {
         is_active: jobData.is_active !== undefined ? jobData.is_active : true,
         company_name: jobData.company_name, // Add company name from form
         interview_rounds: jobData.interview_rounds || [], // Include interview rounds
-        additional_fields: jobData.additional_fields || [] // Include additional fields
+        additional_fields: jobData.additional_fields || [], // Include additional fields
+        allowed_passout_years: selectedPassoutYears, // Add selected passout years
+        allowed_departments: selectedDepartments, // Add selected departments
+        arrears_requirement: arrearsRequirement // Add arrears requirement
       };
       
       console.log('Sending job data to backend:', formattedJobData);
@@ -190,6 +224,14 @@ export default function CreateJobPage() {
               isSubmitting={isSubmitting}
               submitButtonText="Create Job Posting"
               mode="create"
+              passoutYears={passoutYears}
+              selectedPassoutYears={selectedPassoutYears}
+              onPassoutYearsChange={setSelectedPassoutYears}
+              departments={departments}
+              selectedDepartments={selectedDepartments}
+              onDepartmentsChange={setSelectedDepartments}
+              arrearsRequirement={arrearsRequirement}
+              onArrearsRequirementChange={setArrearsRequirement}
             />
           </div>
         </div>
@@ -235,4 +277,4 @@ export default function CreateJobPage() {
       </div>
     </div>
   );
-} 
+}
