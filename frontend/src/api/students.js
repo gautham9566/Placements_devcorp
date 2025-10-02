@@ -96,7 +96,7 @@ export const studentsAPI = {
     const cleanedData = { ...data };
     
     // Ensure numeric fields are properly formatted
-    ['joining_year', 'passout_year'].forEach(field => {
+    ['joining_year', 'passout_year', 'active_arrears', 'arrears', 'arrears_history'].forEach(field => {
       if (cleanedData[field] !== null && cleanedData[field] !== undefined) {
         const num = parseInt(cleanedData[field]);
         cleanedData[field] = isNaN(num) ? null : num;
@@ -107,7 +107,9 @@ export const studentsAPI = {
     const stringFields = [
       'first_name', 'last_name', 'student_id', 'contact_email', 'phone', 'branch', 'gpa',
       'date_of_birth', 'address', 'city', 'district', 'state', 'pincode', 'country',
-      'parent_contact', 'education', 'skills',
+      'parent_contact', 'education', 'skills', 'gender', 'college_name',
+      'semester1_cgpa', 'semester2_cgpa', 'semester3_cgpa', 'semester4_cgpa',
+      'semester5_cgpa', 'semester6_cgpa', 'semester7_cgpa', 'semester8_cgpa',
       'tenth_cgpa', 'tenth_percentage', 'tenth_board', 'tenth_school', 'tenth_year_of_passing', 
       'tenth_location', 'tenth_specialization',
       'twelfth_cgpa', 'twelfth_percentage', 'twelfth_board', 'twelfth_school', 'twelfth_year_of_passing',

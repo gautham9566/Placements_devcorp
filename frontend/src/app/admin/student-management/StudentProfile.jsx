@@ -1016,6 +1016,76 @@ export default function StudentProfile({
 
         {/* Right Column - Stats and Files */}
         <div className="lg:col-span-3 space-y-6">
+          {/* Arrears Section */}
+          <div className="bg-white rounded-lg p-5 shadow-sm">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Academic Status</h2>
+
+            {/* Active Arrears */}
+            <div className="flex items-center p-2 mb-3">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center mr-3 ${
+                (profile?.active_arrears || 0) > 0 ? 'bg-red-100' : 'bg-green-100'
+              }`}>
+                <div className={`${
+                  (profile?.active_arrears || 0) > 0 ? 'text-red-600' : 'text-green-600'
+                }`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-grow">
+                <h3 className="font-medium text-gray-700">Active Arrears</h3>
+                <p className="text-sm text-gray-500">
+                  {(profile?.active_arrears || 0) > 0
+                    ? `${profile.active_arrears} subject${profile.active_arrears > 1 ? 's' : ''} currently pending`
+                    : 'No active arrears'
+                  }
+                </p>
+              </div>
+              <div className={`px-3 py-1 rounded-full ${
+                (profile?.active_arrears || 0) > 0 ? 'bg-red-50' : 'bg-green-50'
+              }`}>
+                <span className={`font-medium ${
+                  (profile?.active_arrears || 0) > 0 ? 'text-red-600' : 'text-green-600'
+                }`}>
+                  {profile?.active_arrears || 0}
+                </span>
+              </div>
+            </div>
+
+            {/* Arrears History */}
+            {(profile?.arrears_history > 0) && (
+              <div>
+                <div className="flex items-center p-2">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                    <div className="text-blue-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex-grow">
+                    <h4 className="font-medium text-gray-700">Arrears History</h4>
+                    <p className="text-sm text-gray-500">
+                      {profile.arrears_history} subject{profile.arrears_history > 1 ? 's' : ''} previously had arrears
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 px-3 py-1 rounded-full">
+                    <span className="text-blue-600 font-medium">{profile.arrears_history}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Total Arrears Summary */}
+            {/* <div className="border-t pt-3 mt-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">Total Arrears</span>
+                <span className="font-medium text-gray-800">{profile?.arrears || 0}</span>
+              </div>
+            </div> */}
+          </div>
+
           {/* Files Section */}
           <div className="bg-white rounded-lg p-5 shadow-sm">
             <h2 className="text-xl font-semibold mb-4 text-gray-800">My Files</h2>

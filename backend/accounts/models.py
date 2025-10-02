@@ -197,6 +197,9 @@ class StudentProfile(models.Model):
     gpa = models.CharField(max_length=10, default='0.0')
     joining_year = models.PositiveIntegerField(null=True, blank=True)
     passout_year = models.PositiveIntegerField(null=True, blank=True)
+    arrears = models.PositiveIntegerField(default=0, help_text="Number of academic arrears")
+    active_arrears = models.PositiveIntegerField(default=0, help_text="Number of currently active arrears")
+    arrears_history = models.PositiveIntegerField(default=0, help_text="Number of historical arrears cleared")
     
     # Semester marksheet data (merged from SemesterMarksheet model)
     semester1_cgpa = models.CharField(max_length=10, blank=True, null=True)

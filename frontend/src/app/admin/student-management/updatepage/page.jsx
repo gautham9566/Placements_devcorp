@@ -46,16 +46,23 @@ export default function UpdateStudentData() {
     'LastName': 'last_name',
     'Name': 'name',
     'Full Name': 'name',
+    'Gender': 'gender',
+    'Sex': 'gender',
     'Email': 'contact_email',
     'Contact Email': 'contact_email',
     'Phone': 'phone',
     'Phone Number': 'phone',
     'Mobile': 'phone',
+    'Contact': 'phone',
     'Department': 'branch',
     'Branch': 'branch',
+    'Stream': 'branch',
     'CGPA': 'gpa',
     'GPA': 'gpa',
     'Grade': 'gpa',
+    'Current CGPA': 'gpa',
+    'Education': 'education',
+    'Qualification': 'education',
     
     // Address details
     'Address': 'address',
@@ -64,16 +71,44 @@ export default function UpdateStudentData() {
     'State': 'state',
     'Pincode': 'pincode',
     'Pin Code': 'pincode',
+    'Pin': 'pincode',
     'Country': 'country',
     
     // Academic details
     'Joining Year': 'joining_year',
+    'Admission Year': 'joining_year',
     'Passout Year': 'passout_year',
     'Graduation Year': 'passout_year',
+    'Completion Year': 'passout_year',
     'Date of Birth': 'date_of_birth',
     'DOB': 'date_of_birth',
+    'Birth Date': 'date_of_birth',
     'Parent Contact': 'parent_contact',
+    'Parent Phone': 'parent_contact',
+    'Guardian Contact': 'parent_contact',
     'Skills': 'skills',
+    'Technical Skills': 'skills',
+    'College Name': 'college_name',
+    'College': 'college_name',
+    'Institution': 'college_name',
+    
+    // Semester CGPA details
+    'Semester 1 CGPA': 'semester1_cgpa',
+    'Sem 1 CGPA': 'semester1_cgpa',
+    'Semester 2 CGPA': 'semester2_cgpa',
+    'Sem 2 CGPA': 'semester2_cgpa',
+    'Semester 3 CGPA': 'semester3_cgpa',
+    'Sem 3 CGPA': 'semester3_cgpa',
+    'Semester 4 CGPA': 'semester4_cgpa',
+    'Sem 4 CGPA': 'semester4_cgpa',
+    'Semester 5 CGPA': 'semester5_cgpa',
+    'Sem 5 CGPA': 'semester5_cgpa',
+    'Semester 6 CGPA': 'semester6_cgpa',
+    'Sem 6 CGPA': 'semester6_cgpa',
+    'Semester 7 CGPA': 'semester7_cgpa',
+    'Sem 7 CGPA': 'semester7_cgpa',
+    'Semester 8 CGPA': 'semester8_cgpa',
+    'Sem 8 CGPA': 'semester8_cgpa',
     
     // Class X details
     'Class 10 CGPA': 'tenth_cgpa',
@@ -88,6 +123,8 @@ export default function UpdateStudentData() {
     '10th Year': 'tenth_year_of_passing',
     'Class 10 Location': 'tenth_location',
     '10th Location': 'tenth_location',
+    'Class 10 Specialization': 'tenth_specialization',
+    '10th Specialization': 'tenth_specialization',
     
     // Class XII details
     'Class 12 CGPA': 'twelfth_cgpa',
@@ -104,6 +141,20 @@ export default function UpdateStudentData() {
     '12th Location': 'twelfth_location',
     'Class 12 Stream': 'twelfth_specialization',
     '12th Stream': 'twelfth_specialization',
+    'Class 12 Specialization': 'twelfth_specialization',
+    
+    // Arrears details
+    'Active Arrears': 'active_arrears',
+    'Activearrears': 'active_arrears',
+    'Current Arrears': 'active_arrears',
+    'Pending Arrears': 'active_arrears',
+    'Total Arrears': 'arrears',
+    'Arrears Count': 'arrears',
+    'Arrears Total': 'arrears',
+    'Arrears History': 'arrears_history',
+    'Historical Arrears': 'arrears_history',
+    'Cleared Arrears': 'arrears_history',
+    'Previous Arrears': 'arrears_history',
   };
 
   // Reset all states to initial values
@@ -387,23 +438,113 @@ export default function UpdateStudentData() {
         'Roll Number': 'CS2021001',
         'First Name': 'John',
         'Last Name': 'Doe',
+        'Gender': 'Male',
         'Email': 'john.doe@example.com',
         'Phone': '9876543210',
         'Department': 'Computer Science',
         'CGPA': '8.5',
+        'Joining Year': '2021',
+        'Passout Year': '2025',
+        'Date of Birth': '2000-05-15',
+        'Address': '123 Main Street',
         'City': 'Mumbai',
-        'State': 'Maharashtra'
+        'State': 'Maharashtra',
+        'Pincode': '400001',
+        'Skills': 'Java, Python, React',
+        'College Name': 'ABC Engineering College',
+        'Semester 1 CGPA': '8.2',
+        'Semester 2 CGPA': '8.4',
+        'Semester 3 CGPA': '8.6',
+        'Semester 4 CGPA': '8.8',
+        'Class 10 CGPA': '9.2',
+        'Class 10 Percentage': '92',
+        'Class 10 Board': 'CBSE',
+        'Class 10 School': 'City High School',
+        'Class 10 Year': '2018',
+        'Class 12 CGPA': '8.9',
+        'Class 12 Percentage': '89',
+        'Class 12 Board': 'CBSE',
+        'Class 12 School': 'City Senior Secondary School',
+        'Class 12 Year': '2020',
+        'Class 12 Stream': 'Science',
+        'Active Arrears': '0',
+        'Total Arrears': '2',
+        'Arrears History': '2'
       },
       {
         'Roll Number': 'EC2021002',
         'First Name': 'Jane',
         'Last Name': 'Smith',
+        'Gender': 'Female',
         'Email': 'jane.smith@example.com',
         'Phone': '9876543211',
         'Department': 'Electronics',
         'CGPA': '9.0',
+        'Joining Year': '2021',
+        'Passout Year': '2025',
+        'Date of Birth': '2000-08-20',
+        'Address': '456 Park Avenue',
         'City': 'Delhi',
-        'State': 'Delhi'
+        'State': 'Delhi',
+        'Pincode': '110001',
+        'Parent Contact': '9876543212',
+        'Skills': 'C++, Embedded Systems, IoT',
+        'College Name': 'XYZ Technical Institute',
+        'Semester 1 CGPA': '8.8',
+        'Semester 2 CGPA': '9.0',
+        'Semester 3 CGPA': '9.1',
+        'Semester 4 CGPA': '9.2',
+        'Class 10 CGPA': '9.5',
+        'Class 10 Percentage': '95',
+        'Class 10 Board': 'ICSE',
+        'Class 10 School': 'Delhi Public School',
+        'Class 10 Year': '2018',
+        'Class 12 CGPA': '9.3',
+        'Class 12 Percentage': '93',
+        'Class 12 Board': 'ICSE',
+        'Class 12 School': 'Delhi Public School',
+        'Class 12 Year': '2020',
+        'Class 12 Stream': 'Science',
+        'Active Arrears': '1',
+        'Total Arrears': '3',
+        'Arrears History': '2'
+      },
+      {
+        'Roll Number': 'ME2021003',
+        'First Name': 'Raj',
+        'Last Name': 'Kumar',
+        'Gender': 'Male',
+        'Email': 'raj.kumar@example.com',
+        'Phone': '9876543213',
+        'Department': 'Mechanical',
+        'CGPA': '7.8',
+        'Joining Year': '2021',
+        'Passout Year': '2025',
+        'Date of Birth': '2000-12-10',
+        'Address': '789 Industrial Area',
+        'City': 'Pune',
+        'State': 'Maharashtra',
+        'Pincode': '411001',
+        'Skills': 'CAD, SolidWorks, Manufacturing',
+        'College Name': 'PQR Engineering College',
+        'Semester 1 CGPA': '7.5',
+        'Semester 2 CGPA': '7.7',
+        'Semester 3 CGPA': '7.9',
+        'Semester 4 CGPA': '8.0',
+        'Class 10 CGPA': '8.5',
+        'Class 10 Percentage': '85',
+        'Class 10 Board': 'State Board',
+        'Class 10 School': 'State High School',
+        'Class 10 Year': '2018',
+        'Class 12 CGPA': '8.2',
+        'Class 12 Percentage': '82',
+        'Class 12 Board': 'State Board',
+        'Class 12 School': 'State Senior Secondary',
+        'Class 12 Year': '2020',
+        'Class 12 Stream': 'Science',
+        'Active Arrears': '2',
+        'Total Arrears': '5',
+        'Arrears History': '3'
       }
     ];
 
@@ -466,16 +607,26 @@ export default function UpdateStudentData() {
                   <p className="font-medium">Identity:</p>
                   <p>Roll Number, Student ID</p>
                   <p className="font-medium mt-2">Basic Info:</p>
-                  <p>First Name, Last Name, Name</p>
-                  <p>Email, Phone, Department</p>
-                  <p>CGPA, Address, City, State</p>
+                  <p>First Name, Last Name, Name, Gender</p>
+                  <p>Email, Phone, Department, CGPA</p>
+                  <p>Joining Year, Passout Year, DOB</p>
+                  <p>Address, City, State, Pincode</p>
+                  <p>Skills, College Name, Education</p>
+                  <p className="font-medium mt-2">Semester CGPA:</p>
+                  <p>Semester 1-8 CGPA</p>
+                  <p className="font-medium mt-2">Arrears:</p>
+                  <p>Active Arrears, Total Arrears, Arrears History</p>
                 </div>
                 <div>
-                  <p className="font-medium">Academic:</p>
-                  <p>Joining Year, Passout Year</p>
-                  <p>Class 10 CGPA, 10th Board</p>
-                  <p>Class 12 CGPA, 12th Board</p>
-                  <p>Date of Birth, Skills</p>
+                  <p className="font-medium">Class X Details:</p>
+                  <p>Class 10 CGPA, Percentage, Board</p>
+                  <p>Class 10 School, Year, Location</p>
+                  <p className="font-medium mt-2">Class XII Details:</p>
+                  <p>Class 12 CGPA, Percentage, Board</p>
+                  <p>Class 12 School, Year, Stream</p>
+                  <p className="font-medium mt-2">Additional:</p>
+                  <p>Parent Contact, District, Country</p>
+                  <p>Date of Birth, Technical Skills</p>
                 </div>
               </div>
             </div>
