@@ -328,6 +328,7 @@ class DetailedJobApplicationSerializer(serializers.ModelSerializer):
     student_email = serializers.CharField(source='applicant.email', read_only=True)
     student_id = serializers.CharField(source='applicant.student_profile.student_id', read_only=True)
     branch = serializers.CharField(source='applicant.student_profile.branch', read_only=True)
+    passout_year = serializers.IntegerField(source='applicant.student_profile.passout_year', read_only=True)
     
     # Application details
     formatted_applied_at = serializers.SerializerMethodField()
@@ -341,7 +342,7 @@ class DetailedJobApplicationSerializer(serializers.ModelSerializer):
         model = JobApplication
         fields = [
             'id', 'job', 'job_title', 'company_name', 'job_location', 'job_additional_fields',
-            'applicant', 'student_name', 'student_email', 'student_id', 'branch',
+            'applicant', 'student_name', 'student_email', 'student_id', 'branch', 'passout_year',
             'status', 'status_display', 'applied_at', 'formatted_applied_at',
             'cover_letter', 'resume', 'applied_data_snapshot',
             'profile_data', 'custom_responses', 'admin_notes',

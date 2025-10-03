@@ -10,21 +10,40 @@ from accounts.models import StudentProfile
 from jobs.models import JobPosting, JobApplication
 
 
-def calculate_dashboard_stats():
+def calculate_dashboard_stats(year=None):
     """
     Calculate dashboard statistics
     """
+    # Base querysets
+    job_queryset = JobPosting.objects.filter(is_active=True)
+    application_queryset = JobApplication.objects.all()
+    student_queryset = StudentProfile.objects.all()
+    
+    # Apply year filter if specified
+    if year and year != 'All':
+        try:
+            year_int = int(year)
+            # Filter students by passout year
+            student_queryset = student_queryset.filter(passout_year=year_int)
+            # Filter applications by student's passout year
+            application_queryset = application_queryset.filter(
+                applicant__student_profile__passout_year=year_int
+            )
+            # Note: Jobs are not filtered by year as total active jobs is global
+        except (ValueError, TypeError):
+            pass  # If year is invalid, use all data
+    
     stats = {
-        'total_jobs': JobPosting.objects.filter(is_active=True).count(),
-        'total_applications': JobApplication.objects.count(),
-        'total_students': StudentProfile.objects.count(),
-        'total_companies': Company.objects.count(),
-        'active_jobs': JobPosting.objects.filter(is_active=True, is_published=True).count(),
-        'pending_applications': JobApplication.objects.filter(status='APPLIED').count(),
+        'total_jobs': job_queryset.count(),
+        'total_applications': application_queryset.count(),
+        'total_students': student_queryset.count(),
+        'total_companies': Company.objects.count(),  # Companies are not filtered by year
+        'active_jobs': job_queryset.filter(is_published=True).count(),
+        'pending_applications': application_queryset.filter(status='APPLIED').count(),
         'hiring_companies': Company.objects.filter(
             job_postings__is_active=True
-        ).distinct().count(),
-        'placement_rate': calculate_placement_rate(),
+        ).distinct().count(),  # This might need adjustment for year filtering
+        'placement_rate': calculate_placement_rate(year),
         'last_updated': timezone.now().isoformat()
     }
     
@@ -251,11 +270,21 @@ def calculate_application_stats():
     return stats
 
 
-def calculate_placement_rate():
+def calculate_placement_rate(year=None):
     """
     Calculate overall placement rate
     """
-    total_eligible = StudentProfile.objects.filter(
+    # Base queryset for students
+    student_queryset = StudentProfile.objects.all()
+    
+    if year and year != 'All':
+        try:
+            year_int = int(year)
+            student_queryset = student_queryset.filter(passout_year=year_int)
+        except (ValueError, TypeError):
+            pass  # If year is invalid, use all data
+    
+    total_eligible = student_queryset.filter(
         passout_year__lte=timezone.now().year
     ).count()
     
@@ -266,6 +295,18 @@ def calculate_placement_rate():
         status='HIRED',
         applicant__student_profile__passout_year__lte=timezone.now().year
     ).values('applicant').distinct().count()
+    
+    # If year is specified, also filter placed students by year
+    if year and year != 'All':
+        try:
+            year_int = int(year)
+            placed = JobApplication.objects.filter(
+                status='HIRED',
+                applicant__student_profile__passout_year=year_int,
+                applicant__student_profile__passout_year__lte=timezone.now().year
+            ).values('applicant').distinct().count()
+        except (ValueError, TypeError):
+            pass
     
     return round((placed / total_eligible) * 100, 2)
 

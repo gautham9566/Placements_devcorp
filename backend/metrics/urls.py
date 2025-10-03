@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     # Cached metrics endpoints
     path('metrics/', views.CachedMetricsView.as_view(), name='cached-metrics'),
+    path('metrics/application-timeline/', views.ApplicationTimelineView.as_view(), name='application-timeline'),
     path('metrics/cache-status/', views.CacheStatusView.as_view(), name='cache-status'),
     
     # Enhanced student metrics endpoints
