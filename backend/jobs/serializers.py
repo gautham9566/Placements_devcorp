@@ -496,3 +496,20 @@ class CompanyFormSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class PlacedStudentSerializer(serializers.Serializer):
+    """Serializer for placed students with job and company details"""
+    student_id = serializers.CharField()
+    name = serializers.CharField()
+    email = serializers.CharField()
+    branch = serializers.CharField()
+    passout_year = serializers.IntegerField()
+    gpa = serializers.CharField()
+    job_title = serializers.CharField()
+    company_name = serializers.CharField()
+    job_location = serializers.CharField()
+    salary_min = serializers.DecimalField(max_digits=12, decimal_places=2)
+    salary_max = serializers.DecimalField(max_digits=12, decimal_places=2)
+    placed_at = serializers.DateTimeField()
+    job_id = serializers.IntegerField()
+
+

@@ -32,7 +32,8 @@ from .serializers import (
     StatsSerializer,
     DetailedJobApplicationSerializer,
     ExportConfigSerializer,
-    StudentProfileFieldsSerializer
+    StudentProfileFieldsSerializer,
+    PlacedStudentSerializer
 )
 # EmployerProfile removed
 from .utils import StandardResultsSetPagination, get_paginated_response, get_correct_pagination_data, ApplicationExportService
@@ -1786,3 +1787,498 @@ class CalendarEventsView(APIView):
             print(f"Error in CalendarEventsView: {str(e)}")
             print(traceback.format_exc())
             return Response({'error': str(e)}, status=500)
+
+
+class PlacedStudentsView(generics.ListAPIView):
+    """View for listing placed students with pagination, search, and sorting"""
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        # Get all hired applications with related data
+        hired_applications = JobApplication.objects.filter(
+            status='HIRED'
+        ).select_related(
+            'applicant__student_profile',
+            'job__company'
+        )
+
+        # Get students with placement_status = 'placed'
+        from accounts.models import StudentProfile
+        placed_students = StudentProfile.objects.filter(
+            placement_status='placed'
+        ).select_related('user')
+
+        # Combine the querysets - we'll handle this in the list method
+        # For now, return the hired applications queryset for compatibility
+        return hired_applications.order_by('-applied_at')
+
+    def list(self, request, *args, **kwargs):
+        # Get all placed students from both sources
+        placed_students_data = []
+
+        # 1. Get students from JobApplication with status 'HIRED'
+        hired_applications = JobApplication.objects.filter(
+            status='HIRED'
+        ).select_related(
+            'applicant__student_profile',
+            'job__company'
+        )
+
+        for application in hired_applications:
+            student_profile = application.applicant.student_profile
+            job = application.job
+            company = job.company
+
+            placed_students_data.append({
+                'student_id': student_profile.student_id,
+                'name': f"{student_profile.first_name} {student_profile.last_name}".strip(),
+                'email': student_profile.contact_email or student_profile.user.email,
+                'branch': student_profile.branch or '',
+                'passout_year': student_profile.passout_year,
+                'gpa': student_profile.gpa,
+                'job_title': job.title,
+                'company_name': company.name,
+                'job_location': job.location,
+                'salary_min': job.salary_min,
+                'salary_max': job.salary_max,
+                'placed_at': application.applied_at,
+                'job_id': job.id,
+                'source': 'application'  # Track the source
+            })
+
+        # 2. Get students from StudentProfile with placement_status = 'placed'
+        from accounts.models import StudentProfile
+        placed_profiles = StudentProfile.objects.filter(
+            placement_status='placed'
+        ).select_related('user')
+
+        for profile in placed_profiles:
+            # Try to get job information from placed_job_id
+            job_info = None
+            if profile.placed_job_id:
+                try:
+                    job = JobPosting.objects.select_related('company').get(id=profile.placed_job_id)
+                    job_info = {
+                        'job_title': job.title,
+                        'company_name': job.company.name if job.company else 'Unknown Company',
+                        'job_location': job.location,
+                        'salary_min': job.salary_min,
+                        'salary_max': job.salary_max,
+                        'job_id': job.id
+                    }
+                except JobPosting.DoesNotExist:
+                    job_info = {
+                        'job_title': 'Job Not Found',
+                        'company_name': 'Unknown Company',
+                        'job_location': '',
+                        'salary_min': None,
+                        'salary_max': None,
+                        'job_id': profile.placed_job_id
+                    }
+
+            placed_students_data.append({
+                'student_id': profile.student_id,
+                'name': f"{profile.first_name} {profile.last_name}".strip(),
+                'email': profile.contact_email or profile.user.email,
+                'branch': profile.branch or '',
+                'passout_year': profile.passout_year,
+                'gpa': profile.gpa,
+                'job_title': job_info['job_title'] if job_info else 'Not Specified',
+                'company_name': job_info['company_name'] if job_info else 'Not Specified',
+                'job_location': job_info['job_location'] if job_info else '',
+                'salary_min': job_info['salary_min'] if job_info else None,
+                'salary_max': job_info['salary_max'] if job_info else None,
+                'placed_at': profile.updated_at,  # Use updated_at as placement date
+                'job_id': job_info['job_id'] if job_info else None,
+                'source': 'manual'  # Track the source
+            })
+
+        # Remove duplicates based on student_id (prefer application source over manual)
+        seen_student_ids = set()
+        unique_students = []
+        for student in placed_students_data:
+            if student['student_id'] not in seen_student_ids:
+                seen_student_ids.add(student['student_id'])
+                unique_students.append(student)
+            elif student['source'] == 'application':
+                # Replace manual entry with application entry
+                for i, existing in enumerate(unique_students):
+                    if existing['student_id'] == student['student_id']:
+                        unique_students[i] = student
+                        break
+
+        # Apply search filter
+        search_term = self.request.query_params.get('search', '').strip()
+        if search_term:
+            unique_students = [
+                student for student in unique_students
+                if (
+                    search_term.lower() in student['name'].lower() or
+                    search_term.lower() in student['student_id'].lower() or
+                    search_term.lower() in student['job_title'].lower() or
+                    search_term.lower() in student['company_name'].lower()
+                )
+            ]
+
+        # Apply passout_year filter
+        passout_year = self.request.query_params.get('passout_year')
+        if passout_year and passout_year != 'all':
+            try:
+                year = int(passout_year)
+                unique_students = [
+                    student for student in unique_students
+                    if student['passout_year'] == year
+                ]
+            except (ValueError, TypeError):
+                pass
+
+        # Apply sorting
+        sort_by = self.request.query_params.get('sort_by', 'placed_at')
+        sort_order = self.request.query_params.get('sort_order', 'desc')
+
+        sort_functions = {
+            'name': lambda x: x['name'].lower(),
+            'student_id': lambda x: x['student_id'].lower(),
+            'passout_year': lambda x: x['passout_year'] or 0,
+            'company_name': lambda x: x['company_name'].lower(),
+            'placed_at': lambda x: x['placed_at'] or timezone.now(),
+            'job_title': lambda x: x['job_title'].lower()
+        }
+
+        if sort_by in sort_functions:
+            reverse = sort_order == 'desc'
+            unique_students.sort(key=sort_functions[sort_by], reverse=reverse)
+
+        # Apply pagination
+        page = self.paginate_queryset(unique_students)
+        if page is not None:
+            # Use corrected pagination calculation
+            pagination_data = get_correct_pagination_data(
+                request,
+                self.paginator.page.paginator,
+                self.paginator.page,
+                self.pagination_class.page_size
+            )
+
+            return Response({
+                'data': page,
+                'pagination': pagination_data
+            })
+
+        # Handle non-paginated case
+        return Response({'data': unique_students})
+
+
+class PlacedStudentsPassoutYearsView(APIView):
+    """View for getting distinct passout years for placed students filtering"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """Get distinct passout years for filtering"""
+        years = set()
+
+        # Get years from JobApplication with status 'HIRED'
+        hired_years = JobApplication.objects.filter(
+            status='HIRED'
+        ).select_related('applicant__student_profile').values_list(
+            'applicant__student_profile__passout_year', flat=True
+        ).distinct()
+
+        years.update(hired_years)
+
+        # Get years from StudentProfile with placement_status = 'placed'
+        from accounts.models import StudentProfile
+        manual_years = StudentProfile.objects.filter(
+            placement_status='placed'
+        ).values_list('passout_year', flat=True).distinct()
+
+        years.update(manual_years)
+
+        # Filter out None values and return as sorted list
+        valid_years = sorted([year for year in years if year is not None], reverse=True)
+        return Response({'years': valid_years})
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            # Transform the data for serialization
+            placed_students_data = []
+            for application in page:
+                student_profile = application.applicant.student_profile
+                job = application.job
+                company = job.company
+
+                placed_students_data.append({
+                    'student_id': student_profile.student_id,
+                    'name': f"{student_profile.first_name} {student_profile.last_name}".strip(),
+                    'email': student_profile.contact_email or student_profile.user.email,
+                    'branch': student_profile.branch or '',
+                    'passout_year': student_profile.passout_year,
+                    'gpa': student_profile.gpa,
+                    'job_title': job.title,
+                    'company_name': company.name,
+                    'job_location': job.location,
+                    'salary_min': job.salary_min,
+                    'salary_max': job.salary_max,
+                    'placed_at': application.applied_at,
+                    'job_id': job.id
+                })
+
+            # Use corrected pagination calculation
+            pagination_data = get_correct_pagination_data(
+                request,
+                self.paginator.page.paginator,
+                self.paginator.page,
+                self.pagination_class.page_size
+            )
+
+            return Response({
+                'data': placed_students_data,
+                'pagination': pagination_data
+            })
+
+        # Handle non-paginated case
+        placed_students_data = []
+        for application in queryset:
+            student_profile = application.applicant.student_profile
+            job = application.job
+            company = job.company
+
+            placed_students_data.append({
+                'student_id': student_profile.student_id,
+                'name': f"{student_profile.first_name} {student_profile.last_name}".strip(),
+                'email': student_profile.contact_email or student_profile.user.email,
+                'branch': student_profile.branch or '',
+                'passout_year': student_profile.passout_year,
+                'gpa': student_profile.gpa,
+                'job_title': job.title,
+                'company_name': company.name,
+                'job_location': job.location,
+                'salary_min': job.salary_min,
+                'salary_max': job.salary_max,
+                'placed_at': application.applied_at,
+                'job_id': job.id
+            })
+
+        return Response({'data': placed_students_data})
+
+
+class PlacedStudentsExportView(generics.ListAPIView):
+    """View for exporting placed students data to CSV"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Get all hired applications with related data (no pagination for export)
+        queryset = JobApplication.objects.filter(
+            status='HIRED'
+        ).select_related(
+            'applicant__student_profile',
+            'job__company'
+        ).order_by('-applied_at')
+
+        # Apply search filter
+        search_term = self.request.query_params.get('search', '').strip()
+        if search_term:
+            queryset = queryset.filter(
+                Q(applicant__student_profile__first_name__icontains=search_term) |
+                Q(applicant__student_profile__last_name__icontains=search_term) |
+                Q(applicant__student_profile__student_id__icontains=search_term) |
+                Q(job__title__icontains=search_term) |
+                Q(job__company__name__icontains=search_term)
+            )
+
+        # Apply passout_year filter
+        passout_year = self.request.query_params.get('passout_year')
+        if passout_year and passout_year != 'all':
+            try:
+                year = int(passout_year)
+                queryset = queryset.filter(applicant__student_profile__passout_year=year)
+            except (ValueError, TypeError):
+                pass  # Ignore invalid year values
+
+        # Apply sorting
+        sort_by = self.request.query_params.get('sort_by', 'placed_at')
+        sort_order = self.request.query_params.get('sort_order', 'desc')
+
+        sort_mapping = {
+            'name': 'applicant__student_profile__first_name',
+            'student_id': 'applicant__student_profile__student_id',
+            'passout_year': 'applicant__student_profile__passout_year',
+            'company_name': 'job__company__name',
+            'placed_at': 'applied_at',
+            'job_title': 'job__title'
+        }
+
+        if sort_by in sort_mapping:
+            field = sort_mapping[sort_by]
+            if sort_order == 'desc':
+                queryset = queryset.order_by(f'-{field}')
+            else:
+                queryset = queryset.order_by(field)
+
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        # Get all placed students from both sources for export
+        placed_students_data = []
+
+        # 1. Get students from JobApplication with status 'HIRED'
+        hired_applications = JobApplication.objects.filter(
+            status='HIRED'
+        ).select_related(
+            'applicant__student_profile',
+            'job__company'
+        )
+
+        for application in hired_applications:
+            student_profile = application.applicant.student_profile
+            job = application.job
+            company = job.company
+
+            placed_students_data.append({
+                'Student_ID': student_profile.student_id,
+                'Name': f"{student_profile.first_name} {student_profile.last_name}".strip(),
+                'Email': student_profile.contact_email or student_profile.user.email,
+                'Branch': student_profile.branch or '',
+                'Passout_Year': student_profile.passout_year,
+                'GPA': student_profile.gpa,
+                'Job_Title': job.title,
+                'Company_Name': company.name,
+                'Job_Location': job.location,
+                'Salary_Min': job.salary_min,
+                'Salary_Max': job.salary_max,
+                'Placed_At': application.applied_at.isoformat() if application.applied_at else '',
+                'Job_ID': job.id,
+                'source': 'application'
+            })
+
+        # 2. Get students from StudentProfile with placement_status = 'placed'
+        from accounts.models import StudentProfile
+        placed_profiles = StudentProfile.objects.filter(
+            placement_status='placed'
+        ).select_related('user')
+
+        for profile in placed_profiles:
+            # Try to get job information from placed_job_id
+            job_info = None
+            if profile.placed_job_id:
+                try:
+                    job = JobPosting.objects.select_related('company').get(id=profile.placed_job_id)
+                    job_info = {
+                        'job_title': job.title,
+                        'company_name': job.company.name if job.company else 'Unknown Company',
+                        'job_location': job.location,
+                        'salary_min': job.salary_min,
+                        'salary_max': job.salary_max,
+                        'job_id': job.id
+                    }
+                except JobPosting.DoesNotExist:
+                    job_info = {
+                        'job_title': 'Job Not Found',
+                        'company_name': 'Unknown Company',
+                        'job_location': '',
+                        'salary_min': None,
+                        'salary_max': None,
+                        'job_id': profile.placed_job_id
+                    }
+
+            placed_students_data.append({
+                'Student_ID': profile.student_id,
+                'Name': f"{profile.first_name} {profile.last_name}".strip(),
+                'Email': profile.contact_email or profile.user.email,
+                'Branch': profile.branch or '',
+                'Passout_Year': profile.passout_year,
+                'GPA': profile.gpa,
+                'Job_Title': job_info['job_title'] if job_info else 'Not Specified',
+                'Company_Name': job_info['company_name'] if job_info else 'Not Specified',
+                'Job_Location': job_info['job_location'] if job_info else '',
+                'Salary_Min': job_info['salary_min'] if job_info else None,
+                'Salary_Max': job_info['salary_max'] if job_info else None,
+                'Placed_At': profile.updated_at.isoformat() if profile.updated_at else '',
+                'Job_ID': job_info['job_id'] if job_info else None,
+                'source': 'manual'
+            })
+
+        # Remove duplicates based on Student_ID (prefer application source over manual)
+        seen_student_ids = set()
+        unique_students = []
+        for student in placed_students_data:
+            if student['Student_ID'] not in seen_student_ids:
+                seen_student_ids.add(student['Student_ID'])
+                unique_students.append(student)
+            elif student['source'] == 'application':
+                # Replace manual entry with application entry
+                for i, existing in enumerate(unique_students):
+                    if existing['Student_ID'] == student['Student_ID']:
+                        unique_students[i] = student
+                        break
+
+        # Apply search filter
+        search_term = self.request.query_params.get('search', '').strip()
+        if search_term:
+            unique_students = [
+                student for student in unique_students
+                if (
+                    search_term.lower() in student['Name'].lower() or
+                    search_term.lower() in student['Student_ID'].lower() or
+                    search_term.lower() in student['Job_Title'].lower() or
+                    search_term.lower() in student['Company_Name'].lower()
+                )
+            ]
+
+        # Apply passout_year filter
+        passout_year = self.request.query_params.get('passout_year')
+        if passout_year and passout_year != 'all':
+            try:
+                year = int(passout_year)
+                unique_students = [
+                    student for student in unique_students
+                    if student['Passout_Year'] == year
+                ]
+            except (ValueError, TypeError):
+                pass
+
+        # Apply sorting
+        sort_by = self.request.query_params.get('sort_by', 'placed_at')
+        sort_order = self.request.query_params.get('sort_order', 'desc')
+
+        sort_functions = {
+            'name': lambda x: x['Name'].lower(),
+            'student_id': lambda x: x['Student_ID'].lower(),
+            'passout_year': lambda x: x['Passout_Year'] or 0,
+            'company_name': lambda x: x['Company_Name'].lower(),
+            'placed_at': lambda x: x['Placed_At'] or '',
+            'job_title': lambda x: x['Job_Title'].lower()
+        }
+
+        if sort_by in sort_functions:
+            reverse = sort_order == 'desc'
+            unique_students.sort(key=sort_functions[sort_by], reverse=reverse)
+
+        # Create CSV response
+        import csv
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="placed_students.csv"'
+
+        if not unique_students:
+            # Return empty CSV with headers
+            writer = csv.writer(response)
+            writer.writerow([
+                'Student_ID', 'Name', 'Email', 'Branch', 'Passout_Year', 'GPA',
+                'Job_Title', 'Company_Name', 'Job_Location', 'Salary_Min', 'Salary_Max',
+                'Placed_At', 'Job_ID'
+            ])
+            return response
+
+        # Write CSV data
+        fieldnames = [k for k in unique_students[0].keys() if k != 'source']  # Exclude source field
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(unique_students)
+
+        return response

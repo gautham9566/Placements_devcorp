@@ -151,6 +151,10 @@ export default function StudentManagement() {
         // Semester-wise CGPA data - use actual backend data
         semester_cgpas: student.semester_marksheets || [],
         semester_marksheets: student.semester_marksheets || [],
+
+        // Placement details
+        placement_status: student.placement_status || 'not_placed',
+        placed_job_id: student.placed_job_id || '',
       });
 
   // Remove debounced search - we'll use button-based search instead
@@ -604,6 +608,10 @@ export default function StudentManagement() {
           ? editedStudent.skills.filter(skill => skill && skill.trim()).join(', ')
           : cleanStringValue(editedStudent.skills),
 
+        // Placement status
+        placement_status: cleanStringValue(editedStudent.placement_status || 'not_placed'),
+        placed_job_id: cleanStringValue(editedStudent.placed_job_id),
+
         // Academic scores - all as strings to match model
         tenth_cgpa: cleanStringValue(editedStudent.tenth_cgpa),
         tenth_percentage: cleanStringValue(editedStudent.tenth_percentage),
@@ -666,6 +674,8 @@ export default function StudentManagement() {
         email: updatedStudent.contact_email,
         department: updatedStudent.branch,
         gpa: updatedStudent.gpa,
+        placement_status: updatedStudent.placement_status,
+        placed_job_id: updatedStudent.placed_job_id,
       };
 
       setStudents(prev =>
@@ -727,10 +737,19 @@ export default function StudentManagement() {
   };
 
   const handleInputChange = (field, value) => {
-    setEditedStudent(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setEditedStudent(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      
+      // Clear placed_job_id when placement status is changed to "not_placed"
+      if (field === 'placement_status' && value === 'not_placed') {
+        updated.placed_job_id = '';
+      }
+      
+      return updated;
+    });
   };
 
   // Handle retry button click

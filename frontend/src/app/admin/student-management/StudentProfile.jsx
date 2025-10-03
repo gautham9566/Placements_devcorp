@@ -1009,6 +1009,55 @@ export default function StudentProfile({
                     <p className="text-lg font-semibold text-gray-700">{companyStats.eligibleJobs}</p>
                   </div>
                 </div>
+                
+                {/* Placement Status */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-500 text-sm">Placement Status</p>
+                    {isEditing ? (
+                      <select
+                        value={editedStudent?.placement_status || 'not_placed'}
+                        onChange={(e) => handleInputChange('placement_status', e.target.value)}
+                        className="px-3 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="not_placed">Not Placed</option>
+                        <option value="placed">Placed</option>
+                      </select>
+                    ) : (
+                      <div className="flex items-center">
+                        {profile?.placement_status === 'placed' ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Placed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Not Placed
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Job ID (only show when placed) */}
+                {(isEditing ? editedStudent?.placement_status === 'placed' : profile?.placement_status === 'placed') && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-gray-500 text-sm">Job ID</p>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedStudent?.placed_job_id || ''}
+                          onChange={(e) => handleInputChange('placed_job_id', e.target.value)}
+                          className="px-3 py-1 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+                          placeholder="Enter Job ID"
+                        />
+                      ) : (
+                        <p className="text-sm font-medium text-gray-700">{profile?.placed_job_id || '-'}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

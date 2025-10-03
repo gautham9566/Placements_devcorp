@@ -590,6 +590,31 @@ export default function ProfilePage() {
                     <p className="text-lg font-semibold text-gray-700">{companyStats.eligibleJobs}</p>
                   </div>
                 </div>
+                
+                {/* Placement Status */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-500 text-sm">Placement Status</p>
+                    <div className="flex items-center">
+                      {profile?.placement_status === 'placed' ? (
+                        <div className="flex items-center">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Placed
+                          </span>
+                          {profile?.placed_job_id && (
+                            <span className="ml-2 text-xs text-gray-600">
+                              Job: {profile.placed_job_id}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Not Placed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </>
             )}
           </div>

@@ -334,6 +334,23 @@ class StudentProfile(models.Model):
         help_text="List of allowed company IDs"
     )
     
+    # Placement status
+    placement_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('not_placed', 'Not Placed'),
+            ('placed', 'Placed'),
+        ],
+        default='not_placed',
+        help_text="Current placement status of the student"
+    )
+    placed_job_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Job ID of the job the student was placed in"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

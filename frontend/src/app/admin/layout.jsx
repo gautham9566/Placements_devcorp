@@ -17,7 +17,8 @@ import {
   User,
   Megaphone,
   BarChart3,
-  Calendar
+  Calendar,
+  Trophy
 } from "lucide-react";
 
 export default function AdminLayout({ children }) {
@@ -30,6 +31,7 @@ export default function AdminLayout({ children }) {
         { title: 'Dashboard', href: '/admin/dashboard', icon: <IconHome /> },
         { title: 'Calendar', href: '/admin/calendar', icon: <Calendar className="w-5 h-5" /> },
         { title: 'Applications', href: '/admin/applications', icon: <IconClipboardList /> },
+        { title: 'Placed Students', href: '/admin/placed-students', icon: <Trophy className="w-5 h-5" /> },
         { title: 'Student Management', href: '/admin/student-management', icon: <User className="w-5 h-5" /> },
         { title: 'Company Management', href: '/admin/companymanagement', icon: <IconMail /> },
         { title: 'Forms', href: '/admin/form', icon: <IconForms /> }
