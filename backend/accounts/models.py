@@ -177,7 +177,27 @@ class User(AbstractUser):
         return self.email
 
 
+class StudentProfileManager(models.Manager):
+    """Custom manager for StudentProfile with year filtering"""
+    
+    def active_years_only(self):
+        """Return only students from active years"""
+        from .models import YearManagement
+        active_years = YearManagement.get_active_years()
+        if active_years:
+            return self.filter(passout_year__in=active_years)
+        return self.none()  # If no active years, return no students
+    
+    def get_queryset(self):
+        """Override to always filter by active years for certain operations"""
+        # For now, return all - we'll filter explicitly where needed
+        return super().get_queryset()
+
+
 class StudentProfile(models.Model):
+    # Add the custom manager
+    objects = StudentProfileManager()
+    
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     college = models.ForeignKey(College, on_delete=models.CASCADE, default=1)
 
@@ -526,4 +546,80 @@ class Resume(models.Model):
                 other_resumes.save()
 
         super().delete(*args, **kwargs)
+
+
+class SystemSettings(models.Model):
+    """
+    System-wide settings for the application
+    """
+    maintenance_mode = models.BooleanField(default=False, help_text="Enable maintenance mode")
+    allow_new_registrations = models.BooleanField(default=True, help_text="Allow new user registrations")
+    default_user_role = models.CharField(max_length=20, default='student', choices=[
+        ('student', 'Student'),
+        ('teacher', 'Teacher'),
+        ('admin', 'Admin'),
+    ], help_text="Default role for new users")
+    
+    # Singleton model - only one instance should exist
+    class Meta:
+        verbose_name = "System Settings"
+        verbose_name_plural = "System Settings"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one instance exists
+        if not self.pk and SystemSettings.objects.exists():
+            raise ValidationError("Only one SystemSettings instance can exist")
+        return super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_settings(cls):
+        """Get the system settings instance, creating it if it doesn't exist"""
+        settings, created = cls.objects.get_or_create(pk=1, defaults={
+            'maintenance_mode': False,
+            'allow_new_registrations': True,
+            'default_user_role': 'student'
+        })
+        return settings
+
+
+class YearManagement(models.Model):
+    """
+    Management of active/inactive passout years
+    """
+    year = models.PositiveIntegerField(unique=True, help_text="Passout year")
+    is_active = models.BooleanField(default=True, help_text="Whether this year is active and visible")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Year Management"
+        verbose_name_plural = "Year Management"
+        ordering = ['-year']
+    
+    def __str__(self):
+        return f"{self.year} ({'Active' if self.is_active else 'Inactive'})"
+    
+    @classmethod
+    def get_active_years(cls):
+        """Get list of active years"""
+        return list(cls.objects.filter(is_active=True).values_list('year', flat=True))
+    
+    @classmethod
+    def get_all_years_with_status(cls):
+        """Get all years with their active status"""
+        return list(cls.objects.all().values('year', 'is_active').order_by('-year'))
+    
+    @classmethod
+    def ensure_years_exist(cls):
+        """Ensure all existing passout years from StudentProfile are managed"""
+        from django.db import models as django_models
+        
+        # Get all distinct passout years from StudentProfile
+        existing_years = StudentProfile.objects.values_list(
+            'passout_year', flat=True
+        ).distinct().exclude(passout_year__isnull=True).order_by('passout_year')
+        
+        # Create YearManagement entries for years that don't exist
+        for year in existing_years:
+            cls.objects.get_or_create(year=year, defaults={'is_active': True})
 

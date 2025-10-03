@@ -18,6 +18,7 @@ from .serializers import (
     JobApplicationSerializer,
     JobWithApplicationStatsSerializer,
 )
+from accounts.models import YearManagement
 from accounts.models import StudentProfile
 from college.models import College
 from django.shortcuts import get_object_or_404
@@ -541,12 +542,21 @@ class EnhancedJobListCreateView(generics.ListCreateAPIView):
                 # Filter jobs where allowed_passout_years is empty (all students) 
                 # or contains the user's passout year
                 allowed_jobs = []
+                active_years = YearManagement.get_active_years()
+                
                 for job in queryset:
-                    allowed_years = job.allowed_passout_years or []
+                    allowed_years_list = job.allowed_passout_years or []
                     allowed_depts = job.allowed_departments or []
                     
-                    # Check passout year filter
-                    year_allowed = not allowed_years or user_passout_year in allowed_years
+                    # If job has specific year restrictions, check if any allowed year is active
+                    if allowed_years_list:
+                        # Job is only visible if at least one of its allowed years is active
+                        has_active_year = any(year in active_years for year in allowed_years_list)
+                        if not has_active_year:
+                            continue  # Skip this job
+                    
+                    # Check passout year filter for the current user
+                    year_allowed = not allowed_years_list or user_passout_year in allowed_years_list
                     # Check department filter
                     dept_allowed = not allowed_depts or user_department in allowed_depts
                     # Check arrears filter
@@ -1647,6 +1657,15 @@ class CalendarEventsView(APIView):
                 except (ValueError, TypeError):
                     # If passout_year is invalid, don't filter
                     pass
+            else:
+                # When no specific year is selected, filter out jobs that only allow inactive years
+                active_years = set(YearManagement.get_active_years())
+                filtered_jobs = []
+                for job in job_postings:
+                    allowed_years = job.allowed_passout_years or []
+                    if not allowed_years or any(year in active_years for year in allowed_years):
+                        filtered_jobs.append(job)
+                job_postings = filtered_jobs
 
             for job in job_postings:
                 try:

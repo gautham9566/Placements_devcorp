@@ -47,12 +47,8 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // System settings
-  const [systemSettings, setSystemSettings] = useState({
-    maintenanceMode: false,
-    allowNewRegistrations: true,
-    defaultUserRole: 'student'
-  });
+  // Year management settings
+  const [years, setYears] = useState([]);
   
   // UI state
   const [activeTab, setActiveTab] = useState('profile');
@@ -125,6 +121,22 @@ const Settings = () => {
       }
     }
   }, []);
+
+  // Load year management data for admin users
+  useEffect(() => {
+    const loadYearManagement = async () => {
+      if (isAuthenticated && isAdmin) {
+        try {
+          const yearData = await adminAPI.getYearManagement();
+          setYears(yearData.years || []);
+        } catch (error) {
+          console.error('Error loading year management data:', error);
+        }
+      }
+    };
+    
+    loadYearManagement();
+  }, [isAuthenticated, isAdmin]);
 
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
@@ -291,7 +303,7 @@ const Settings = () => {
     }
   };
   
-  const handleSystemSettingsUpdate = async (e) => {
+  const handleYearManagementUpdate = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage({ type: '', text: '' });
@@ -299,17 +311,17 @@ const Settings = () => {
     try {
       // Only available for admin users
       if (isAdmin) {
-        await adminAPI.updateSystemSettings(systemSettings);
+        await adminAPI.updateYearManagement({ years });
         
         setMessage({ 
           type: 'success', 
-          text: 'System settings have been updated successfully.' 
+          text: 'Year management settings have been updated successfully.' 
         });
       }
     } catch (error) {
       setMessage({ 
         type: 'error', 
-        text: error.message || 'Failed to update system settings. Please try again.' 
+        text: error.message || 'Failed to update year management settings. Please try again.' 
       });
     } finally {
       setIsSubmitting(false);
@@ -335,47 +347,47 @@ const Settings = () => {
         <div className="bg-white shadow-sm rounded-lg mb-6">
           <div className="flex border-b overflow-x-auto">
             <button
-              className={`px-6 py-4 font-medium text-sm flex items-center gap-2 settings-tab ${
+              className={`px-6 py-4 font-medium text-base flex items-center gap-2 settings-tab ${
                 activeTab === 'profile' 
                   ? 'text-blue-600 border-b-2 border-blue-600 active' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               onClick={() => setActiveTab('profile')}
             >
-              <User className="w-4 h-4" />
+              <User className="w-5 h-5" />
               Profile
             </button>
             <button
-              className={`px-6 py-4 font-medium text-sm flex items-center gap-2 settings-tab ${
+              className={`px-6 py-4 font-medium text-base flex items-center gap-2 settings-tab ${
                 activeTab === 'notifications' 
                   ? 'text-blue-600 border-b-2 border-blue-600 active' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               onClick={() => setActiveTab('notifications')}
             >
-              <Bell className="w-4 h-4" />
+              <Bell className="w-5 h-5" />
               Notifications
             </button>
             <button
-              className={`px-6 py-4 font-medium text-sm flex items-center gap-2 settings-tab ${
+              className={`px-6 py-4 font-medium text-base flex items-center gap-2 settings-tab ${
                 activeTab === 'appearance' 
                   ? 'text-blue-600 border-b-2 border-blue-600 active' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               onClick={() => setActiveTab('appearance')}
             >
-              <SettingsIcon className="w-4 h-4" />
+              <SettingsIcon className="w-5 h-5" />
               Appearance
             </button>
             <button
-              className={`px-6 py-4 font-medium text-sm flex items-center gap-2 settings-tab ${
+              className={`px-6 py-4 font-medium text-base flex items-center gap-2 settings-tab ${
                 activeTab === 'security' 
                   ? 'text-blue-600 border-b-2 border-blue-600 active' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
               onClick={() => setActiveTab('security')}
             >
-              <Lock className="w-4 h-4" />
+              <Lock className="w-5 h-5" />
               Security
             </button>
             
@@ -383,26 +395,26 @@ const Settings = () => {
             {isAdmin && (
               <>
                 <button
-                  className={`px-6 py-4 font-medium text-sm flex items-center gap-2 settings-tab ${
-                    activeTab === 'system' 
-                      ? 'text-blue-600 border-b-2 border-blue-600 active' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                  onClick={() => setActiveTab('system')}
-                >
-                  <ShieldAlert className="w-4 h-4" />
-                  System
-                </button>
-                <button
-                  className={`px-6 py-4 font-medium text-sm flex items-center gap-2 settings-tab ${
+                  className={`px-6 py-4 font-medium text-base flex items-center gap-2 settings-tab ${
                     activeTab === 'users' 
                       ? 'text-blue-600 border-b-2 border-blue-600 active' 
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                   onClick={() => setActiveTab('users')}
                 >
-                  <Users className="w-4 h-4" />
-                  User Management
+                  <Users className="w-5 h-5" />
+                  User
+                </button>
+                <button
+                  className={`px-6 py-4 font-medium text-base flex items-center gap-2 settings-tab ${
+                    activeTab === 'years' 
+                      ? 'text-blue-600 border-b-2 border-blue-600 active' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                  onClick={() => setActiveTab('years')}
+                >
+                  <ShieldAlert className="w-5 h-5" />
+                  Year
                 </button>
               </>
             )}
@@ -548,8 +560,8 @@ const Settings = () => {
                         onClick={() => changeTheme('light')}
                       >
                         <div className="flex flex-col items-center">
-                          <Sun className="w-6 h-6 text-gray-700 mb-2" />
-                          <span className="text-sm font-medium">Light</span>
+                          <Sun className="w-7 h-7 text-gray-700 mb-2" />
+                          <span className="text-base font-medium">Light</span>
                         </div>
                       </div>
                       <div
@@ -557,8 +569,8 @@ const Settings = () => {
                         onClick={() => changeTheme('dark')}
                       >
                         <div className="flex flex-col items-center">
-                          <Moon className="w-6 h-6 text-gray-700 mb-2" />
-                          <span className="text-sm font-medium">Dark</span>
+                          <Moon className="w-7 h-7 text-gray-700 mb-2" />
+                          <span className="text-base font-medium">Dark</span>
                         </div>
                       </div>
                       <div
@@ -566,8 +578,8 @@ const Settings = () => {
                         onClick={() => changeTheme('system')}
                       >
                         <div className="flex flex-col items-center">
-                          <SettingsIcon className="w-6 h-6 text-gray-700 mb-2" />
-                          <span className="text-sm font-medium">System</span>
+                          <SettingsIcon className="w-7 h-7 text-gray-700 mb-2" />
+                          <span className="text-base font-medium">System</span>
                         </div>
                       </div>
                     </div>
@@ -654,84 +666,6 @@ const Settings = () => {
             </form>
           )}
           
-          {/* Admin-only tabs */}
-          {isAdmin && activeTab === 'system' && (
-            <form onSubmit={handleSystemSettingsUpdate}>
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-1">System Settings</h2>
-                  <p className="text-gray-600 text-sm mb-4">Configure global system settings</p>
-                </div>
-                
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Maintenance Mode</h3>
-                      <p className="text-sm text-gray-600">Enable to put the site in maintenance mode</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={systemSettings.maintenanceMode}
-                        onChange={() => setSystemSettings({
-                          ...systemSettings,
-                          maintenanceMode: !systemSettings.maintenanceMode
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                  
-                  <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Allow New Registrations</h3>
-                      <p className="text-sm text-gray-600">Enable to allow new users to register</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={systemSettings.allowNewRegistrations}
-                        onChange={() => setSystemSettings({
-                          ...systemSettings,
-                          allowNewRegistrations: !systemSettings.allowNewRegistrations
-                        })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Default User Role</label>
-                    <select
-                      value={systemSettings.defaultUserRole}
-                      onChange={(e) => setSystemSettings({
-                        ...systemSettings,
-                        defaultUserRole: e.target.value
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="student">Student</option>
-                      <option value="teacher">Teacher</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="pt-4">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {isSubmitting ? 'Saving...' : 'Save System Settings'}
-                  </button>
-                </div>
-              </div>
-            </form>
-          )}
-          
           {isAdmin && activeTab === 'users' && (
             <div className="space-y-6">
               <div>
@@ -753,6 +687,61 @@ const Settings = () => {
                 </a>
               </div>
             </div>
+          )}
+          
+          {isAdmin && activeTab === 'years' && (
+            <form onSubmit={handleYearManagementUpdate}>
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-1">Year Management</h2>
+                  <p className="text-gray-600 text-sm mb-4">Control which passout years are visible across the application</p>
+                </div>
+                
+                <div className="space-y-4">
+                  {years.length === 0 ? (
+                    <p className="text-gray-700">No years found in the database.</p>
+                  ) : (
+                    years.map((yearData) => (
+                      <div key={yearData.year} className="flex items-center justify-between py-3 border-b border-gray-200">
+                        <div>
+                          <h3 className="font-medium text-gray-900">Passout Year {yearData.year}</h3>
+                          <p className="text-sm text-gray-600">
+                            {yearData.is_active ? 'Currently visible across the application' : 'Currently hidden from all users'}
+                          </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={yearData.is_active}
+                            onChange={() => {
+                              setYears(years.map(y => 
+                                y.year === yearData.year 
+                                  ? { ...y, is_active: !y.is_active }
+                                  : y
+                              ));
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {years.length > 0 && (
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      {isSubmitting ? 'Saving...' : 'Save Year Settings'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </form>
           )}
         </div>
       </div>

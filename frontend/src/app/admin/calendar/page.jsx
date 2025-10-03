@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { getCalendarEvents } from '../../../api/jobs';
 import { getDashboardMetrics } from '../../../api/metrics';
+import { adminAPI } from '../../../api/optimized';
 
 export default function AdminCalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -96,12 +97,11 @@ export default function AdminCalendarPage() {
 
   const fetchAvailableYears = async () => {
     try {
-      // Fetch student stats which includes years
-      const response = await getDashboardMetrics('student_stats');
-      const studentData = response.data;
+      // Fetch active years directly from the year management API (not cached)
+      const response = await adminAPI.getActiveYears();
       
-      if (studentData.by_year && Array.isArray(studentData.by_year)) {
-        const years = studentData.by_year.map(item => item.passout_year).sort((a, b) => b - a);
+      if (response.active_years && Array.isArray(response.active_years)) {
+        const years = response.active_years.sort((a, b) => b - a);
         // Add "All" option at the beginning
         setAvailableYears(['All', ...years]);
         if (years.length > 0 && !selectedYear) {
@@ -110,10 +110,25 @@ export default function AdminCalendarPage() {
       }
     } catch (error) {
       console.error('Error fetching available years:', error);
-      // Fallback to current year
-      const currentYear = new Date().getFullYear();
-      setAvailableYears(['All', currentYear]);
-      setSelectedYear('All');
+      // Fallback: try to get from student stats (cached but better than nothing)
+      try {
+        const response = await getDashboardMetrics('student_stats');
+        const studentData = response.data;
+        
+        if (studentData.by_year && Array.isArray(studentData.by_year)) {
+          const years = studentData.by_year.map(item => item.passout_year).sort((a, b) => b - a);
+          setAvailableYears(['All', ...years]);
+          if (years.length > 0 && !selectedYear) {
+            setSelectedYear('All');
+          }
+        }
+      } catch (fallbackError) {
+        console.error('Error fetching fallback years:', fallbackError);
+        // Final fallback to current year
+        const currentYear = new Date().getFullYear();
+        setAvailableYears(['All', currentYear]);
+        setSelectedYear('All');
+      }
     }
   };
 

@@ -688,6 +688,50 @@ export const adminAPI = {
       console.error('Error fetching system settings:', error);
       throw error;
     }
+  },
+
+  /**
+   * Get year management settings (admin only)
+   * @returns {Promise} Year management data
+   */
+  async getYearManagement() {
+    try {
+      const response = await client.get('/api/admin/year-management/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching year management:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update year management settings (admin only)
+   * @param {Object} yearData - Year management data
+   * @returns {Promise} Update response
+   */
+  async updateYearManagement(yearData) {
+    try {
+      const response = await client.post('/api/admin/year-management/', yearData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating year management:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get active years list (for dropdowns/filtering)
+   * This endpoint is NOT cached and always returns current active years
+   * @returns {Promise} Active years array
+   */
+  async getActiveYears() {
+    try {
+      const response = await client.get('/api/accounts/active-years/');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching active years:', error);
+      throw error;
+    }
   }
 };
 

@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from .models import User, StudentProfile, College, Resume
+from .models import User, StudentProfile, College, Resume, SystemSettings, YearManagement
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .serializers import UserSerializer, StudentProfileSerializer, StudentProfileListSerializer, SemesterMarksheetSerializer, ResumeSerializer, ResumeCreateSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -952,8 +952,7 @@ class OptimizedStudentListView(generics.ListAPIView):
             departments = [dept for dept in departments if dept]  # Remove empty values
 
             # Get available years
-            years = StudentProfile.objects.values_list('passout_year', flat=True).distinct().order_by('passout_year')
-            years = [year for year in years if year]  # Remove None values
+            years = YearManagement.get_active_years()
 
             response.data['metadata'] = {
                 'available_departments': list(departments),
@@ -1130,4 +1129,105 @@ class ResumeDetailView(generics.RetrieveUpdateDestroyAPIView):
                 other_resumes.save()
 
         instance.delete()
+
+
+# Admin API Views
+class SystemSettingsView(APIView):
+    """
+    Admin view for managing system settings
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self, request):
+        """Get current system settings"""
+        settings = SystemSettings.get_settings()
+        return Response({
+            'maintenance_mode': settings.maintenance_mode,
+            'allow_new_registrations': settings.allow_new_registrations,
+            'default_user_role': settings.default_user_role
+        })
+    
+    def post(self, request):
+        """Update system settings"""
+        settings = SystemSettings.get_settings()
+        
+        # Update fields if provided
+        if 'maintenance_mode' in request.data:
+            settings.maintenance_mode = request.data['maintenance_mode']
+        if 'allow_new_registrations' in request.data:
+            settings.allow_new_registrations = request.data['allow_new_registrations']
+        if 'default_user_role' in request.data:
+            settings.default_user_role = request.data['default_user_role']
+        
+        settings.save()
+        
+        return Response({
+            'message': 'System settings updated successfully',
+            'settings': {
+                'maintenance_mode': settings.maintenance_mode,
+                'allow_new_registrations': settings.allow_new_registrations,
+                'default_user_role': settings.default_user_role
+            }
+        })
+
+
+class YearManagementView(APIView):
+    """
+    Admin view for managing active/inactive years
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self, request):
+        """Get all years with their active status"""
+        # Ensure all existing years are managed
+        YearManagement.ensure_years_exist()
+        
+        years = YearManagement.get_all_years_with_status()
+        return Response({
+            'years': years
+        })
+    
+    def post(self, request):
+        """Update year active status"""
+        year_data = request.data.get('years', [])
+        
+        updated_years = []
+        for year_info in year_data:
+            year = year_info.get('year')
+            is_active = year_info.get('is_active', True)
+            
+            if year is not None:
+                year_obj, created = YearManagement.objects.get_or_create(
+                    year=year,
+                    defaults={'is_active': is_active}
+                )
+                if not created:
+                    year_obj.is_active = is_active
+                    year_obj.save()
+                
+                updated_years.append({
+                    'year': year_obj.year,
+                    'is_active': year_obj.is_active
+                })
+        
+        return Response({
+            'message': 'Year settings updated successfully',
+            'years': updated_years
+        })
+
+
+class ActiveYearsView(APIView):
+    """
+    Public API endpoint to get list of active years
+    Use this for dropdowns and filtering instead of querying cached student_stats
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        """Get list of active years only"""
+        active_years = YearManagement.get_active_years()
+        return Response({
+            'active_years': sorted(active_years, reverse=True),  # Most recent first
+            'count': len(active_years)
+        })
 

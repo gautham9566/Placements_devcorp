@@ -76,6 +76,35 @@ def invalidate_application_metrics(sender, instance=None, **kwargs):
         MetricsCache.invalidate_metric('department_stats')
 
 
+# Invalidate metrics when year management changes
+@receiver(post_save, sender='accounts.YearManagement')
+@receiver(post_delete, sender='accounts.YearManagement')
+def invalidate_year_management_metrics(sender, **kwargs):
+    """
+    Invalidate ALL metrics when year management changes (year toggled active/inactive)
+    This ensures dropdowns and counts update immediately across the entire application
+    """
+    from .models import MetricsCache
+    
+    # Invalidate all student-related metrics
+    MetricsCache.invalidate_metric('dashboard_stats')
+    MetricsCache.invalidate_metric('student_stats')
+    MetricsCache.invalidate_metric('department_stats')
+    MetricsCache.invalidate_metric('placement_stats')
+    MetricsCache.invalidate_metric('enhanced_student_stats')
+    MetricsCache.invalidate_metric('student_department_breakdown')
+    MetricsCache.invalidate_metric('student_year_analysis')
+    
+    # Invalidate all department-specific year analysis caches
+    from accounts.models import StudentProfile
+    departments = StudentProfile.objects.values_list('branch', flat=True).distinct().exclude(branch__isnull=True).exclude(branch='')
+    for dept in departments:
+        dept_key = f"dept_{dept}"
+        MetricsCache.invalidate_metric('student_year_analysis', dept_key)
+    
+    print("✓ All metrics caches invalidated due to year management change")
+
+
 # Update company metrics when job applications change
 @receiver(post_save, sender=JobApplication)
 @receiver(post_delete, sender=JobApplication)

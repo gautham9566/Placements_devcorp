@@ -6,7 +6,7 @@ import json
 
 from .models import MetricsCache, PaginatedDataCache
 from companies.models import Company
-from accounts.models import StudentProfile
+from accounts.models import StudentProfile, YearManagement
 from jobs.models import JobPosting, JobApplication
 
 
@@ -32,6 +32,14 @@ def calculate_dashboard_stats(year=None):
             # Note: Jobs are not filtered by year as total active jobs is global
         except (ValueError, TypeError):
             pass  # If year is invalid, use all data
+    else:
+        # When no specific year is requested, filter by active years only
+        active_years = YearManagement.get_active_years()
+        if active_years:
+            student_queryset = student_queryset.filter(passout_year__in=active_years)
+            application_queryset = application_queryset.filter(
+                applicant__student_profile__passout_year__in=active_years
+            )
     
     stats = {
         'total_jobs': job_queryset.count(),
@@ -81,6 +89,10 @@ def calculate_student_stats():
     """
     current_year = timezone.now().year
 
+    # Filter by active years only
+    active_years = YearManagement.get_active_years()
+    base_queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
+
     # Calculate GPA statistics manually since gpa is CharField
     total_gpa = 0
     gpa_count = 0
@@ -89,7 +101,7 @@ def calculate_student_stats():
         '6.0-6.9': 0, 'Below 6.0': 0
     }
     
-    for student in StudentProfile.objects.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
+    for student in base_queryset.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
         try:
             gpa_value = float(student.gpa)
             total_gpa += gpa_value
@@ -111,26 +123,27 @@ def calculate_student_stats():
     avg_gpa = (total_gpa / gpa_count) if gpa_count > 0 else 0
     gpa_distribution = [{'gpa_range': k, 'count': v} for k, v in gpa_ranges.items()]
 
-    # Calculate placement ready manually
+    # Calculate placement ready manually (only for current year within active years)
     placement_ready = 0
-    for student in StudentProfile.objects.filter(passout_year=current_year):
-        try:
-            if student.gpa and float(student.gpa) >= 6.0:
-                placement_ready += 1
-        except (ValueError, TypeError):
-            continue
+    if current_year in active_years:
+        for student in base_queryset.filter(passout_year=current_year):
+            try:
+                if student.gpa and float(student.gpa) >= 6.0:
+                    placement_ready += 1
+            except (ValueError, TypeError):
+                continue
 
     stats = {
-        'total': StudentProfile.objects.count(),
-        'by_year': list(StudentProfile.objects.values('passout_year').annotate(
+        'total': base_queryset.count(),
+        'by_year': list(base_queryset.values('passout_year').annotate(
             count=Count('id')
         ).exclude(passout_year__isnull=True).order_by('passout_year')),
-        'by_branch': list(StudentProfile.objects.values('branch').annotate(
+        'by_branch': list(base_queryset.values('branch').annotate(
             count=Count('id')
         ).exclude(branch__isnull=True).exclude(branch='').order_by('-count')[:10]),
-        'current_year_students': StudentProfile.objects.filter(
+        'current_year_students': base_queryset.filter(
             passout_year=current_year
-        ).count(),
+        ).count() if current_year in active_years else 0,
         'graduated_students': StudentProfile.objects.filter(
             passout_year__lt=current_year
         ).count(),
@@ -152,9 +165,13 @@ def calculate_department_stats():
     """
     current_year = timezone.now().year
 
-    departments = StudentProfile.objects.values('branch').annotate(
+    # Filter by active years only
+    active_years = YearManagement.get_active_years()
+    base_queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
+
+    departments = base_queryset.values('branch').annotate(
         total_students=Count('id'),
-        current_year_students=Count('id', filter=Q(passout_year=current_year)),
+        current_year_students=Count('id', filter=Q(passout_year=current_year)) if current_year in active_years else 0,
         avg_gpa=Avg('gpa'),
         with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
         placed_students=Count('id', filter=Q(user__job_applications__status='HIRED'), distinct=True)
@@ -175,12 +192,19 @@ def calculate_placement_stats():
     """
     current_year = timezone.now().year
 
-    # Get placement statistics
-    total_eligible = StudentProfile.objects.filter(passout_year=current_year).count()
-    total_placed = JobApplication.objects.filter(
-        status='HIRED',
-        applicant__student_profile__passout_year=current_year
-    ).values('applicant').distinct().count()
+    # Filter by active years only
+    active_years = YearManagement.get_active_years()
+    
+    # Get placement statistics (only if current year is active)
+    if current_year in active_years:
+        total_eligible = StudentProfile.objects.filter(passout_year=current_year).count()
+        total_placed = JobApplication.objects.filter(
+            status='HIRED',
+            applicant__student_profile__passout_year=current_year
+        ).values('applicant').distinct().count()
+    else:
+        total_eligible = 0
+        total_placed = 0
 
     placement_rate = (total_placed / total_eligible * 100) if total_eligible > 0 else 0
 
@@ -661,7 +685,11 @@ def calculate_student_department_breakdown():
     """
     Calculate detailed department-wise breakdown for students
     """
-    departments = StudentProfile.objects.values('branch').annotate(
+    # Filter by active years only
+    active_years = YearManagement.get_active_years()
+    base_queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
+    
+    departments = base_queryset.values('branch').annotate(
         total_students=Count('id'),
         with_resume=Count('id', filter=Q(resume__isnull=False)),
         with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
@@ -671,7 +699,7 @@ def calculate_student_department_breakdown():
     # Add calculated fields by processing each department manually
     for dept in departments:
         total = dept['total_students']
-        dept_students = StudentProfile.objects.filter(branch=dept['branch'])
+        dept_students = base_queryset.filter(branch=dept['branch'])
         
         # Calculate GPA-related metrics manually
         gpa_sum = 0
@@ -735,8 +763,11 @@ def calculate_student_year_analysis(department=None):
     """
     current_year = timezone.now().year
     
+    # Filter by active years only
+    active_years = YearManagement.get_active_years()
+    
     # Base queryset
-    queryset = StudentProfile.objects.all()
+    queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
     
     # Filter by department if specified
     if department:

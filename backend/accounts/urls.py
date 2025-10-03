@@ -16,7 +16,10 @@ from .views import (
     ChangePasswordView,
     StudentFreezeView,
     ResumeListCreateView,
-    ResumeDetailView
+    ResumeDetailView,
+    SystemSettingsView,
+    YearManagementView,
+    ActiveYearsView
 )
 
 router = DefaultRouter()
@@ -42,6 +45,11 @@ urlpatterns = [
     # Resume management endpoints
     path('profiles/me/resumes/', ResumeListCreateView.as_view(), name='resume-list-create'),
     path('profiles/me/resumes/<int:pk>/', ResumeDetailView.as_view(), name='resume-detail'),
+
+    # Admin endpoints
+    path('admin/system-settings/', SystemSettingsView.as_view(), name='system-settings'),
+    path('admin/year-management/', YearManagementView.as_view(), name='year-management'),
+    path('active-years/', ActiveYearsView.as_view(), name='active-years'),
 
     # ViewSet routes
     path('', include(router.urls)),
