@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { use } from 'react';
 import { ArrowLeft, Save, X, Plus, Trash2 } from "lucide-react";
 import { getJobById, updateJob } from '../../../../../../api/jobs';
+import { studentsAPI } from '../../../../../../api/optimized';
 
 export default function EditJob({ params }) {
   const unwrappedParams = use(params);
@@ -25,8 +26,12 @@ export default function EditJob({ params }) {
     requirements: [],
     benefits: [],
     skills: [],
+    required_skills: '',
     company_id: null,
-    company_name: ''
+    company_name: '',
+    allowed_passout_years: [],
+    allowed_departments: [],
+    arrears_requirement: 'NO_RESTRICTION'
   });
 
   const [interviewRounds, setInterviewRounds] = useState([
@@ -38,9 +43,33 @@ export default function EditJob({ params }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  // Dropdown states
+  const [showPassoutYearsDropdown, setShowPassoutYearsDropdown] = useState(false);
+  const [showDepartmentsDropdown, setShowDepartmentsDropdown] = useState(false);
+
+  // Additional data states
+  const [passoutYears, setPassoutYears] = useState([]);
+  const [selectedPassoutYears, setSelectedPassoutYears] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [arrearsRequirement, setArrearsRequirement] = useState('NO_RESTRICTION');
+
   useEffect(() => {
-    const loadJobData = async () => {
+    const loadData = async () => {
       try {
+        setLoading(true);
+        
+        // Fetch passout years and departments
+        console.log('Fetching passout years and departments...');
+        const studentsResponse = await studentsAPI.getStudents({ page_size: 1 });
+        if (studentsResponse.metadata && studentsResponse.metadata.available_years) {
+          setPassoutYears(studentsResponse.metadata.available_years);
+        }
+        if (studentsResponse.metadata && studentsResponse.metadata.available_departments) {
+          setDepartments(studentsResponse.metadata.available_departments);
+        }
+
+        // Load job data
         console.log('Loading job data for ID:', jobId);
         const response = await getJobById(jobId);
         console.log('Job API response:', response);
@@ -65,11 +94,20 @@ export default function EditJob({ params }) {
             requirements: jobData.requirements || [],
             benefits: jobData.benefits || [],
             skills: jobData.skills || [],
+            required_skills: jobData.required_skills || '',
             company_id: jobData.company_id || jobData.company?.id || null,
-            company_name: jobData.company_name || jobData.company?.name || ''
+            company_name: jobData.company_name || jobData.company?.name || '',
+            allowed_passout_years: jobData.allowed_passout_years || [],
+            allowed_departments: jobData.allowed_departments || [],
+            arrears_requirement: jobData.arrears_requirement || 'NO_RESTRICTION'
           };
           
           setFormData(formattedData);
+          
+          // Set selected values from job data
+          setSelectedPassoutYears(jobData.allowed_passout_years || []);
+          setSelectedDepartments(jobData.allowed_departments || []);
+          setArrearsRequirement(jobData.arrears_requirement || 'NO_RESTRICTION');
           
           // Set interview rounds if available
           if (jobData.interview_rounds && jobData.interview_rounds.length > 0) {
@@ -87,7 +125,7 @@ export default function EditJob({ params }) {
           }
         }
       } catch (error) {
-        console.error('Error loading job:', error);
+        console.error('Error loading data:', error);
         setError('Failed to load job data. Please try again.');
       } finally {
         setLoading(false);
@@ -95,9 +133,24 @@ export default function EditJob({ params }) {
     };
 
     if (jobId) {
-      loadJobData();
+      loadData();
     }
   }, [jobId]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.passout-years-dropdown') && !event.target.closest('.departments-dropdown')) {
+        setShowPassoutYearsDropdown(false);
+        setShowDepartmentsDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -192,8 +245,12 @@ export default function EditJob({ params }) {
         requirements: formData.requirements,
         benefits: formData.benefits,
         skills: formData.skills,
+        required_skills: formData.required_skills,
         interview_rounds: interviewRounds.filter(round => round.name.trim()),
-        additional_fields: additionalFields
+        additional_fields: additionalFields,
+        allowed_passout_years: selectedPassoutYears,
+        allowed_departments: selectedDepartments,
+        arrears_requirement: arrearsRequirement
       };
       
       const response = await updateJob(jobId, apiData);
@@ -402,6 +459,175 @@ export default function EditJob({ params }) {
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            {/* Required Skills */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Required Skills
+              </label>
+              <input
+                type="text"
+                value={formData.required_skills}
+                onChange={(e) => handleInputChange('required_skills', e.target.value)}
+                placeholder="Enter required skills (e.g., Python, Java, SQL)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Passout Years Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Allowed Passout Years
+              </label>
+              <p className="text-sm text-gray-500 mb-3">
+                Select the passout years that can view and apply for this job. If none are selected, all students can view the job.
+              </p>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowPassoutYearsDropdown(!showPassoutYearsDropdown)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {selectedPassoutYears.length > 0
+                    ? `${selectedPassoutYears.length} selected (${selectedPassoutYears.join(', ')})`
+                    : 'Select passout years'
+                  }
+                </button>
+                {showPassoutYearsDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto passout-years-dropdown">
+                    {passoutYears.length > 0 ? (
+                      passoutYears.map(year => (
+                        <label key={year} className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedPassoutYears.includes(year)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedPassoutYears(prev => [...prev, year]);
+                              } else {
+                                setSelectedPassoutYears(prev => prev.filter(y => y !== year));
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          {year}
+                        </label>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                        No passout years available
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Click outside to close dropdown */}
+              {showPassoutYearsDropdown && (
+                <div
+                  className="fixed inset-0 z-5"
+                  onClick={() => setShowPassoutYearsDropdown(false)}
+                />
+              )}
+            </div>
+
+            {/* Departments Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Allowed Departments
+              </label>
+              <p className="text-sm text-gray-500 mb-3">
+                Select the departments that can view and apply for this job. If none are selected, all departments can view the job.
+              </p>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDepartmentsDropdown(!showDepartmentsDropdown)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {selectedDepartments.length > 0
+                    ? `${selectedDepartments.length} selected (${selectedDepartments.join(', ')})`
+                    : 'Select departments'
+                  }
+                </button>
+                {showDepartmentsDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto departments-dropdown">
+                    {departments.length > 0 ? (
+                      departments.map(dept => (
+                        <label key={dept} className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedDepartments.includes(dept)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDepartments(prev => [...prev, dept]);
+                              } else {
+                                setSelectedDepartments(prev => prev.filter(d => d !== dept));
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          {dept}
+                        </label>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                        No departments available
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Click outside to close dropdown */}
+              {showDepartmentsDropdown && (
+                <div
+                  className="fixed inset-0 z-5"
+                  onClick={() => setShowDepartmentsDropdown(false)}
+                />
+              )}
+            </div>
+
+            {/* Arrears Requirement */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Arrears Requirement
+              </label>
+              <p className="text-sm text-gray-500 mb-3">
+                Set requirements for student arrears status. If no restriction is selected, all students can view the job.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="filterArrears"
+                    checked={arrearsRequirement !== 'NO_RESTRICTION'}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setArrearsRequirement('ALLOW_WITH_ARREARS');
+                      } else {
+                        setArrearsRequirement('NO_RESTRICTION');
+                      }
+                    }}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="filterArrears" className="ml-2 block text-sm text-gray-900">
+                    Filter by arrears status
+                  </label>
+                </div>
+
+                {arrearsRequirement !== 'NO_RESTRICTION' && (
+                  <div className="ml-6">
+                    <select
+                      value={arrearsRequirement}
+                      onChange={(e) => setArrearsRequirement(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="ALLOW_WITH_ARREARS">Allow students with active arrears</option>
+                      <option value="NO_ARREARS_ALLOWED">Only students with no active arrears</option>
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Interview Timeline */}

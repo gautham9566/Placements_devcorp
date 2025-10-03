@@ -120,8 +120,8 @@ export default function ViewJob({ params }) {
                 {job.company_name} • Job ID: {jobId}
               </p>
             </div>
-            <div className="flex space-x-3">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            <div className="flex items-center space-x-3">
+              <span className={`inline-flex items-center px-3 rounded-full text-sm font-medium h-8 ${
                 job.is_published 
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-yellow-100 text-yellow-800'
@@ -130,10 +130,10 @@ export default function ViewJob({ params }) {
               </span>
               <button 
                 onClick={() => router.push(`/admin/companymanagement/jobs/edit/${jobId}`)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+                className="bg-blue-600 text-white px-3 h-8 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
               >
                 <Edit className="w-4 h-4 mr-2" />
-                Edit Job
+                <span className="text-sm font-medium">Edit Job</span>
               </button>
             </div>
           </div>

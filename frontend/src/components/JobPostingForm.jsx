@@ -300,6 +300,21 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
             </div>
           </div>
 
+          {/* Job Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Job Description *
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              placeholder="Enter detailed job description"
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

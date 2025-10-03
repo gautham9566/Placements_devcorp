@@ -401,7 +401,7 @@ export default function AdminCompanyDetail({ params }) {
 
   // Add function to handle job view
   const handleJobView = (jobId) => {
-    router.push(`/jobs/${jobId}`);
+    router.push(`/admin/companymanagement/jobs/${jobId}`);
   };
   
   // Add function to handle form publishing with auto-approve

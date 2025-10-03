@@ -179,7 +179,7 @@ export default function CreateJobPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => router.push('/admin/companymanagement/jobs/companies')}
+              onClick={() => router.push('/admin/companymanagement')}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               View Companies

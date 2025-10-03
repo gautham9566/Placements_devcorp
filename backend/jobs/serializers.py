@@ -246,6 +246,7 @@ class EnhancedJobSerializer(serializers.ModelSerializer):
             'location', 'job_type', 'salary_min', 'salary_max', 'duration',
             'application_deadline', 'requirements', 'skills', 'benefits',
             'is_active', 'is_published', 'interview_rounds', 'additional_fields',
+            'required_skills', 'allowed_passout_years', 'allowed_departments', 'arrears_requirement',
             'created_at', 'updated_at', 'company'
         ]
         
