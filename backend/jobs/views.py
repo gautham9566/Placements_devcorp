@@ -1,4 +1,4 @@
-from rest_framework import viewsets, generics, permissions, status
+from rest_framework import viewsets, generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import CompanyForm, JobPosting
@@ -513,6 +513,7 @@ class EnhancedJobListCreateView(generics.ListCreateAPIView):
         location = self.request.query_params.get('location')
         salary_min = self.request.query_params.get('salary_min')
         search = self.request.query_params.get('search')
+        company_id = self.request.query_params.get('company_id')
 
         if job_type:
             queryset = queryset.filter(job_type=job_type)
@@ -526,6 +527,8 @@ class EnhancedJobListCreateView(generics.ListCreateAPIView):
                 Q(description__icontains=search) |
                 Q(company__name__icontains=search)
             )
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
 
         # Filter by student's passout year for non-admin users
         if not self.request.user.is_staff:
@@ -1583,3 +1586,184 @@ class BulkApplicationUpdateView(APIView):
             'message': f'Successfully updated {updated_count} applications',
             'updated_count': updated_count
         })
+
+
+class CalendarEventsView(APIView):
+    """
+    API view for calendar events - provides events for admin dashboard calendar
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Get current date and month range
+            today = timezone.now().date()
+            start_date_param = request.query_params.get('start_date')
+            end_date_param = request.query_params.get('end_date')
+            passout_year_param = request.query_params.get('passout_year')
+            
+            # If passout_year is specified, use a broad date range to capture all events for matching jobs
+            if passout_year_param and passout_year_param != 'All':
+                start_date = today.replace(year=today.year - 2)  # 2 years ago
+                end_date = today.replace(year=today.year + 3)    # 3 years ahead
+            else:
+                # Use provided dates or defaults for "All" case
+                if start_date_param:
+                    try:
+                        start_date = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+                    except ValueError:
+                        start_date = today.replace(day=1)
+                else:
+                    start_date = today.replace(day=1)
+                    
+                if end_date_param:
+                    try:
+                        end_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+                    except ValueError:
+                        end_date = (today.replace(day=1) + timedelta(days=365)).replace(day=1) - timedelta(days=1)
+                else:
+                    end_date = (today.replace(day=1) + timedelta(days=365)).replace(day=1) - timedelta(days=1)
+
+            events = []
+
+            # 1. Application deadlines from job postings
+            job_postings = JobPosting.objects.filter(
+                application_deadline__gte=start_date,
+                application_deadline__lte=end_date,
+                is_active=True
+            ).exclude(application_deadline__isnull=True).select_related('company')
+            
+            # Filter by passout year if specified (in Python since SQLite doesn't support JSON array operations)
+            if passout_year_param and passout_year_param != 'All':
+                try:
+                    passout_year = int(passout_year_param)
+                    # Filter jobs in Python where allowed_passout_years is empty (all students) or contains the specified year
+                    filtered_jobs = []
+                    for job in job_postings:
+                        allowed_years = job.allowed_passout_years or []
+                        if not allowed_years or passout_year in allowed_years:
+                            filtered_jobs.append(job)
+                    job_postings = filtered_jobs
+                except (ValueError, TypeError):
+                    # If passout_year is invalid, don't filter
+                    pass
+
+            for job in job_postings:
+                try:
+                    events.append({
+                        'id': f'job_deadline_{job.id}',
+                        'title': f'Application Deadline: {job.title}',
+                        'type': 'APPLICATION_DEADLINE',
+                        'date': job.application_deadline.isoformat(),
+                        'time': '23:59',  # End of day
+                        'company': job.company.name if job.company else 'Unknown Company',
+                        'description': f'Application deadline for {job.title} at {job.company.name if job.company else "Unknown Company"}',
+                        'status': 'upcoming' if job.application_deadline > today else 'past',
+                        'priority': 'high',
+                        'color': '#ef4444',  # Red for deadlines
+                        'location': job.location or 'TBD',
+                        'job_id': job.id,
+                        'company_id': job.company.id if job.company else None
+                    })
+                except Exception as e:
+                    print(f"Error processing job deadline for job {job.id}: {str(e)}")
+                    continue
+
+            # 2. Interview rounds from job postings
+            for job in job_postings:
+                if job.interview_rounds and isinstance(job.interview_rounds, list):
+                    for round_info in job.interview_rounds:
+                        if isinstance(round_info, dict) and 'date' in round_info and 'time' in round_info:
+                            try:
+                                round_date = datetime.strptime(round_info['date'], '%Y-%m-%d').date()
+                                if start_date <= round_date <= end_date:
+                                    events.append({
+                                        'id': f'interview_{job.id}_{round_info.get("name", "round")}',
+                                        'title': f'Interview: {round_info.get("name", "Round")} - {job.title}',
+                                        'type': 'INTERVIEW',
+                                        'date': round_date.isoformat(),
+                                        'time': round_info.get('time', '09:00'),
+                                        'company': job.company.name if job.company else 'Unknown Company',
+                                        'description': f'Interview round for {job.title} at {job.company.name if job.company else "Unknown Company"}',
+                                        'status': 'upcoming' if round_date > today else ('ongoing' if round_date == today else 'past'),
+                                        'priority': 'high',
+                                        'color': '#f59e0b',  # Orange for interviews
+                                        'location': job.location or 'TBD',
+                                        'job_id': job.id,
+                                        'company_id': job.company.id if job.company else None,
+                                        'round_name': round_info.get('name', 'Interview Round')
+                                    })
+                            except (ValueError, KeyError, TypeError) as e:
+                                print(f"Error processing interview round for job {job.id}: {str(e)}")
+                                continue
+
+            # 3. Recent applications and status changes (last 30 days)
+            recent_applications = JobApplication.objects.filter(
+                applied_at__gte=timezone.now() - timedelta(days=30)
+            ).select_related('job', 'applicant').prefetch_related('job__company')
+
+            for app in recent_applications:
+                try:
+                    event_date = app.applied_at.date()
+                    if start_date <= event_date <= end_date:
+                        events.append({
+                            'id': f'application_{app.id}',
+                            'title': f'New Application: {app.job.title}',
+                            'type': 'APPLICATION_SUBMITTED',
+                            'date': event_date.isoformat(),
+                            'time': app.applied_at.strftime('%H:%M'),
+                            'company': app.job.company.name if app.job.company else 'Unknown Company',
+                            'description': f'New application submitted for {app.job.title}',
+                            'status': 'completed',
+                            'priority': 'medium',
+                            'color': '#10b981',  # Green for applications
+                            'location': 'Online',
+                            'job_id': app.job.id,
+                            'company_id': app.job.company.id if app.job.company else None,
+                            'applicant_name': f"{app.applicant.first_name or ''} {app.applicant.last_name or ''}".strip() or app.applicant.username
+                        })
+                except Exception as e:
+                    print(f"Error processing application {app.id}: {str(e)}")
+                    continue
+
+            # 4. Upcoming company events (if any companies have events)
+            # For now, we'll add some static upcoming events
+            upcoming_events = [
+                {
+                    'id': 'career_fair_2024',
+                    'title': 'Annual Career Fair 2024',
+                    'type': 'CAREER_FAIR',
+                    'date': (today + timedelta(days=30)).isoformat(),
+                    'time': '10:00',
+                    'company': 'Multiple Companies',
+                    'description': 'Annual career fair with multiple companies participating',
+                    'status': 'upcoming',
+                    'priority': 'high',
+                    'color': '#8b5cf6',  # Purple for events
+                    'location': 'Main Campus Auditorium',
+                }
+            ]
+
+            # Filter upcoming events within date range
+            for event in upcoming_events:
+                event_date = datetime.strptime(event['date'], '%Y-%m-%d').date()
+                if start_date <= event_date <= end_date:
+                    events.append(event)
+
+            # Sort events by date
+            events.sort(key=lambda x: x['date'])
+
+            return Response({
+                'events': events,
+                'stats': {
+                    'total_events': len(events),
+                    'upcoming_deadlines': len([e for e in events if e['type'] == 'APPLICATION_DEADLINE' and e['status'] == 'upcoming']),
+                    'upcoming_interviews': len([e for e in events if e['type'] == 'INTERVIEW' and e['status'] in ['upcoming', 'ongoing']]),
+                    'recent_applications': len([e for e in events if e['type'] == 'APPLICATION_SUBMITTED'])
+                }
+            })
+        except Exception as e:
+            import traceback
+            print(f"Error in CalendarEventsView: {str(e)}")
+            print(traceback.format_exc())
+            return Response({'error': str(e)}, status=500)

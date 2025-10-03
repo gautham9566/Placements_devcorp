@@ -41,7 +41,7 @@ import {
   getFollowersCount,
   checkFollowingStatus 
 } from '../../../api/companies';
-import { getJobsByCompany } from '../../../data/jobsData'; // Keep the placeholder for now
+import { listJobs } from '../../../api/jobs';
 import { getUserId } from '../../../utils/auth'; // You'll need to create this utility
 import { FormattedJobDescription } from '../../../lib/utils';
 
@@ -76,8 +76,9 @@ export default function CompanyDetail() {
         if (companyData) {
           setCompany(companyData);
           
-          // For jobs, we'll use the placeholder until we implement a real API
-          const jobs = getJobsByCompany(companyId);
+          // For jobs, use the API instead of static data
+          const jobsResponse = await listJobs({ company_id: companyId, per_page: 50 });
+          const jobs = jobsResponse.data?.data || jobsResponse.data || [];
           setCompanyJobs(jobs);
           
           // Load follower count from API

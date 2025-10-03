@@ -28,16 +28,7 @@ import {
 } from "lucide-react";
 
 // Import calendar data
-import { 
-  calendarEvents, 
-  getAllEvents,
-  getEventsByMonth,
-  getEventsByType,
-  getEventsByCompany,
-  getUpcomingEvents,
-  getEventStats,
-  EVENT_TYPES
-} from '../../data/calendarData';
+import { getCalendarEvents } from '../../api/jobs';
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -48,13 +39,35 @@ export default function CalendarPage() {
   const [filterType, setFilterType] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load all events
-    const allEvents = getAllEvents();
-    setEvents(allEvents);
-    setFilteredEvents(allEvents);
+    fetchCalendarEvents();
   }, []);
+
+  const fetchCalendarEvents = async () => {
+    try {
+      setLoading(true);
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - 1); // Last month
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + 6); // Next 6 months
+
+      const response = await getCalendarEvents({
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0]
+      });
+      const allEvents = response.data.events || [];
+      setEvents(allEvents);
+      setFilteredEvents(allEvents);
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+      setEvents([]);
+      setFilteredEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter events based on search and type
   useEffect(() => {
@@ -152,8 +165,28 @@ export default function CalendarPage() {
     }
   };
 
-  const stats = getEventStats();
-  const upcomingEvents = getUpcomingEvents(7);
+  // Calculate stats from events data
+  const stats = {
+    total: events.length,
+    interviews: events.filter(e => e.type === 'INTERVIEW').length,
+    deadlines: events.filter(e => e.type === 'JOB_DEADLINE').length,
+    companyEvents: events.filter(e => e.type === 'COMPANY_EVENT' || e.type === 'CAREER_FAIR').length,
+    upcoming: events.filter(e => {
+      const eventDate = new Date(e.date);
+      const today = new Date();
+      const weekFromNow = new Date(today);
+      weekFromNow.setDate(today.getDate() + 7);
+      return eventDate >= today && eventDate <= weekFromNow;
+    }).length
+  };
+
+  const upcomingEvents = events.filter(e => {
+    const eventDate = new Date(e.date);
+    const today = new Date();
+    const weekFromNow = new Date(today);
+    weekFromNow.setDate(today.getDate() + 7);
+    return eventDate >= today && eventDate <= weekFromNow;
+  }).slice(0, 7);
 
   const handleEventClick = (event) => {
     setSelectedEvent(event);
@@ -172,6 +205,17 @@ export default function CalendarPage() {
       day === today.getDate()
     );
   };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-gray-600">Loading calendar...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

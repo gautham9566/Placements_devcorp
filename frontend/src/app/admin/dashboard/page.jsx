@@ -6,7 +6,25 @@ import {
   ClipboardList,
   TrendingDown,
   TrendingUp,
-  Users
+  Users,
+  Calendar,
+  Clock,
+  MapPin,
+  AlertCircle,
+  CheckCircle,
+  Filter,
+  List,
+  Grid3X3,
+  Search,
+  Plus,
+  Bell,
+  Eye,
+  Edit,
+  Trash2,
+  ExternalLink,
+  User,
+  Target,
+  BookmarkPlus
 } from "lucide-react";
 import { useEffect, useState } from 'react';
 import {
@@ -19,6 +37,7 @@ import {
 } from 'recharts';
 import { getDashboardMetrics, getApplicationTimeline } from '../../../api/metrics';
 import { getAllApplications } from '../../../api/applications';
+import { getCalendarEvents } from '../../../api/jobs';
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -43,6 +62,15 @@ function Dashboard() {
     placementRate: null
   });
 
+  // Calendar state
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'list'
+  const [filterType, setFilterType] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+
   useEffect(() => {
     fetchAvailableYears();
   }, []);
@@ -64,6 +92,19 @@ function Dashboard() {
       }
     }
   }, [selectedYear]);
+
+  useEffect(() => {
+    fetchCalendarEvents();
+  }, [selectedYear]);
+
+  // Real-time updates for calendar events (poll every 5 minutes)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchCalendarEvents();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchDashboardData = async (year = 'All') => {
     try {
@@ -190,8 +231,8 @@ function Dashboard() {
         });
       }
       
-      // Take only the first 10 after filtering
-      applications = applications.slice(0, 10);
+      // Take only the first 5 after filtering
+      applications = applications.slice(0, 5);
       
       // Ensure applications is always an array
       setRecentApplications(Array.isArray(applications) ? applications : []);
@@ -213,6 +254,49 @@ function Dashboard() {
       setApplicationData([]);
     } finally {
       setChartLoading(false);
+    }
+  };
+
+  const fetchCalendarEvents = async () => {
+    try {
+      setCalendarLoading(true);
+      let startDate, endDate;
+      
+      if (selectedYear === 'All') {
+        startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 1); // Last month
+        endDate = new Date();
+        endDate.setMonth(endDate.getMonth() + 6); // Next 6 months
+      } else {
+        startDate = new Date(`${selectedYear}-01-01`);
+        endDate = new Date(`${selectedYear}-12-31`);
+      }
+
+      const response = await getCalendarEvents({
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0],
+        passout_year: selectedYear
+      });
+
+      setCalendarEvents(response.data.events || []);
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+      // Show error message to user
+      setCalendarEvents([{
+        id: 'error',
+        title: 'Error loading calendar events',
+        type: 'ERROR',
+        date: new Date().toISOString().split('T')[0],
+        time: '00:00',
+        company: 'System',
+        description: error.response?.data?.error || 'Failed to load calendar events',
+        status: 'error',
+        priority: 'high',
+        color: '#ef4444',
+        location: 'N/A'
+      }]);
+    } finally {
+      setCalendarLoading(false);
     }
   };
 
@@ -426,7 +510,95 @@ function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
-    
+
+      {/* Calendar Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center">
+            <Calendar className="w-6 h-6 mr-2 text-blue-600" />
+            Upcoming Events & Deadlines
+          </h2>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`p-2 rounded-md ${viewMode === 'calendar' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-md ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {calendarLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Loading calendar events...</span>
+          </div>
+        ) : calendarEvents.length === 0 ? (
+          <div className="text-center py-12">
+            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No upcoming events found</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {calendarEvents.slice(0, 5).map((event) => (
+              <div key={event.id} className="flex items-start space-x-4 p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                <div className={`w-3 h-3 rounded-full mt-2`} style={{ backgroundColor: event.color || '#6b7280' }}></div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{event.title}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{event.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {event.date ? new Date(event.date).toLocaleDateString() : 'N/A'}
+                      </div>
+                      <div className="text-sm text-gray-500 flex items-center">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {event.time || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center mt-2 space-x-4">
+                    <div className="flex items-center text-sm text-gray-500">
+                      <Building2 className="w-4 h-4 mr-1" />
+                      {event.company || 'N/A'}
+                    </div>
+                    {event.location && event.location !== 'N/A' && (
+                      <div className="flex items-center text-sm text-gray-500">
+                        <MapPin className="w-4 h-4 mr-1" />
+                        {event.location}
+                      </div>
+                    )}
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      event.status === 'upcoming' ? 'bg-blue-100 text-blue-800' :
+                      event.status === 'ongoing' ? 'bg-green-100 text-green-800' :
+                      event.status === 'error' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {event.status || 'Unknown'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {calendarEvents.length > 10 && (
+              <div className="text-center pt-4">
+                <a href="/admin/calendar" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                  View all {calendarEvents.length} events
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Recent Applications Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex justify-between items-center mb-6">

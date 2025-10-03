@@ -13,6 +13,7 @@ export function listJobs(params = {}) {
   if (params.location && params.location !== 'ALL') queryParams.append('location', params.location);
   if (params.salary_min) queryParams.append('salary_min', params.salary_min);
   if (params.search) queryParams.append('search', params.search);
+  if (params.company_id) queryParams.append('company_id', params.company_id);
   
   const queryString = queryParams.toString();
   const url = `/api/v1/college/default-college/jobs/${queryString ? `?${queryString}` : ''}`;
@@ -137,5 +138,19 @@ export function listJobsAdmin(params = {}) {
 // Toggle job publish status
 export function toggleJobPublish(jobId) {
   return client.patch(`/api/v1/jobs/${jobId}/toggle-publish/`);
+}
+
+// Get calendar events for admin dashboard
+export function getCalendarEvents(params = {}) {
+  const queryParams = new URLSearchParams();
+  
+  if (params.start_date) queryParams.append('start_date', params.start_date);
+  if (params.end_date) queryParams.append('end_date', params.end_date);
+  if (params.passout_year) queryParams.append('passout_year', params.passout_year);
+  
+  const queryString = queryParams.toString();
+  const url = `/api/v1/jobs/calendar/events/${queryString ? `?${queryString}` : ''}`;
+  
+  return client.get(url);
 }
 

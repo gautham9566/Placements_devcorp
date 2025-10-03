@@ -16,7 +16,8 @@ import {
 import {
   User,
   Megaphone,
-  BarChart3
+  BarChart3,
+  Calendar
 } from "lucide-react";
 
 export default function AdminLayout({ children }) {
@@ -27,6 +28,7 @@ export default function AdminLayout({ children }) {
     {
       items: [
         { title: 'Dashboard', href: '/admin/dashboard', icon: <IconHome /> },
+        { title: 'Calendar', href: '/admin/calendar', icon: <Calendar className="w-5 h-5" /> },
         { title: 'Applications', href: '/admin/applications', icon: <IconClipboardList /> },
         { title: 'Student Management', href: '/admin/student-management', icon: <User className="w-5 h-5" /> },
         { title: 'Company Management', href: '/admin/companymanagement', icon: <IconMail /> },

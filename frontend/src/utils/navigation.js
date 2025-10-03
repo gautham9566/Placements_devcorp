@@ -30,6 +30,11 @@ export const getSettingsUrl = (userType) => {
   return userType === 'ADMIN' ? '/admin/settings' : '/settings';
 };
 
+// Function to get the correct calendar URL based on user role
+export const getCalendarUrl = (userType) => {
+  return userType === 'ADMIN' ? '/admin/calendar' : '/calendar';
+};
+
 // Function to get navigation links with dynamic settings URL
 export const getNavigationLinks = (userType) => {
   return navigationLinks.map(group => ({
@@ -39,6 +44,12 @@ export const getNavigationLinks = (userType) => {
         return {
           ...item,
           href: getSettingsUrl(userType)
+        };
+      }
+      if (item.title === 'Calendar') {
+        return {
+          ...item,
+          href: getCalendarUrl(userType)
         };
       }
       return item;

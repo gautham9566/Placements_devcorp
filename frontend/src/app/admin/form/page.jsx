@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { IconPlus, IconCopy, IconCheck, IconSearch, IconBuilding, IconEdit, IconExternalLink, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
 import { getForms, createForm, approveForm, rejectForm, convertFormToJob } from '../../../api/forms';
 import { toggleJobPublish } from '../../../api/jobs';
-import { fetchCompanies } from '../../../data/jobsData';
+import { fetchCompanies } from '../../../api/companies';
 
 export default function AdminFormsPage() {
   const router = useRouter();

@@ -34,6 +34,7 @@ from .views import (
     ApplicationExportView,
     StudentProfileFieldsView,
     BulkApplicationUpdateView,
+    CalendarEventsView,
 )
 
 router = DefaultRouter()
@@ -81,6 +82,9 @@ urlpatterns = [
     path('applications/export/', ApplicationExportView.as_view(), name='applications-export'),
     path('applications/fields/', StudentProfileFieldsView.as_view(), name='profile-fields'),
     path('applications/bulk-update/', BulkApplicationUpdateView.as_view(), name='bulk-application-update'),
+    
+    # Calendar API
+    path('calendar/events/', CalendarEventsView.as_view(), name='calendar-events'),
     
     # Forms API
     path('', include(router.urls)),

@@ -96,10 +96,7 @@ export async function fetchCompanies(params = {}) {
       }
     }
     
-    // Import the static data as last resort
-    console.log('Falling back to static company data');
-    const { companies } = await import('../data/jobsData');
-    return companies;
+    throw new Error('Failed to fetch companies from API and no valid cache available');
   }
 }
 
