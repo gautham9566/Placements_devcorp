@@ -83,7 +83,7 @@ export function getJobApplications(jobId, params = {}) {
   if (params.status) queryParams.append('status', params.status);
   
   const queryString = queryParams.toString();
-  const url = `/api/v1/college/default-college/jobs/${jobId}/applications/${queryString ? `?${queryString}` : ''}`;
+  const url = `/api/v1/jobs/${jobId}/applications/${queryString ? `?${queryString}` : ''}`;
   
   return client.get(url);
 }

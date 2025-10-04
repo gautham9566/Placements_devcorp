@@ -31,7 +31,7 @@ const getPageTitle = (pathname) => {
     return 'Admin Dashboard';
   }
   
-  return titleMap[pathname] || 'PlaceEasy';
+  return titleMap[pathname] || 'DevCorp';
 };
 
 // Check if current route should use admin layout
@@ -63,7 +63,7 @@ export default function RootLayout({ children }) {
     return (
       <html lang="en">
         <head>
-          <title>PlaceEasy - Campus Placement Platform</title>
+          <title>DevCorp - Campus Placement Platform</title>
           <meta name="description" content="Your comprehensive campus placement and career management platform" />
         </head>
         <body className="h-screen overflow-hidden">
@@ -88,7 +88,7 @@ export default function RootLayout({ children }) {
     return (
       <html lang="en">
         <head>
-          <title>PlaceEasy - Campus Placement Platform</title>
+          <title>DevCorp - Campus Placement Platform</title>
           <meta name="description" content="Your comprehensive campus placement and career management platform" />
         </head>
         <body className="h-screen overflow-hidden">
@@ -109,7 +109,7 @@ export default function RootLayout({ children }) {
     return (
       <html lang="en">
         <head>
-          <title>PlaceEasy - Campus Placement Platform</title>
+          <title>DevCorp - Campus Placement Platform</title>
           <meta name="description" content="Your comprehensive campus placement and career management platform" />
         </head>
         <body className="h-screen overflow-hidden">
@@ -142,7 +142,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        <title>PlaceEasy - Campus Placement Platform</title>
+        <title>DevCorp - Campus Placement Platform</title>
         <meta name="description" content="Your comprehensive campus placement and career management platform" />
       </head>
       <body className="h-screen overflow-hidden">
@@ -152,7 +152,7 @@ export default function RootLayout({ children }) {
               {/* Fixed Header */}
               <div className="fixed w-full flex justify-between items-center py-4 bg-white shadow-sm z-10">
                 <span className="text-gray-700 font-medium text-xl ml-16 sm:ml-28">
-                  {college || 'AVV Chennai'}
+                  {college || 'College Name'}
                 </span>
                 <div className="flex items-center gap-4 mr-6">
                   <ThemeToggle />
@@ -169,7 +169,7 @@ export default function RootLayout({ children }) {
               />
 
               {/* Main Layout with Sidebar */}
-              <div className="flex pt-16 h-[calc(100vh-4rem)]">
+              <div className="flex pt-16 h-[calc(100vh-1rem)]">
                 {/* Content Area */}
                 <div className="flex-1 p-6 ml-0 md:ml-20 h-full overflow-auto">
                   <div className="bg-white rounded-xl shadow-md p-6 min-h-[800px] text-black content-card">

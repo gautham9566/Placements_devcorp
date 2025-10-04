@@ -23,48 +23,79 @@ const MyJobs = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('recent');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [perPage, setPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-    const fetchApplicationsWithJobDetails = async () => {
-      try {
-        const res = await listAppliedJobs();
-        
-        // Handle paginated response structure like jobs API
-        let applicationsData = [];
-        if (res.data && res.data.data && Array.isArray(res.data.data)) {
-          applicationsData = res.data.data;
-        } else if (Array.isArray(res.data)) {
-          applicationsData = res.data;
-        }
-        
-        // Fetch complete job details for each application
-        const applicationsWithJobDetails = await Promise.all(
-          applicationsData.map(async (app) => {
-            try {
-              const jobRes = await getJobById(app.job);
-              // Merge application data with complete job details
-              return {
-                ...app,
-                jobDetails: jobRes.data
-              };
-            } catch (jobErr) {
-              console.error(`Failed to fetch job details for job ${app.job}:`, jobErr);
-              // Return application with existing data if job fetch fails
-              return app;
-            }
-          })
-        );
-        
-        console.log('Applications with job details:', applicationsWithJobDetails);
-        setApplications(applicationsWithJobDetails);
-        setSelectedApplication(applicationsWithJobDetails[0] || null);
-      } catch (err) {
-        console.error('Failed to load applied jobs:', err);
-        setApplications([]);
+  const fetchApplications = async (page = 1, status = 'ALL', search = '', sort = 'recent') => {
+    setLoading(true);
+    try {
+      const params = {
+        page,
+        per_page: perPage,
+      };
+      
+      // Add filtering parameters
+      if (status !== 'ALL') params.status = status;
+      if (search) params.company = search; // Backend filters by company name
+      
+      const res = await listAppliedJobs(params);
+      
+      let applicationsData = [];
+      let paginationData = {};
+      
+      if (res.data && res.data.data && Array.isArray(res.data.data)) {
+        applicationsData = res.data.data;
+        paginationData = res.data.pagination || {};
+      } else if (Array.isArray(res.data)) {
+        applicationsData = res.data;
       }
-    };
+      
+      // Fetch complete job details for each application
+      const applicationsWithJobDetails = await Promise.all(
+        applicationsData.map(async (app) => {
+          try {
+            const jobRes = await getJobById(app.job);
+            // Merge application data with complete job details
+            return {
+              ...app,
+              jobDetails: jobRes.data
+            };
+          } catch (jobErr) {
+            console.error(`Failed to fetch job details for job ${app.job}:`, jobErr);
+            // Return application with existing data if job fetch fails
+            return app;
+          }
+        })
+      );
+      
+      console.log('Applications with job details:', applicationsWithJobDetails);
+      setApplications(applicationsWithJobDetails);
+      
+      // Update pagination state
+      setCurrentPage(paginationData.current_page || 1);
+      setTotalPages(paginationData.total_pages || 1);
+      setTotalCount(paginationData.total_count || 0);
+      
+      // Set selected application if not set or if current page changed
+      if (!selectedApplication || page !== currentPage) {
+        setSelectedApplication(applicationsWithJobDetails[0] || null);
+      }
+    } catch (err) {
+      console.error('Failed to load applied jobs:', err);
+      setApplications([]);
+      setSelectedApplication(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchApplicationsWithJobDetails();
+  useEffect(() => {
+    fetchApplications(currentPage, statusFilter, searchTerm, sortBy);
   }, []);
 
   const getStatusConfig = (status) => {
@@ -103,36 +134,65 @@ const MyJobs = () => {
     return configs[status] || configs['APPLIED'];
   };
 
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      fetchApplications(page, statusFilter, searchTerm, sortBy);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      handlePageChange(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      handlePageChange(currentPage - 1);
+    }
+  };
+
+  // Filter and sort handlers
+  const handleStatusFilterChange = (status) => {
+    setStatusFilter(status);
+    setCurrentPage(1); // Reset to first page when filtering
+    fetchApplications(1, status, searchTerm, sortBy);
+  };
+
+  const handleSearchChange = (search) => {
+    setSearchTerm(search);
+    setCurrentPage(1); // Reset to first page when searching
+    fetchApplications(1, statusFilter, search, sortBy);
+  };
+
+  const handleSortChange = (sort) => {
+    setSortBy(sort);
+    // Note: Sorting is done on frontend since backend doesn't support sort parameter
+    // We could refetch if backend supported sorting
+  };
+
   // Ensure applications is always an array
   const applicationsArray = Array.isArray(applications) ? applications : [];
 
-  // Filter and sort applications
-  const filteredApplications = applicationsArray
-    .filter(app => {
-      const matchesStatus = statusFilter === 'ALL' || app.status === statusFilter;
-      // Use job details if available, fallback to basic info
-      const jobTitle = app.jobDetails?.title || app.job_title || app.title || '';
-      const employerName = app.jobDetails?.employer_name || app.employer_name || app.company_name || '';
-      const matchesSearch = jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employerName.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesStatus && matchesSearch;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'recent') {
-        return new Date(b.applied_at) - new Date(a.applied_at);
-      } else if (sortBy === 'company') {
-        const aCompany = a.jobDetails?.employer_name || a.employer_name || a.company_name || '';
-        const bCompany = b.jobDetails?.employer_name || b.employer_name || b.company_name || '';
-        return aCompany.localeCompare(bCompany);
-      } else if (sortBy === 'status') {
-        return (a.status || '').localeCompare(b.status || '');
-      }
-      return 0;
-    });
+  // Apply frontend sorting (backend handles filtering)
+  const sortedApplications = [...applicationsArray].sort((a, b) => {
+    if (sortBy === 'recent') {
+      return new Date(b.applied_at) - new Date(a.applied_at);
+    } else if (sortBy === 'company') {
+      const aCompany = a.jobDetails?.employer_name || a.employer_name || a.company_name || '';
+      const bCompany = b.jobDetails?.employer_name || b.employer_name || b.company_name || '';
+      return aCompany.localeCompare(bCompany);
+    } else if (sortBy === 'status') {
+      return (a.status || '').localeCompare(b.status || '');
+    }
+    return 0;
+  });
 
-  // Compute stats from loaded data
+  // For stats, we need total count from pagination since we only have current page data
   const stats = {
-    total: applicationsArray.length,
+    total: totalCount, // Use total count from pagination
     pending: applicationsArray.filter(app => app.status === 'APPLIED' || app.status === 'UNDER REVIEW').length,
     interviews: applicationsArray.filter(app => app.status === 'INTERVIEW SCHEDULED').length,
     rejected: applicationsArray.filter(app => app.status === 'REJECTED').length,
@@ -198,7 +258,7 @@ const MyJobs = () => {
             <div className="p-3 border-b border-gray-200 space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Applications</h2>
-                <span className="text-sm text-gray-500">{filteredApplications.length} of {applicationsArray.length}</span>
+                <span className="text-sm text-gray-500">{sortedApplications.length} of {totalCount}</span>
               </div>
               {/* Search Bar */}
               <div className="relative">
@@ -207,7 +267,7 @@ const MyJobs = () => {
                   type="text"
                   placeholder="Search applications..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
               </div>
@@ -215,7 +275,7 @@ const MyJobs = () => {
               <div className="flex gap-2">
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => handleStatusFilterChange(e.target.value)}
                   className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="ALL">All Status</option>
@@ -227,7 +287,7 @@ const MyJobs = () => {
                 </select>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => handleSortChange(e.target.value)}
                   className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 >
                   <option value="recent">Recent First</option>
@@ -238,9 +298,14 @@ const MyJobs = () => {
             </div>
             {/* Applications List */}
             <div className="flex-1 overflow-y-auto">
-              {filteredApplications.length > 0 ? (
+              {loading ? (
+                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                  <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-500">Loading applications...</p>
+                </div>
+              ) : sortedApplications.length > 0 ? (
                 <div className="divide-y divide-gray-100">
-                  {filteredApplications.map((app) => {
+                  {sortedApplications.map((app) => {
                     const statusConfig = getStatusConfig(app.status);
                     const isSelected = app.id === selectedApplication?.id;
                     return (
@@ -291,6 +356,64 @@ const MyJobs = () => {
                 </div>
               )}
             </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-3 border-t border-gray-200 bg-white">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-500">
+                    Page {currentPage} of {totalPages} ({totalCount} total applications)
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handlePrevPage}
+                      disabled={currentPage === 1 || loading}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    
+                    {/* Page numbers */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            disabled={loading}
+                            className={`px-3 py-1 text-sm border rounded-md ${
+                              pageNum === currentPage
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'border-gray-300 hover:bg-gray-50'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    <button
+                      onClick={handleNextPage}
+                      disabled={currentPage === totalPages || loading}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           {/* Application Details */}
           <div className="flex-1 flex flex-col">

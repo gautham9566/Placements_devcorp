@@ -13,10 +13,10 @@ class Command(BaseCommand):
     help = 'Create student users for each department and multiple batches (joining/passout years) for testing'
 
     def handle(self, *args, **options):
-        # Ensure default college exists
+        # Get or create a default college
         college, created = College.objects.get_or_create(
             id=1,
-            defaults={'name': 'Default College', 'slug': 'default-college'}
+            defaults={'name': 'Default College', 'slug': 'default'}
         )
 
         if created:

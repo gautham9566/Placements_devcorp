@@ -95,7 +95,7 @@ export default function LoginPage() {
         className="w-full max-w-md bg-white rounded-xl shadow-2xl p-10 flex flex-col gap-6 login-form"
       >
         <h1 className="text-center text-2xl text-gray-800 font-bold mb-2">
-          Login to Placeeasy
+          Login to DevCorp
         </h1>
 
         {/* Add error display */}

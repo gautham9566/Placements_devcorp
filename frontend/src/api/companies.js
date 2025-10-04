@@ -19,18 +19,9 @@ export function listCompanies(params = {}) {
   queryParams.append('_t', new Date().getTime());
   
   const queryString = queryParams.toString();
-  // Try both endpoints to maximize compatibility with backend
-  const urls = [
-    `/api/v1/companies/${queryString ? `?${queryString}` : ''}`,
-    `/api/v1/college/default-college/companies/${queryString ? `?${queryString}` : ''}`
-  ];
+  const url = `/api/v1/companies/${queryString ? `?${queryString}` : ''}`;
   
-  // Try primary endpoint first, fall back to secondary if needed
-  return client.get(urls[0])
-    .catch(error => {
-      console.log(`Primary endpoint failed: ${error.message}, trying fallback...`);
-      return client.get(urls[1]);
-    });
+  return client.get(url);
 }
 
 // Function to fetch companies from the API with improved reliability
@@ -105,19 +96,14 @@ export function getCompany(companyId) {
   // Try both possible endpoints
   const urls = [
     `/api/v1/company/${companyId}/`,
-    `/api/v1/companies/${companyId}/`,
-    `/api/v1/college/default-college/companies/${companyId}/`
+    `/api/v1/companies/${companyId}/`
   ];
   
   // Try each URL in sequence until one works
   return client.get(urls[0])
     .catch(error1 => {
       console.log(`First company endpoint failed: ${error1.message}, trying second...`);
-      return client.get(urls[1])
-        .catch(error2 => {
-          console.log(`Second company endpoint failed: ${error2.message}, trying third...`);
-          return client.get(urls[2]);
-        });
+      return client.get(urls[1]);
     });
 }
 

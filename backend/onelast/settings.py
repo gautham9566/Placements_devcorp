@@ -71,7 +71,7 @@ WSGI_APPLICATION = 'onelast.wsgi.application'
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'placeeasy',
+#         'NAME': 'DevCorp',
 #         'USER': 'postgres',
 #         'PASSWORD': 'password',
 #         'HOST': 'localhost',

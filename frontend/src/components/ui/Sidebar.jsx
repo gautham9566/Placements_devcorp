@@ -79,7 +79,7 @@ export default function Sidebar({
             )}
           >
             <div className="flex-shrink-0 text-2xl font-bold">
-              {!expanded ? 'P' : null}
+              {!expanded ? 'D' : null}
             </div>
             {expanded && (
               <motion.span
@@ -88,7 +88,7 @@ export default function Sidebar({
                 exit={{ opacity: 0 }}
                 className="text-2xl font-bold whitespace-nowrap"
               >
-                Placeeasy.in
+                DevCorp
               </motion.span>
             )}
           </Link>

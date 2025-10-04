@@ -1,4 +1,4 @@
-# placeeasy-backend
+# DevCorp-backend
 #  Job Portal API Documentation
 
 This document lists all available API endpoints for the Job Portal system, along with sample requests and responses.

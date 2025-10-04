@@ -117,16 +117,9 @@ class UserManager(BaseUserManager):
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
         
-        # Ensure we have a college if not provided
+        # College is now required for all users
         if 'college' not in extra_fields:
-            college, created = College.objects.get_or_create(
-                id=1,
-                defaults={
-                    'name': 'Default College',
-                    'slug': 'default-college'
-                }
-            )
-            extra_fields['college'] = college
+            raise ValueError('College field is required')
         
         user = self.model(email=email, **extra_fields)
         user.set_password(password)

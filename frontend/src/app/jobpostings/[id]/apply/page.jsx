@@ -547,7 +547,7 @@ export default function JobApplicationPage() {
     const fetchJobDetails = async () => {
       try {
         setLoading(true);
-        const response = await client.get(`/api/v1/college/default-college/jobs/${jobId}/`);
+        const response = await client.get(`/api/v1/jobs/${jobId}/`);
         setJob(response.data);
         setError(null);
       } catch (err) {

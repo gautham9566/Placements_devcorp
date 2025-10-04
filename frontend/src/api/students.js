@@ -831,7 +831,7 @@ export const studentsAPI = {
     }
 
     try {
-      const response = await api.get(`/api/v1/college/default-college/jobs/${jobId}/can-apply/`, {
+      const response = await api.get(`/api/v1/jobs/${jobId}/can-apply/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -853,7 +853,7 @@ export const studentsAPI = {
     }
 
     try {
-      const response = await api.get('/api/v1/college/default-college/jobs/applied/', {
+      const response = await api.get('/api/v1/jobs/applied/', {
         headers: { Authorization: `Bearer ${token}` },
       });
 

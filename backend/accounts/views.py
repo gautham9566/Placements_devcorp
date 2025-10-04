@@ -621,13 +621,9 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
                 # Create a new profile if one doesn't exist
                 college = getattr(user, 'college', None)
                 if not college:
-                    try:
-                        college = College.objects.get(id=1)
-                    except College.DoesNotExist:
-                        college = College.objects.create(
-                            name='Default College', 
-                            slug='default-college'
-                        )
+                    return Response({
+                        'error': 'User college information is missing. Please contact administrator.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
                 
                 # Ensure user is properly assigned with explicit check
                 if not user or not user.id:

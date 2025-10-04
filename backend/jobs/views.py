@@ -156,8 +156,6 @@ class JobPostingListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        college_slug = self.kwargs['slug']
-        college = get_object_or_404(College, slug=college_slug)
         return JobPosting.objects.filter(
             is_active=True,
             on_campus=True  # Since we moved to company-based model, focus on on-campus jobs
@@ -402,9 +400,6 @@ class CollegeJobListView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        college_slug = self.kwargs['slug']
-        college = get_object_or_404(College, slug=college_slug)
-        
         # Filter jobs that are:
         # 1. Active jobs
         # 2. Either posted by employers from the same college, or
@@ -496,9 +491,6 @@ class EnhancedJobListCreateView(generics.ListCreateAPIView):
     search_fields = ['title', 'description', 'company__name']
 
     def get_queryset(self):
-        college_slug = self.kwargs['slug']
-        college = get_object_or_404(College, slug=college_slug)
-        
         # Base queryset
         queryset = JobPosting.objects.filter(
             is_active=True,
@@ -1152,19 +1144,13 @@ class AdminJobPostingCreateView(generics.CreateAPIView):
         company_name = self.request.data.get('company_name')
         print(f"🔍 AdminJobPostingCreateView called with company_name: {company_name}")
         
-        # Get the college from the URL kwargs
-        college_slug = self.kwargs.get('slug', 'default-college')
-        college = get_object_or_404(College, slug=college_slug)
-        print(f"🔍 College: {college.name}")
-        
         if company_name:
             print(f"🔍 Processing company_name: {company_name}")
             # Try to find or create the company
             company, created = Company.objects.get_or_create(
                 name=company_name,
                 defaults={
-                    'description': f'{company_name} - Company profile',
-                    'college': college
+                    'description': f'{company_name} - Company profile'
                 }
             )
             
@@ -1265,9 +1251,6 @@ class AdminJobListView(generics.ListAPIView):
     search_fields = ['title', 'description', 'company__name']
 
     def get_queryset(self):
-        college_slug = self.kwargs['slug']
-        college = get_object_or_404(College, slug=college_slug)
-        
         # Admin view - show ALL jobs regardless of publish status
         queryset = JobPosting.objects.filter(
             is_active=True,
@@ -1612,9 +1595,10 @@ class CalendarEventsView(APIView):
             start_date_param = request.query_params.get('start_date')
             end_date_param = request.query_params.get('end_date')
             passout_year_param = request.query_params.get('passout_year')
+            branch_param = request.query_params.get('branch')
             
-            # If passout_year is specified, use a broad date range to capture all events for matching jobs
-            if passout_year_param and passout_year_param != 'All':
+            # If passout_year or branch is specified, use a broad date range to capture all events for matching jobs
+            if (passout_year_param and passout_year_param != 'All') or branch_param:
                 start_date = today.replace(year=today.year - 2)  # 2 years ago
                 end_date = today.replace(year=today.year + 3)    # 3 years ahead
             else:
@@ -1644,22 +1628,33 @@ class CalendarEventsView(APIView):
                 is_active=True
             ).exclude(application_deadline__isnull=True).select_related('company')
             
-            # Filter by passout year if specified (in Python since SQLite doesn't support JSON array operations)
-            if passout_year_param and passout_year_param != 'All':
-                try:
-                    passout_year = int(passout_year_param)
-                    # Filter jobs in Python where allowed_passout_years is empty (all students) or contains the specified year
-                    filtered_jobs = []
-                    for job in job_postings:
-                        allowed_years = job.allowed_passout_years or []
-                        if not allowed_years or passout_year in allowed_years:
-                            filtered_jobs.append(job)
-                    job_postings = filtered_jobs
-                except (ValueError, TypeError):
-                    # If passout_year is invalid, don't filter
-                    pass
+            # Filter by passout year and branch if specified (in Python since SQLite doesn't support JSON array operations)
+            if (passout_year_param and passout_year_param != 'All') or branch_param:
+                filtered_jobs = []
+                for job in job_postings:
+                    # Check passout year eligibility
+                    passout_eligible = True
+                    if passout_year_param and passout_year_param != 'All':
+                        try:
+                            passout_year = int(passout_year_param)
+                            allowed_years = job.allowed_passout_years or []
+                            if allowed_years and passout_year not in allowed_years:
+                                passout_eligible = False
+                        except (ValueError, TypeError):
+                            passout_eligible = False
+                    
+                    # Check branch eligibility
+                    branch_eligible = True
+                    if branch_param:
+                        allowed_departments = job.allowed_departments or []
+                        if allowed_departments and branch_param not in allowed_departments:
+                            branch_eligible = False
+                    
+                    if passout_eligible and branch_eligible:
+                        filtered_jobs.append(job)
+                job_postings = filtered_jobs
             else:
-                # When no specific year is selected, filter out jobs that only allow inactive years
+                # When no specific filters are selected, filter out jobs that only allow inactive years
                 active_years = set(YearManagement.get_active_years())
                 filtered_jobs = []
                 for job in job_postings:
@@ -2125,6 +2120,8 @@ class PlacedStudentsExportView(generics.ListAPIView):
         # Get all placed students from both sources for export
         placed_students_data = []
 
+       
+
         # 1. Get students from JobApplication with status 'HIRED'
         hired_applications = JobApplication.objects.filter(
             status='HIRED'
@@ -2282,3 +2279,68 @@ class PlacedStudentsExportView(generics.ListAPIView):
         writer.writerows(unique_students)
 
         return response
+
+
+class RecommendedJobsView(generics.ListAPIView):
+    """Recommended jobs based on student profile"""
+    serializer_class = EnhancedJobSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        # Base queryset - same as EnhancedJobListCreateView
+        queryset = JobPosting.objects.filter(
+            is_active=True,
+            on_campus=True
+        ).select_related('company').order_by('-created_at')
+        
+        # Only show published jobs
+        queryset = queryset.filter(is_published=True)
+
+        # Get query params
+        branch = self.request.query_params.get('branch')
+        cgpa = self.request.query_params.get('cgpa')
+        limit = self.request.query_params.get('limit', 10)
+
+        # Filter by student's branch if provided
+        if branch:
+            allowed_jobs = []
+            for job in queryset:
+                allowed_depts = job.allowed_departments or []
+                # If no department restrictions or branch is in allowed departments
+                if not allowed_depts or branch in allowed_depts:
+                    allowed_jobs.append(job.id)
+            if allowed_jobs:
+                queryset = queryset.filter(id__in=allowed_jobs)
+            else:
+                queryset = queryset.none()
+
+        # Limit the results
+        try:
+            limit_val = int(limit)
+            queryset = queryset[:limit_val]
+        except ValueError:
+            queryset = queryset[:10]
+
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            # Use corrected pagination calculation
+            pagination_data = get_correct_pagination_data(
+                request, 
+                self.paginator.page.paginator, 
+                self.paginator.page, 
+                self.pagination_class.page_size
+            )
+            return Response({
+                'data': serializer.data,
+                'pagination': pagination_data
+            })
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({'data': serializer.data})

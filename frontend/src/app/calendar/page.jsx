@@ -29,6 +29,17 @@ import {
 
 // Import calendar data
 import { getCalendarEvents } from '../../api/jobs';
+import { studentsAPI } from '../../api/students';
+
+// Event type constants
+const EVENT_TYPES = {
+  APPLICATION_DEADLINE: 'APPLICATION_DEADLINE',
+  INTERVIEW: 'INTERVIEW',
+  COMPANY_EVENT: 'COMPANY_EVENT',
+  CAREER_FAIR: 'CAREER_FAIR',
+  DEADLINE_REMINDER: 'DEADLINE_REMINDER',
+  OFFER_RESPONSE: 'OFFER_RESPONSE'
+};
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -40,12 +51,24 @@ export default function CalendarPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState(null); // New state for student details
 
   useEffect(() => {
-    fetchCalendarEvents();
+    fetchStudentData();
   }, []);
 
-  const fetchCalendarEvents = async () => {
+  const fetchStudentData = async () => {
+    try {
+      const studentResponse = await studentsAPI.getProfile();
+      setStudent(studentResponse);
+      fetchCalendarEvents(studentResponse);
+    } catch (error) {
+      console.error('Error fetching student data:', error);
+      setLoading(false);
+    }
+  };
+
+  const fetchCalendarEvents = async (studentData) => {
     try {
       setLoading(true);
       const startDate = new Date();
@@ -53,10 +76,15 @@ export default function CalendarPage() {
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 6); // Next 6 months
 
-      const response = await getCalendarEvents({
+      // Add filters for passout year, branch, and eligibility
+      const params = {
         start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0]
-      });
+        end_date: endDate.toISOString().split('T')[0],
+        passout_year: studentData?.passout_year,
+        branch: studentData?.branch
+      };
+
+      const response = await getCalendarEvents(params);
       const allEvents = response.data.events || [];
       setEvents(allEvents);
       setFilteredEvents(allEvents);
@@ -512,7 +540,7 @@ export default function CalendarPage() {
       )}
 
       {/* Upcoming Events Sidebar */}
-      {upcomingEvents.length > 0 && (
+      {/* {upcomingEvents.length > 0 && (
         <div className="fixed right-6 top-24 w-80 bg-white rounded-lg shadow-lg border border-gray-100 p-4 max-h-96 overflow-y-auto">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming This Week</h3>
           <div className="space-y-3">
@@ -544,7 +572,7 @@ export default function CalendarPage() {
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Event Detail Modal */}
       {selectedEvent && (

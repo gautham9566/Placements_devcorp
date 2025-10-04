@@ -38,6 +38,7 @@ from .views import (
     PlacedStudentsView,
     PlacedStudentsExportView,
     PlacedStudentsPassoutYearsView,
+    RecommendedJobsView,
 )
 
 router = DefaultRouter()
@@ -66,6 +67,7 @@ urlpatterns = [
     
     # Application management
     path('applied/', AppliedJobsListView.as_view(), name='applied-jobs'),
+    path('recommended/', RecommendedJobsView.as_view(), name='recommended-jobs'),
     path('my-applications/', MyJobApplicationsView.as_view(), name='my-applications'),
     
     # Admin views
