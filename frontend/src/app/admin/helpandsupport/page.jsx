@@ -4,12 +4,26 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { Plus, Ticket, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { 
+  Plus, 
+  Ticket, 
+  CheckCircle, 
+  Clock, 
+  AlertCircle,
+  MessageSquare,
+  Users,
+  TrendingUp,
+  Activity
+} from 'lucide-react';
 import TicketCard from './TicketCard';
 import { ticketsAPI } from '../../../api/helpandsupport';
 import { getUserData } from '../../../utils/auth';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { useNotification } from '../../../contexts/NotificationContext';
 
 const Dashboard = () => {
+	const { theme } = useTheme();
+	const { showError, showSuccess } = useNotification();
 	const [tickets, setTickets] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
@@ -46,6 +60,7 @@ const Dashboard = () => {
 			} catch (err) {
 				console.error('Error fetching tickets:', err);
 				setError('Failed to load tickets. Please try again later.');
+				showError('Failed to Load Tickets', 'Unable to fetch your support tickets. Please check your connection and try again.');
 				// Keep showing previous tickets if any
 			} finally {
 				setLoading(false);
@@ -66,6 +81,46 @@ const Dashboard = () => {
 	const resolvedTickets = filterTickets(['resolved']).length;
 	const totalTickets = tickets.length;
 
+	// Dashboard cards configuration
+	const dashboardCards = [
+		{
+			title: 'Total Tickets',
+			value: loading ? '...' : totalTickets,
+			icon: <Ticket className="w-8 h-8" />,
+			color: 'from-blue-500 to-blue-600',
+			bgColor: 'bg-blue-50',
+			iconColor: 'text-blue-600',
+			description: 'All your support tickets'
+		},
+		{
+			title: 'Open Tickets',
+			value: loading ? '...' : openTickets,
+			icon: <AlertCircle className="w-8 h-8" />,
+			color: 'from-orange-500 to-orange-600',
+			bgColor: 'bg-orange-50',
+			iconColor: 'text-orange-600',
+			description: 'Tickets waiting for response'
+		},
+		{
+			title: 'In Progress',
+			value: loading ? '...' : inProgressTickets,
+			icon: <Activity className="w-8 h-8" />,
+			color: 'from-yellow-500 to-yellow-600',
+			bgColor: 'bg-yellow-50',
+			iconColor: 'text-yellow-600',
+			description: 'Tickets being worked on'
+		},
+		{
+			title: 'Resolved',
+			value: loading ? '...' : resolvedTickets,
+			icon: <CheckCircle className="w-8 h-8" />,
+			color: 'from-green-500 to-green-600',
+			bgColor: 'bg-green-50',
+			iconColor: 'text-green-600',
+			description: 'Successfully resolved tickets'
+		}
+	];
+
 	// Get recent tickets - show 6 most recent, sorted by creation date (descending)
 	const recentTickets = [...tickets]
 		.sort(
@@ -76,135 +131,98 @@ const Dashboard = () => {
 		.slice(0, 6);
 
 	return (
-		<div className="space-y-6 pb-8">
-			<div className="flex justify-between items-center">
-				<h1 className="text-3xl font-bold tracking-tight">
-					Help & Support Dashboard
-				</h1>
-				<Button asChild className="bg-blue-600 hover:bg-blue-700">
-					<Link href="/admin/helpandsupport/new">
-						<Plus className="mr-2 h-4 w-4" /> New Ticket
-					</Link>
-				</Button>
+		<div className="p-6 ml-20 overflow-y-auto h-full">
+			{/* Welcome Section */}
+			<div className="mb-8">
+				<h1 className="text-3xl font-bold text-gray-900 mb-2">Help & Support Center</h1>
+				<p className="text-gray-600">Manage your support tickets and get help when you need it.</p>
 			</div>
-
+	
 			{loading ? (
-				<div className="flex justify-center py-10">
-					<div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+				<div className="flex justify-center py-20">
+					<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
 				</div>
 			) : error ? (
-				<div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-					{error}
-					<Button
-						onClick={() => window.location.reload()}
-						variant="link"
-						className="text-red-700 underline pl-2"
-					>
-						Retry
-					</Button>
+				<div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg mb-8">
+					<div className="flex items-center justify-between">
+						<div>
+							<h3 className="font-medium">Failed to Load Tickets</h3>
+							<p className="text-sm mt-1">{error}</p>
+						</div>
+						<Button
+							onClick={() => window.location.reload()}
+							variant="outline"
+							size="sm"
+							className="text-red-700 border-red-300 hover:bg-red-50"
+						>
+							Retry
+						</Button>
+					</div>
 				</div>
 			) : (
 				<>
-					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-						<Card className="bg-white border shadow-sm">
-							<CardContent className="p-4">
-								<div className="flex flex-row items-center justify-between space-y-0 pb-2">
-									<div>
-										<p className="text-sm font-medium mt-6">
-											My Tickets
-										</p>
-										<p className="text-2xl font-bold">
-											{totalTickets}
-										</p>
-										<p className="text-xs text-gray-500 mt-1">
-											Tickets I've created
-										</p>
+					{/* Stats Grid */}
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+						{dashboardCards.map((card, index) => (
+							<div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-200">
+								<div className="p-6">
+									<div className="flex items-center justify-between mb-4">
+										<div className={`p-3 rounded-lg ${card.bgColor} flex-shrink-0`}>
+											<div className={card.iconColor}>
+												{card.icon}
+											</div>
+										</div>
+										<div className="text-right">
+											<h3 className="text-2xl font-bold text-gray-900">{card.value}</h3>
+										</div>
 									</div>
-									<Ticket className="h-7 w-7 text-gray-700" />
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className="bg-white border shadow-sm">
-							<CardContent className="p-4">
-								<div className="flex flex-row items-center justify-between space-y-0 pb-2">
-									<div>
-										<p className="text-sm font-medium mt-6">Open</p>
-										<p className="text-2xl font-bold text-blue-600">
-											{openTickets}
-										</p>
-										<p className="text-xs text-gray-500 mt-1">
-											Tickets waiting for response
-										</p>
+									<div className="space-y-1">
+										<p className="text-gray-600 text-sm font-medium">{card.title}</p>
+										<p className="text-gray-500 text-xs">{card.description}</p>
 									</div>
-									<AlertCircle className="h-7 w-7 text-blue-500" />
 								</div>
-							</CardContent>
-						</Card>
-
-						<Card className="bg-white border shadow-sm">
-							<CardContent className="p-4">
-								<div className="flex flex-row items-center justify-between space-y-0 pb-2">
-									<div>
-										<p className="text-sm font-medium mt-6">
-											In Progress
-										</p>
-										<p className="text-2xl font-bold text-yellow-600">
-											{inProgressTickets}
-										</p>
-										<p className="text-xs text-gray-500 mt-1">
-											Tickets being worked on
-										</p>
-									</div>
-									<Clock className="h-7 w-7 text-yellow-500" />
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className="bg-white border shadow-sm">
-							<CardContent className="p-4">
-								<div className="flex flex-row items-center justify-between space-y-0 pb-2">
-									<div>
-										<p className="text-sm font-medium mt-6">Resolved</p>
-										<p className="text-2xl font-bold text-green-600">
-											{resolvedTickets}
-										</p>
-										<p className="text-xs text-gray-500 mt-1">
-											Successfully resolved tickets
-										</p>
-									</div>
-									<CheckCircle className="h-7 w-7 text-green-500" />
-								</div>
-							</CardContent>
-						</Card>
+							</div>
+						))}
 					</div>
 
-					<div className="mt-8">
-						<div className="flex flex-row items-center justify-between space-y-0 pb-2 mb-4">
-							<h2 className="text-xl font-semibold">My Recent Tickets</h2>
-							<Button variant="outline" asChild className="text-sm">
-								<Link href="/admin/helpandsupport/tickets">View All</Link>
+			{/* Recent Tickets Section */}
+			<div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+				<div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+					<div>
+						<h2 className="text-xl font-semibold text-gray-900 mb-1">Recent Tickets</h2>
+						<p className="text-gray-600 text-sm">Your most recent support tickets</p>
+					</div>
+					<div className="flex gap-3 mt-4 md:mt-0">
+						<Button variant="outline" asChild>
+							<Link href="/admin/helpandsupport/tickets">View All Tickets</Link>
+						</Button>
+						<Button asChild className="bg-blue-600 hover:bg-blue-700">
+							<Link href="/admin/helpandsupport/new">
+								<Plus className="mr-2 h-4 w-4" /> New Ticket
+							</Link>
+						</Button>
+					</div>
+				</div>
+
+				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+					{recentTickets.length > 0 ? (
+						recentTickets.map((ticket) => (
+							<TicketCard key={ticket.id} ticket={ticket} />
+						))
+					) : (
+						<Card className="col-span-full p-8 text-center border-2 border-dashed border-gray-200">
+							<MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+							<p className="text-gray-500 mb-4">No tickets found</p>
+							<Button asChild>
+								<Link href="/admin/helpandsupport/new">
+									Create Your First Ticket
+								</Link>
 							</Button>
-						</div>
-
-						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-							{recentTickets.length > 0 ? (
-								recentTickets.map((ticket) => (
-									<TicketCard key={ticket.id} ticket={ticket} />
-								))
-							) : (
-								<Card className="col-span-full p-6 text-center">
-									<p className="text-muted-foreground">No tickets found</p>
-									<Button className="mt-4" asChild>
-										<Link href="/admin/helpandsupport/new">
-											Create Your First Ticket
-										</Link>
-									</Button>
-								</Card>
-							)}
-						</div>
-					</div>
-				</>
+						</Card>
+					)}
+				</div>
+			</div>
+			</>
 			)}
 		</div>
 	);

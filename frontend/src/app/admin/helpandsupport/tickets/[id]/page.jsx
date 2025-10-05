@@ -5,15 +5,19 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../../components/ui/card';
 import { Button } from '../../../../../components/ui/button';
-import { ChevronLeft, Paperclip, Image, File, Send, X, AlertCircle, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { ChevronLeft, Paperclip, Image, File, Send, X, AlertCircle, ChevronDown, ChevronUp, Info, CheckCircle, MessageSquare } from 'lucide-react';
 import TicketComments from '../../TicketComments';
 import { ticketsAPI, helpAuthAPI } from '../../../../../api/helpandsupport';
 import { format } from 'date-fns';
 import FeedbackModal from '../../FeedbackModal';
+import { useTheme } from '../../../../../contexts/ThemeContext';
+import { useNotification } from '../../../../../contexts/NotificationContext';
 
 const TicketDetail = () => {
   const params = useParams();
   const ticketId = params.id;
+  const { theme } = useTheme();
+  const { showError, showSuccess } = useNotification();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState([]);
@@ -29,9 +33,107 @@ const TicketDetail = () => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [messageStatus, setMessageStatus] = useState({});
+  const [isUserNearBottom, setIsUserNearBottom] = useState(true);
   
   const fileInputRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
+  const getCurrentUserData = () => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (!stored) return null;
+    try {
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error('Error parsing current user data:', e);
+      return null;
+    }
+  };
+
+  const safeParseTimestamp = (value) => {
+    if (!value) return Date.now();
+    const direct = new Date(value);
+    if (!Number.isNaN(direct.getTime())) return direct.getTime();
+    const normalized = new Date(String(value).replace(' ', 'T'));
+    return Number.isNaN(normalized.getTime()) ? Date.now() : normalized.getTime();
+  };
+
+  const deriveMessageDirection = (comment, providedCurrentUser) => {
+    if (comment.direction === 'sent' || comment.type === 'sent') return true;
+    if (comment.direction === 'received' || comment.type === 'received') return false;
+    if (comment.sender_type === 'admin' || comment.from === 'admin' || comment.sender === 'admin') return true;
+    if (comment.sender_type === 'user' || comment.from === 'user' || comment.sender === 'user') return false;
+    if (comment.created_by === 'admin' || comment.user_type === 'admin') return true;
+    if (comment.created_by === 'user' || comment.user_type === 'user') return false;
+
+    const currentUserData = providedCurrentUser || getCurrentUserData();
+    if (currentUserData) {
+      if (comment.created_by === currentUserData.id || comment.user_id === currentUserData.id) return true;
+      if (currentUserData.user_type === 'admin' || currentUserData.role === 'admin') return false;
+    }
+
+    const adminPatterns = [
+      'Thank you for your feedback',
+      'Thank you for your patience',
+      'Ticket status changed to',
+      'Attached file:'
+    ];
+    const adminEmailPatterns = ['admin@', 'admin1@', 'support@', 'help@'];
+    const isAdminMessage =
+      adminPatterns.some(pattern => comment.content && comment.content.includes(pattern)) ||
+      adminEmailPatterns.some(pattern =>
+        comment.created_by_email?.includes(pattern) || comment.user_email?.includes(pattern)
+      );
+    return isAdminMessage;
+  };
+
+  const sortComments = (list) =>
+    [...list].sort((a, b) => {
+      const diff =
+        (a._createdAtMs ?? safeParseTimestamp(a.created_at)) -
+        (b._createdAtMs ?? safeParseTimestamp(b.created_at));
+      return diff !== 0 ? diff : `${a.id}`.localeCompare(`${b.id}`);
+    });
+
+  const buildNormalizedComments = (rawComments, existingComments = []) => {
+    const currentUserData = getCurrentUserData();
+    const normalized = rawComments.map(comment => {
+      const createdAtRaw = comment.created_at || comment.createdAt || comment.timestamp;
+      const createdAt = createdAtRaw || new Date().toISOString();
+      return {
+        id: comment.id || comment._id || `comment-${Date.now()}-${Math.random()}`,
+        content: comment.content || comment.message || comment.text || '',
+        is_sent: deriveMessageDirection(comment, currentUserData),
+        created_at: createdAt,
+        attachment: comment.attachment || comment.file || null,
+        _originalData: comment,
+        _isLocalComment: false,
+        _createdAtMs: safeParseTimestamp(createdAt)
+      };
+    });
+    const serverIds = new Set(normalized.map(c => c.id));
+    const preservedLocal = existingComments
+      .filter(c => c._isLocalComment && !serverIds.has(c.id))
+      .map(local => ({
+        ...local,
+        _createdAtMs: local._createdAtMs ?? safeParseTimestamp(local.created_at)
+      }));
+    return sortComments([...normalized, ...preservedLocal]);
+  };
+
+  // Typing indicator effect
+  useEffect(() => {
+    let typingTimeout;
+    if (message.trim()) {
+      setIsTyping(true);
+      typingTimeout = setTimeout(() => setIsTyping(false), 1000);
+    } else {
+      setIsTyping(false);
+    }
+    return () => clearTimeout(typingTimeout);
+  }, [message]);
 
   // Format date with proper timezone
   const formatDate = (dateString) => {
@@ -76,6 +178,7 @@ const TicketDetail = () => {
       } catch (error) {
         console.error('Error fetching ticket:', error);
         setError('Failed to load ticket. Please try again later.');
+        showError('Failed to Load Ticket', 'Unable to fetch ticket details. Please check your connection and try again.');
       } finally {
         setLoading(false);
       }
@@ -124,7 +227,7 @@ const TicketDetail = () => {
       }
       
       // Normalize the comment data structure
-      const normalizedComments = commentsData.map(comment => {
+      const normalizedComments = commentsData.map( comment => {
         // Determine message direction based on message metadata or sender info
         let isSentMessage = false;
         
@@ -234,10 +337,13 @@ const TicketDetail = () => {
 
   // Scroll to bottom of messages when new ones arrive
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [comments]);
+    if (!isUserNearBottom) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+  }, [comments, isUserNearBottom]);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -266,12 +372,22 @@ const TicketDetail = () => {
     }
   };
 
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isAtBottom = distanceFromBottom <= 80;
+    setIsUserNearBottom(prev => (prev === isAtBottom ? prev : isAtBottom));
+  };
+
   const handleSendMessage = async () => {
     if ((!message.trim() && !selectedFile) || sendingMessage) return;
+    const messageId = Date.now();
+    setSendingMessage(true);
+    setIsUserNearBottom(true);
+    setMessageStatus(prev => ({ ...prev, [messageId]: 'sending' }));
     
     try {
-      setSendingMessage(true);
-      
       // Send message content if there is text
       let newComment = null;
       if (message.trim()) {
@@ -279,16 +395,21 @@ const TicketDetail = () => {
         console.log('New comment created:', newComment);
         
         // Add the new comment to the list immediately for better UX
+        const createdAt =
+          newComment.created_at || newComment.createdAt || new Date().toISOString();
         const formattedComment = {
-          id: newComment.id || newComment._id || Date.now(),
+          id: newComment.id || newComment._id || messageId,
           content: message.trim(),
-          is_sent: true, // Messages we send are always sent messages (right side)
-          created_at: new Date().toISOString(),
+          is_sent: true,
+          created_at: createdAt,
+          attachment: newComment.attachment || newComment.file || null,
           _originalData: newComment,
-          _isLocalComment: true // Mark as locally added comment
+          _isLocalComment: true,
+          _messageId: messageId,
+          _createdAtMs: safeParseTimestamp(createdAt)
         };
-        
-        setComments(prevComments => [...prevComments, formattedComment]);
+        setComments(prevComments => sortComments([...prevComments, formattedComment]));
+        setMessageStatus(prev => ({ ...prev, [messageId]: 'sent' }));
       }
       
       // Upload file if selected
@@ -304,11 +425,13 @@ const TicketDetail = () => {
           );
           
           // Add file comment with correct format
+          const createdAt =
+            fileComment.created_at || fileComment.createdAt || new Date().toISOString();
           const formattedFileComment = {
             id: fileComment.id || Date.now(),
             content: `Attached file: ${selectedFile.name}`,
-            is_sent: true, // File uploads we send are sent messages (right side)
-            created_at: new Date().toISOString(),
+            is_sent: true,
+            created_at: createdAt,
             attachment: {
               url: attachment.url || '#',
               filename: selectedFile.name,
@@ -316,10 +439,12 @@ const TicketDetail = () => {
               size: selectedFile.size
             },
             _originalData: fileComment,
-            _isLocalComment: true // Mark as locally added comment
+            _isLocalComment: true,
+            _messageId: messageId,
+            _createdAtMs: safeParseTimestamp(createdAt)
           };
-          
-          setComments(prevComments => [...prevComments, formattedFileComment]);
+          setComments(prevComments => sortComments([...prevComments, formattedFileComment]));
+          setMessageStatus(prev => ({ ...prev, [messageId]: 'sent' }));
         }
       }
       
@@ -327,15 +452,20 @@ const TicketDetail = () => {
       setMessage('');
       clearSelectedFile();
       
-      // Refresh comments after a short delay to ensure server has processed everything
-      // But preserve the locally added comments to prevent them from jumping sides
+      // Auto-clear status after 3 seconds
       setTimeout(() => {
-        fetchComments(true); // Preserve local comments
-      }, 1000); // Increased delay to ensure server processing
+        setMessageStatus(prev => {
+          const newStatus = { ...prev };
+          delete newStatus[messageId];
+          return newStatus;
+        });
+      }, 3000);
       
+      // fetchComments(true) intentionally removed to avoid refresh jitter; rely on existing polling
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Failed to send message. Please try again.');
+      setMessageStatus(prev => ({ ...prev, [messageId]: 'failed' }));
+      showError('Failed to Send Message', 'Unable to send your message. Please try again.');
     } finally {
       setSendingMessage(false);
     }
@@ -446,43 +576,24 @@ const TicketDetail = () => {
             commentsData = response.results;
           }
         }
-        // Normalize the comment data structure (reuse your normalization logic)
-        const normalizedComments = commentsData.map(comment => {
-          let isSentMessage = false;
-          // ... (copy your normalization logic here, or call a helper if possible)
-          if (comment.direction === 'sent' || comment.type === 'sent') {
-            isSentMessage = true;
-          } else if (comment.direction === 'received' || comment.type === 'received') {
-            isSentMessage = false;
-          } else if (comment.sender_type === 'admin' || comment.from === 'admin' || comment.sender === 'admin') {
-            isSentMessage = true;
-          } else if (comment.sender_type === 'user' || comment.from === 'user' || comment.sender === 'user') {
-            isSentMessage = false;
-          } else if (comment.created_by === 'admin' || comment.user_type === 'admin') {
-            isSentMessage = true;
-          } else if (comment.created_by === 'user' || comment.user_type === 'user') {
-            isSentMessage = false;
-          }
-          return {
-            id: comment.id || comment._id || `comment-${Date.now()}-${Math.random()}`,
-            content: comment.content || comment.message || comment.text || '',
-            is_sent: isSentMessage,
-            created_at: comment.created_at || comment.createdAt || comment.timestamp || new Date().toISOString(),
-            attachment: comment.attachment || comment.file || null,
-            _originalData: comment,
-            _isLocalComment: comment._isLocalComment || false
-          };
-        });
-        // Only update state if there are new comments
         setComments(prevComments => {
-          // Get all existing IDs
-          const existingIds = new Set(prevComments.map(c => c.id));
-          // Filter out comments that are already present
-          const newOnes = normalizedComments.filter(c => !existingIds.has(c.id));
-          if (newOnes.length === 0) return prevComments; // No new comments
-          // Merge and sort
-          const merged = [...prevComments, ...newOnes];
-          return merged.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          const normalized = buildNormalizedComments(commentsData, prevComments);
+          if (
+            normalized.length === prevComments.length &&
+            normalized.every((item, idx) => {
+              const prevItem = prevComments[idx];
+              return (
+                item.id === prevItem.id &&
+                item._createdAtMs === prevItem._createdAtMs &&
+                item.content === prevItem.content &&
+                item.is_sent === prevItem.is_sent &&
+                JSON.stringify(item.attachment || null) === JSON.stringify(prevItem.attachment || null)
+              );
+            })
+          ) {
+            return prevComments;
+          }
+          return normalized;
         });
       } catch (e) {
         // Optionally handle error
@@ -649,20 +760,31 @@ const TicketDetail = () => {
               </div>
               
               {/* Messages */}
-              <div className="flex-1 p-6 space-y-6 overflow-y-auto ">
-                {/* System Message with Ticket Info */}
-                <div className="flex justify-center">
-                  <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm max-w-md text-center">
-                    <p>Ticket #{ticket.id} opened - {ticket.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">Click on "Ticket Details" to view more information</p>
+              <div
+                className="flex-1 p-6 space-y-6 overflow-y-auto "
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
+              >
+                {/* Typing Indicator */}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-gray-200 shadow-sm px-4 py-3 rounded-2xl max-w-md flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      </div>
+                      <span className="text-sm text-gray-500">Typing...</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 
                 {/* Render actual comments */}
                 {commentsLoading ? (
                   <div className="flex justify-center">
-                    <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm">
-                      Loading comments...
+                    <div className="bg-white border border-gray-200 text-gray-700 px-4 py-3 rounded-full text-sm shadow-sm flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400"></div>
+                      Loading conversation...
                     </div>
                   </div>
                 ) : comments && comments.length > 0 ? (
@@ -678,28 +800,32 @@ const TicketDetail = () => {
                     return (
                       <div key={comment.id || index} className={`flex ${commentClass}`}>
                         <div className={`${comment.is_sent 
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-white border border-gray-200 shadow-sm'} px-4 py-3 rounded-lg max-w-md`}
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg' 
+                          : 'bg-white border border-gray-200 shadow-sm'} px-4 py-3 rounded-2xl max-w-md relative group hover:shadow-md transition-shadow duration-200`}
                         >
-                          <p>{comment.content}</p>
-                          <div className={`text-xs ${comment.is_sent ? 'text-blue-100' : 'text-gray-400'} mt-1 text-right`}>
-                            {formatMessageTime(comment.created_at || comment.createdAt)}
+                          {/* Message bubble tail */}
+                          <div className={`absolute top-3 ${comment.is_sent ? '-right-2 border-l-blue-500' : '-left-2 border-r-white'} w-0 h-0 border-t-4 border-t-transparent border-b-4 border-b-transparent ${comment.is_sent ? 'border-l-4' : 'border-r-4'}`}></div>
+                          
+                          <p className="leading-relaxed">{comment.content}</p>
+                          <div className={`text-xs ${comment.is_sent ? 'text-blue-100' : 'text-gray-400'} mt-2 text-right flex items-center justify-end gap-1`}>
+                            <span>{formatMessageTime(comment.created_at || comment.createdAt)}</span>
+                            {comment.is_sent && <CheckCircle className="h-3 w-3" />}
                           </div>
                           
                           {/* Render attachment if present */}
                           {comment.attachment && (
-                            <div className={`mt-2 p-1 rounded ${comment.is_sent ? 'bg-white' : 'bg-gray-100'}`}>
+                            <div className={`mt-3 p-2 rounded-lg ${comment.is_sent ? 'bg-blue-400' : 'bg-gray-100'}`}>
                               {comment.attachment.type?.startsWith('image/') ? (
                                 <img 
                                   src={comment.attachment.url} 
                                   alt="Attachment" 
-                                  className="rounded max-w-xs w-full h-auto" 
+                                  className="rounded-lg max-w-xs w-full h-auto shadow-sm" 
                                 />
                               ) : (
-                                <div className="flex items-center p-2 rounded bg-gray-100">
-                                  <File className="h-6 w-6 text-blue-600 mr-2" />
+                                <div className="flex items-center p-2 rounded bg-white shadow-sm">
+                                  <File className="h-5 w-5 text-blue-600 mr-2" />
                                   <div className="flex-1">
-                                    <div className="text-sm font-medium">{comment.attachment.filename}</div>
+                                    <div className="text-sm font-medium text-gray-900">{comment.attachment.filename}</div>
                                     <div className="text-xs text-gray-500">
                                       {comment.attachment.type} • {Math.round(comment.attachment.size / 1024)} KB
                                     </div>
@@ -708,7 +834,7 @@ const TicketDetail = () => {
                                     href={comment.attachment.url} 
                                     target="_blank" 
                                     rel="noopener noreferrer" 
-                                    className="text-xs text-blue-600 hover:text-blue-800"
+                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                                   >
                                     Download
                                   </a>
@@ -722,16 +848,17 @@ const TicketDetail = () => {
                   })
                 ) : (
                   <div className="flex justify-center">
-                    <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm">
-                      No comments yet. Start the conversation!
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 text-gray-700 px-6 py-4 rounded-2xl text-sm shadow-sm border border-blue-100 flex items-center gap-3">
+                      <MessageSquare className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <p className="font-medium">No messages yet</p>
+                        <p className="text-xs text-gray-500">Start the conversation by sending a message below</p>
+                      </div>
                     </div>
                   </div>
                 )}
                 
-                {/* Invisible element to scroll to */}
-                <div ref={messagesEndRef} />
               </div>
-              
               {/* File Preview Area (visible only when a file is selected) */}
               {selectedFile && (
                 <div className="p-4 bg-blue-50 border-t border-blue-100">
@@ -764,38 +891,45 @@ const TicketDetail = () => {
               )}
               
               {/* Message Input with Attachment Option */}
-              <div className="p-4 bg-white">
-                <div className="flex items-center space-x-2">
+              <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-t border-gray-200">
+                <div className="flex items-end gap-3">
                   <button 
                     onClick={() => fileInputRef.current.click()}
-                    className="p-2 hover:bg-gray-100 rounded-full text-gray-500 hover:text-blue-600 transition-colors"
+                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200"
                     title="Attach file"
+                    disabled={sendingMessage}
                   >
                     <Paperclip className="w-5 h-5" />
                   </button>
-                  <input 
-                    type="text" 
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type your message..." 
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    disabled={sendingMessage}
-                  />
+                  
+                  <div className="flex-1 relative">
+                    <input 
+                      type="text" 
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Type your message..." 
+                      className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all duration-200"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                    />
+                  </div>
+                  
                   <button 
                     className={`${sendingMessage 
-                      ? 'bg-blue-300' 
-                      : 'bg-blue-500 hover:bg-blue-600'} text-white p-2 rounded-lg transition-colors flex items-center justify-center`
-                    }
+                      ? 'bg-blue-300 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'} text-white p-3 rounded-full transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:scale-105`}
                     onClick={handleSendMessage}
-                    disabled={sendingMessage}
+                    disabled={sendingMessage || !message.trim()}
                   >
-                    <Send className="w-5 h-5" />
+                    {sendingMessage ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
                   </button>
                   
                   {/* Hidden file input */}

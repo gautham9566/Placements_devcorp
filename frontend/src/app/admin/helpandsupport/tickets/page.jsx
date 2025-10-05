@@ -8,6 +8,8 @@ import { ChevronLeft, Plus, Search } from 'lucide-react';
 import TicketCard from '../TicketCard';
 import { ticketsAPI } from '../../../../api/helpandsupport';
 import { getUserData } from '../../../../utils/auth';
+import { useTheme } from '../../../../contexts/ThemeContext';
+import { useNotification } from '../../../../contexts/NotificationContext';
 
 const TicketsPage = () => {
   const [tickets, setTickets] = useState([]);
@@ -15,6 +17,8 @@ const TicketsPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { theme } = useTheme();
+  const { showError, showSuccess } = useNotification();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,6 +56,7 @@ const TicketsPage = () => {
       } catch (err) {
         console.error('Error fetching tickets:', err);
         setError('Failed to load tickets. Please try again later.');
+        showError('Failed to Load Tickets', 'Unable to fetch your tickets. Please check your connection and try again.');
         // Keep showing previous tickets if any
       } finally {
         setLoading(false);
