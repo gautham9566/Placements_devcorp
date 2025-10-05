@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, createContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { IconUser, IconMenu2, IconX } from '@tabler/icons-react';
 import { cn } from '../../utils/cn';
@@ -19,6 +20,8 @@ export default function Sidebar({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isAdmin = pathname.startsWith('/admin');
 
   // Check if mobile screen
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function Sidebar({
         <nav className="flex flex-col gap-8">
           {/* Logo */}
           <Link
-            href="/"
+            href={isAdmin ? '/admin/dashboard' : '/'}
             className={cn(
               'flex items-center gap-4 p-3 text-black',
               !expanded && 'justify-center'

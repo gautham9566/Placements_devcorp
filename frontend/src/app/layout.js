@@ -3,6 +3,7 @@
 import './globals.css';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '../components/ui/Sidebar';
 import DropdownMenu from '../components/ui/DropdownMenu';
 import { navigationLinks } from '../utils/navigation';
@@ -118,9 +119,9 @@ export default function RootLayout({ children }) {
               <div className="h-screen bg-gray-50">
                 {/* Fixed Header for Admin */}
                 <div className="fixed w-full flex justify-between items-center py-4 bg-white shadow-sm z-10">
-                  <span className="text-gray-700 font-medium text-xl ml-28">
-                    {pageTitle}
-                  </span>
+                  <Link href="/admin/dashboard" className="text-gray-700 font-medium text-xl ml-28">
+                    DevCorp
+                  </Link>
                   <div className="flex items-center gap-4 mr-6">
                     <ThemeToggle />
                     <DropdownMenu />
