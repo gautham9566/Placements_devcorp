@@ -4,7 +4,7 @@ export async function GET(request, { params }) {
 		const segments = Array.isArray(path) ? path : [path];
 		const encodedPath = segments.map((segment) => encodeURIComponent(segment)).join('/');
 		const incomingUrl = new URL(request.url);
-		const upstreamUrl = new URL(`http://localhost:8000/video/${hash}/${encodedPath}`);
+		const upstreamUrl = new URL(`http://localhost:9000/video/${hash}/${encodedPath}`);
 
 		incomingUrl.searchParams.forEach((value, key) => {
 			upstreamUrl.searchParams.set(key, value);

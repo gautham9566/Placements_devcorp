@@ -2,7 +2,7 @@ export async function GET(request, { params }) {
   try {
     const { hash } = await params;
 
-    const response = await fetch(`http://localhost:8000/thumbnail/${hash}`);
+    const response = await fetch(`http://localhost:9000/thumbnail/${hash}`);
 
     if (!response.ok) {
       return new Response('Thumbnail not found', { status: 404 });
@@ -33,7 +33,7 @@ export async function POST(request, { params }) {
     const backendFormData = new FormData();
     backendFormData.append('file', file);
 
-    const response = await fetch(`http://localhost:8000/thumbnail/${hash}`, {
+    const response = await fetch(`http://localhost:9000/thumbnail/${hash}`, {
       method: 'POST',
       body: backendFormData,
     });

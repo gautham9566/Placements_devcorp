@@ -2,7 +2,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
 
-    const resp = await fetch('http://localhost:8000/upload/complete', {
+    const resp = await fetch('http://localhost:9000/upload/complete', {
       method: 'POST',
       body: formData,
     });

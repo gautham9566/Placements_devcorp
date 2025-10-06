@@ -10,7 +10,7 @@ export async function POST(request) {
     const backendFormData = new FormData();
     backendFormData.append('file', file);
 
-    const response = await fetch('http://localhost:8000/upload', {
+    const response = await fetch('http://localhost:9000/upload', {
       method: 'POST',
       body: backendFormData,
     });
