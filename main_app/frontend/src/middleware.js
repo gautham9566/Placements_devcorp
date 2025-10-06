@@ -4,6 +4,13 @@ export function middleware(request) {
   const url = request.nextUrl.clone();
   const role = request.cookies.get('role')?.value;
 
+  // Allow unauthenticated access only to /login and /signup
+  const publicPaths = ['/login', '/signup'];
+  if (!role && !publicPaths.includes(url.pathname)) {
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
   // Only log in development and reduce verbosity
   if (process.env.NODE_ENV === 'development') {
     console.log(`[Middleware] ${url.pathname} - Role: ${role || 'None'}`);

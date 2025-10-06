@@ -13,13 +13,13 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('system');
-  const [resolvedTheme, setResolvedTheme] = useState('light');
+  const [theme, setTheme] = useState('dark');
+  const [resolvedTheme, setResolvedTheme] = useState('dark');
 
   // Load theme from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem('userTheme') || 'system';
+      const savedTheme = localStorage.getItem('userTheme') || 'dark';
       setTheme(savedTheme);
     }
   }, []);
