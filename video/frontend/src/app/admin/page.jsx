@@ -64,6 +64,25 @@ export default function VideoUpload() {
     setQualities(qualitiesData);
   };
 
+  const measureNetworkSpeed = async () => {
+    try {
+      const startTime = Date.now();
+      // Download a small test file (assume we have a 1MB test file on server)
+      const response = await fetch('/api/speedtest'); // We'll need to create this endpoint
+      if (!response.ok) throw new Error('Speed test failed');
+      const blob = await response.blob();
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000; // seconds
+      const bytes = blob.size;
+      const bits = bytes * 8;
+      const speedMbps = (bits / duration) / 1000000; // Mbps
+      return speedMbps;
+    } catch (error) {
+      console.error('Network speed measurement failed:', error);
+      return 10; // Default to 10 Mbps if measurement fails
+    }
+  };
+
   useEffect(() => {
     fetchVideos();
   }, []);
@@ -256,7 +275,13 @@ export default function VideoUpload() {
   const triggerTranscode = async (hash) => {
     try {
       setTranscoding(prev => ({ ...prev, [hash]: 'starting' }));
-      const resp = await fetch(`/api/transcode/${hash}`, { method: 'POST' });
+      // Measure network speed
+      const networkSpeed = await measureNetworkSpeed();
+      const resp = await fetch(`/api/transcode/${hash}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ networkSpeed })
+      });
       if (resp.ok) {
         setTranscoding(prev => ({ ...prev, [hash]: 'started' }));
         // after a short delay, clear status and refresh videos

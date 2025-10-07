@@ -468,7 +468,7 @@ def _get_quality_label_from_resolution(width: int, height: int) -> str:
     return f"{height}p"
 
 
-def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
+def transcode_video(upload_id: str, filename: str, network_speed: float = 10.0) -> Dict[str, Dict]:
     """Transcode the uploaded video into multiple quality folders in parallel and persist status.
 
     Status file path: videos/<upload_id>/.transcode_status.json
@@ -508,6 +508,18 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
         # Select presets with height <= original (includes original quality + lower resolutions)
         selected_presets = [label for label, cfg in QUALITY_PRESETS.items() if int(cfg.get('height', 0)) <= orig_h]
         original_quality_label = _get_quality_label_from_resolution(orig_w, orig_h)
+
+    # Filter presets based on network speed (Mbps)
+    # For slow connections, limit to lower qualities
+    if network_speed < 1:
+        selected_presets = [p for p in selected_presets if p in ['360p', '240p']]
+    elif network_speed < 5:
+        selected_presets = [p for p in selected_presets if p in ['480p', '360p', '240p']]
+    elif network_speed < 10:
+        selected_presets = [p for p in selected_presets if p not in ['2160p', '1440p']]  # Exclude very high
+    # For 10+ Mbps, use all selected
+
+    print(f"Selected presets for {upload_id} (network {network_speed} Mbps): {selected_presets}")
 
     # prepare original entry
     original_res = f"{orig_w}x{orig_h}" if orig_h > 0 and orig_w > 0 else ""

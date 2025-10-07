@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from models import Video, get_db
@@ -62,6 +62,15 @@ async def upload_video(file: UploadFile = File(...)):
     db.refresh(db_video)
 
     return {"hash": hash_value}
+
+
+@app.get("/api/speedtest")
+async def speedtest():
+    """Return a 1MB test file for network speed measurement."""
+    # Create a 1MB response
+    data = b'\x00' * (1024 * 1024)  # 1MB of zeros
+    from fastapi.responses import Response
+    return Response(content=data, media_type="application/octet-stream")
 
 
 # --- Chunked upload API ---
@@ -179,8 +188,14 @@ async def upload_complete(upload_id: str = Form(...)):
 
 
 @app.post("/transcode/{hash}")
-async def transcode_trigger(hash: str):
+async def transcode_trigger(hash: str, request: Request):
     """Trigger transcoding for a given video hash. Runs in background and returns immediately."""
+    try:
+        body = await request.json()
+        network_speed = body.get('networkSpeed', 10)  # Default 10 Mbps
+    except:
+        network_speed = 10
+
     db = get_db()
     video = db.query(Video).filter(Video.hash == hash).first()
     if not video:
@@ -193,7 +208,7 @@ async def transcode_trigger(hash: str):
 
     # background thread
     try:
-        t = threading.Thread(target=transcode_video, args=(hash, video.filename), daemon=True)
+        t = threading.Thread(target=transcode_video, args=(hash, video.filename, network_speed), daemon=True)
         t.start()
         return JSONResponse({"status": "started"})
     except Exception as e:
