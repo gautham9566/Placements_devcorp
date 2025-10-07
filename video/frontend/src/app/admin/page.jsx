@@ -542,7 +542,7 @@ export default function VideoUpload() {
                     {deleting[video.hash] ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ height: 8, background: '#eee', borderRadius: 6, overflow: 'hidden' }}>
-                          <div style={{ width: `${deleting[video.hash].progress || 0}%`, height: '100%', background: deleting[video.hash].status === 'error' ? '#dc3545' : '#28a745', transition: 'width 0.25s' }} />
+                          <div style={{ width: `${deleting[video.hash].progress || 0}%`, height: '100%', background: deleting[video.hash].status === 'error' ? '#dc3545' : '#dc3545', transition: 'width 0.25s' }} />
                         </div>
                         <div style={{ fontSize: 12, color: deleting[video.hash].status === 'error' ? '#b30000' : '#333', display: 'flex', justifyContent: 'space-between' }}>
                           <span>{deleting[video.hash].status === 'pending' ? 'Deleting...' : deleting[video.hash].status === 'done' ? 'Deleted' : 'Error'}</span>
@@ -688,7 +688,7 @@ export default function VideoUpload() {
                 onClick={() => setShowDialog(false)}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: '#6c757d',
+                  backgroundColor: '#b61010ff',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
