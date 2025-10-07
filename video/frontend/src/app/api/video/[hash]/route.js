@@ -2,7 +2,7 @@ export async function GET(request, { params }) {
   try {
     const { hash } = await params;
     const incomingUrl = new URL(request.url);
-    const upstreamUrl = new URL(`http://localhost:9000/video/${hash}`);
+    const upstreamUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/video/${hash}`);
 
     incomingUrl.searchParams.forEach((value, key) => {
       upstreamUrl.searchParams.set(key, value);

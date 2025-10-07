@@ -2,7 +2,7 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
 
-    const resp = await fetch('http://localhost:9000/upload/complete', {
+    const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/complete`, {
       method: 'POST',
       body: formData,
     });

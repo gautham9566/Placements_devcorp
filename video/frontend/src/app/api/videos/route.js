@@ -1,6 +1,6 @@
 export async function GET() {
   try {
-    const response = await fetch('http://localhost:9000/videos');
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/videos`);
     if (!response.ok) {
       return Response.json({ error: 'Failed to fetch videos' }, { status: response.status });
     }

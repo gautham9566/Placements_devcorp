@@ -18,6 +18,7 @@ export default function StudentPage() {
   const [fullscreenVideos, setFullscreenVideos] = useState({});
   const [showStats, setShowStats] = useState({});
   const [videoStats, setVideoStats] = useState({});
+  const [bufferingVideos, setBufferingVideos] = useState({});
 
   const hlsInstancesRef = useRef({});
   const pendingQualityRef = useRef({});
@@ -541,6 +542,7 @@ export default function StudentPage() {
                       onPause={(e) => {
                         setPlayingVideos(prev => ({ ...prev, [video.hash]: false }));
                         setShowControls(prev => ({ ...prev, [video.hash]: true }));
+                        setBufferingVideos(prev => ({ ...prev, [video.hash]: false }));
                       }}
                       onTimeUpdate={(e) => {
                         const player = e.currentTarget;
@@ -577,9 +579,38 @@ export default function StudentPage() {
                           }
                         }));
                       }}
+                      onWaiting={() => setBufferingVideos(prev => ({ ...prev, [video.hash]: true }))}
+                      onCanPlay={() => setBufferingVideos(prev => ({ ...prev, [video.hash]: false }))}
+                      onEnded={() => setBufferingVideos(prev => ({ ...prev, [video.hash]: false }))}
                     >
                       Your browser does not support the video tag.
                     </video>
+
+                    {/* Buffering Indicator */}
+                    {bufferingVideos[video.hash] && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        borderRadius: '8px',
+                        padding: '16px'
+                      }}>
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          border: '4px solid #f3f3f3',
+                          borderTop: '4px solid #3498db',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite'
+                        }}></div>
+                      </div>
+                    )}
 
                     {/* Custom Controls */}
                     {(showControls[video.hash] || fullscreenVideos[video.hash]) && (
