@@ -624,6 +624,9 @@ export default function VideoUpload() {
                     marginBottom: '10px'
                   }}
                 />
+                 <p style={{ fontSize: '14px', color: '#666', marginTop: '5px' }}>
+                  Supported formats: MP4, MOV, AVI, M4V (HEVC), HEVC. Only these will be accepted and processed.
+                </p>
               </div>
 
               <div style={{ marginBottom: '20px' }}>

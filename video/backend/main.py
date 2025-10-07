@@ -81,7 +81,7 @@ async def upload_video(file: UploadFile = File(...)):
 
 
 # --- Chunked upload API ---
-ALLOWED_EXT = {"mp4", "mov", "avi"}
+ALLOWED_EXT = {"mp4", "mov", "avi" "m4v", "hevc"}
 
 
 def _is_allowed_filename(filename: str) -> bool:
