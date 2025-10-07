@@ -1,2 +1,3 @@
 videos/*
 videos.db
+__pycache__

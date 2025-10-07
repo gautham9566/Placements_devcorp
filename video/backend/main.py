@@ -1,14 +1,13 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
+from models import Video, get_db
 import os
 import hashlib
 import secrets
 import threading
-from transcode import transcode_async, transcode_video, get_status_snapshot, QUALITY_PRESETS
+import shutil
+from transcode import transcode_video, get_status_snapshot, QUALITY_PRESETS, resume_incomplete_transcoding
 from typing import Optional
 
 app = FastAPI()
@@ -22,35 +21,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database setup
-DATABASE_URL = "sqlite:///./videos.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-class Video(Base):
-    __tablename__ = "videos"
-    id = Column(Integer, primary_key=True, index=True)
-    hash = Column(String, unique=True, index=True)
-    filename = Column(String)
-    thumbnail_filename = Column(String, nullable=True)
-    original_resolution = Column(String, nullable=True)
-    original_quality_label = Column(String, nullable=True)
-
-Base.metadata.create_all(bind=engine)
+# Startup event to resume incomplete transcoding jobs
+@app.on_event("startup")
+async def startup_event():
+    """Resume any incomplete transcoding jobs when the server starts."""
+    try:
+        resume_incomplete_transcoding()
+    except Exception as e:
+        print(f"Error during transcoding recovery: {e}")
 
 HLS_CONTENT_TYPES = {
     ".m3u8": "application/vnd.apple.mpegurl",
     ".ts": "video/mp2t",
     ".mp4": "video/mp4",
 }
-
-def get_db():
-    db = SessionLocal()
-    try:
-        return db
-    finally:
-        db.close()
 
 @app.post("/upload")
 async def upload_video(file: UploadFile = File(...)):
@@ -239,6 +223,17 @@ async def transcode_status(hash: str):
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
 
+@app.post("/admin/resume-transcoding")
+async def resume_transcoding():
+    """Manually trigger transcoding recovery for all incomplete jobs."""
+    try:
+        from transcode import resume_incomplete_transcoding
+        resume_incomplete_transcoding()
+        return JSONResponse({"status": "recovery_started"})
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
 @app.get("/transcode/{hash}/qualities")
 async def transcode_qualities(hash: str):
     base = f"videos/{hash}"
@@ -344,23 +339,7 @@ async def delete_video(hash: str):
     # Attempt to remove folder and all contents
     try:
         if os.path.exists(base_folder):
-            # remove files inside then folder
-            for root, dirs, files in os.walk(base_folder, topdown=False):
-                for name in files:
-                    try:
-                        os.remove(os.path.join(root, name))
-                    except Exception:
-                        pass
-                for name in dirs:
-                    try:
-                        os.rmdir(os.path.join(root, name))
-                    except Exception:
-                        pass
-            try:
-                os.rmdir(base_folder)
-            except Exception:
-                # if not empty or permission issue, ignore for now
-                pass
+            shutil.rmtree(base_folder)
     except Exception as e:
         # Log error and continue to DB removal
         print(f"Error removing files for {hash}: {e}")
@@ -458,6 +437,32 @@ async def get_thumbnail(hash: str):
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(file_path, media_type="image/jpeg")
+
+@app.put("/videos/{hash}/stop")
+async def stop_transcoding(hash: str):
+    """Stop transcoding for a video."""
+    db = get_db()
+    video = db.query(Video).filter(Video.hash == hash).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    video.stopped = 1
+    db.commit()
+    return {"status": "stopped"}
+
+@app.put("/videos/{hash}/resume")
+async def resume_transcoding(hash: str):
+    """Resume transcoding for a video."""
+    db = get_db()
+    video = db.query(Video).filter(Video.hash == hash).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    video.stopped = 0
+    db.commit()
+    # Trigger transcoding again
+    from transcode import transcode_video
+    import threading
+    threading.Thread(target=transcode_video, args=(hash,)).start()
+    return {"status": "resumed"}
 
 if __name__ == "__main__":
     import uvicorn

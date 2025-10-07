@@ -35,21 +35,32 @@ export default function VideoUpload() {
   };
 
   const fetchQualitiesForVideos = async (videosList) => {
-    const qualitiesData = {};
-    for (const v of videosList) {
+    const qualityPromises = videosList.map(async (v) => {
       try {
         const res = await fetch(`/api/transcode/${v.hash}/qualities`);
         if (res.ok) {
           const qdata = await res.json();
-          qualitiesData[v.hash] = {
-            master: qdata.master,
-            qualities: qdata.qualities || {},
+          return {
+            hash: v.hash,
+            data: {
+              master: qdata.master,
+              qualities: qdata.qualities || {},
+            }
           };
         }
       } catch (err) {
         // ignore individual errors
       }
-    }
+      return null;
+    });
+
+    const results = await Promise.all(qualityPromises);
+    const qualitiesData = {};
+    results.forEach(result => {
+      if (result) {
+        qualitiesData[result.hash] = result.data;
+      }
+    });
     setQualities(qualitiesData);
   };
 
@@ -73,7 +84,7 @@ export default function VideoUpload() {
             const data = await resp.json();
             if (!cancelled) setTranscodeStatus(prev => ({ ...prev, [hash]: data }));
             // stop polling when finished
-            if (data && (data.overall === 'ok' || data.overall === 'error')) {
+            if (data && (data.overall === 'ok' || data.overall === 'error' || data.overall === 'stopped')) {
               clearInterval(intervals[hash]);
               delete intervals[hash];
             }
@@ -137,8 +148,10 @@ export default function VideoUpload() {
         const initResult = await initResp.json();
         videoHash = initResult.upload_id;
 
-        // send chunks sequentially
-        let uploadedBytes = 0;
+        // send chunks in parallel with progress tracking
+        const chunkPromises = [];
+        let completedChunks = 0;
+
         for (let index = 0; index < totalChunks; index++) {
           const start = index * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, videoFile.size);
@@ -149,19 +162,29 @@ export default function VideoUpload() {
           chunkForm.append('index', String(index));
           chunkForm.append('file', chunk, `${videoFile.name}.part`);
 
-          const chunkResp = await fetch('/api/upload/chunk', {
+          const chunkPromise = fetch('/api/upload/chunk', {
             method: 'POST',
             body: chunkForm,
+          }).then(chunkResp => {
+            if (!chunkResp.ok) {
+              const err = chunkResp.json().catch(() => ({}));
+              throw new Error(err.detail || `Failed uploading chunk ${index}`);
+            }
+            // Update progress when chunk completes
+            completedChunks++;
+            const progressPercent = Math.round((completedChunks / totalChunks) * 100);
+            setProgress(progressPercent);
+            return end - start; // return bytes uploaded
           });
-
-          if (!chunkResp.ok) {
-            const err = await chunkResp.json().catch(() => ({}));
-            throw new Error(err.detail || `Failed uploading chunk ${index}`);
-          }
-
-          uploadedBytes += (end - start);
-          setProgress(Math.round((uploadedBytes / videoFile.size) * 100));
+          
+          chunkPromises.push(chunkPromise);
         }
+
+        // Wait for all chunks to upload in parallel
+        const uploadedBytesArray = await Promise.all(chunkPromises);
+        const totalUploadedBytes = uploadedBytesArray.reduce((sum, bytes) => sum + bytes, 0);
+        // Ensure progress shows 100% at the end
+        setProgress(100);
 
         // complete
         const completeForm = new FormData();
@@ -252,8 +275,53 @@ export default function VideoUpload() {
     }
   };
 
+  const stopTranscode = async (hash) => {
+    try {
+      const resp = await fetch(`/api/videos/${hash}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'stop' }) });
+      if (resp.ok) {
+        // Refresh status
+        fetchVideos();
+      } else {
+        alert('Failed to stop transcoding');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const resumeTranscode = async (hash) => {
+    try {
+      const resp = await fetch(`/api/videos/${hash}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'resume' }) });
+      if (resp.ok) {
+        // Refresh status
+        fetchVideos();
+      } else {
+        alert('Failed to resume transcoding');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Helper to determine if a video is currently being transcoded.
+  // We check both the local `transcoding` state (short-lived flags when triggering)
+  // and the `transcodeStatus` polled from the server which contains the long-running status.
+  const isTranscodingActive = (hash) => {
+    if (!hash) return false;
+    const local = transcoding[hash];
+    if (local && local !== 'error') return true; // 'starting' | 'started'
+    const status = transcodeStatus[hash]?.overall;
+    // treat any non-final status as active (final states are 'ok', 'error', 'stopped')
+    if (status && status !== 'ok' && status !== 'error' && status !== 'stopped') return true;
+    return false;
+  };
+
   const handleDelete = async (hash) => {
     if (!hash) return;
+    if (isTranscodingActive(hash)) {
+      alert('Cannot delete while transcoding is in progress.');
+      return;
+    }
     const ok = confirm('Delete this video and all its files? This cannot be undone.');
     if (!ok) return;
     try {
@@ -399,6 +467,41 @@ export default function VideoUpload() {
                           <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>
                             {transcodeStatus[video.hash].overall || 'pending'}
                           </span>
+                        </div>
+
+                        <div style={{ marginBottom: 8 }}>
+                          {(transcodeStatus[video.hash].overall === 'running' || transcodeStatus[video.hash].overall === 'pending') && (
+                            <button
+                              onClick={() => stopTranscode(video.hash)}
+                              style={{
+                                background: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                padding: '4px 8px',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                fontSize: 12
+                              }}
+                            >
+                              Stop
+                            </button>
+                          )}
+                          {transcodeStatus[video.hash].overall === 'stopped' && (
+                            <button
+                              onClick={() => resumeTranscode(video.hash)}
+                              style={{
+                                background: '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                padding: '4px 8px',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                fontSize: 12
+                              }}
+                            >
+                              Resume
+                            </button>
+                          )}
                         </div>
 
                         {transcodeStatus[video.hash].qualities ? (
@@ -552,14 +655,16 @@ export default function VideoUpload() {
                     ) : (
                       <button
                         onClick={() => handleDelete(video.hash)}
-                        title="Delete video"
+                        disabled={isTranscodingActive(video.hash)}
+                        title={isTranscodingActive(video.hash) ? "Cannot delete while transcoding" : "Delete video"}
                         style={{
                           background: 'transparent',
                           border: 'none',
-                          cursor: 'pointer',
+                          cursor: isTranscodingActive(video.hash) ? 'not-allowed' : 'pointer',
                           padding: 6,
                           display: 'inline-flex',
-                          alignItems: 'center'
+                          alignItems: 'center',
+                          opacity: isTranscodingActive(video.hash) ? 0.5 : 1
                         }}
                       >
                         {/* simple trash icon */}

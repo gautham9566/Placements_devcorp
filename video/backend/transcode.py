@@ -5,6 +5,9 @@ import time
 from typing import Dict, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
+from models import is_transcoding_stopped
+
+# This module requires ffmpeg to be installed on the server and available on PATH.
 
 # This module requires ffmpeg to be installed on the server and available on PATH.
 
@@ -363,6 +366,24 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
                 except Exception:
                     pass
 
+            # Check if transcoding was stopped
+            if is_transcoding_stopped(upload_id):
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                _merge_quality_status(
+                    upload_id,
+                    label,
+                    {
+                        'status': 'stopped',
+                        'progress': current_progress,
+                        'updated_at': time.time(),
+                    },
+                )
+                return 1, 'Transcoding stopped by user'
+
         # wait for process to finish
         rc = proc.wait()
         if rc == 0:
@@ -451,13 +472,31 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
     """Transcode the uploaded video into multiple quality folders in parallel and persist status.
 
     Status file path: videos/<upload_id>/.transcode_status.json
+    This function is designed to be resilient and can be called multiple times safely.
     """
+    print(f"Starting transcoding for {upload_id}: {filename}")
+
+    # Check if stopped
+    if is_transcoding_stopped(upload_id):
+        print(f"Transcoding stopped for {upload_id}")
+        status = _read_status(upload_id) or {}
+        status['overall'] = 'stopped'
+        _update_status(upload_id, lambda _: status)
+        return status
+
     base_folder = f"videos/{upload_id}"
     source_path = os.path.join(base_folder, filename)
     if not os.path.exists(source_path):
         status = {"error": f"Source file not found: {source_path}"}
         _update_status(upload_id, lambda _: status)
+        print(f"Transcoding failed for {upload_id}: source file not found")
         return status
+
+    # Check if transcoding is already complete
+    existing_status = _read_status(upload_id)
+    if existing_status.get('overall') == 'ok':
+        print(f"Transcoding already complete for {upload_id}")
+        return existing_status
 
     # probe original resolution and choose which presets to run
     orig_w, orig_h = _probe_video_resolution(source_path)
@@ -473,8 +512,8 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
     # prepare original entry
     original_res = f"{orig_w}x{orig_h}" if orig_h > 0 and orig_w > 0 else ""
 
-    # initialize status
-    status = {
+    # initialize or update status
+    status = existing_status or {
         "upload_id": upload_id,
         "filename": filename,
         "started_at": time.time(),
@@ -484,8 +523,9 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
         "original_quality_label": original_quality_label,
     }
 
-    # include original as a quality entry so status shows the original file/resolution
-    try:
+    # Ensure original quality entry exists
+    if 'original' not in status.get('qualities', {}):
+        status.setdefault('qualities', {})
         status['qualities']['original'] = {
             'status': 'ok',
             'progress': 100,
@@ -494,24 +534,32 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
             'resolution': original_res,
             'quality_label': original_quality_label,
         }
-    except Exception:
-        pass
-    # only set statuses for selected presets
+
+    # Update metadata
+    status.update({
+        "original_resolution": original_res,
+        "original_quality_label": original_quality_label,
+    })
+
+    # only set statuses for selected presets if not already set
     for label, cfg in QUALITY_PRESETS.items():
-        if label not in selected_presets:
-            # mark as skipped
-            status['qualities'][label] = {
-                "status": "skipped",
-                "progress": 0,
-                "target_resolution": f"{cfg['width']}x{cfg['height']}",
-            }
-            continue
-        # otherwise queue for processing
-        status['qualities'][label] = {
-            "status": "queued",
-            "progress": 0,
-            "target_resolution": f"{cfg['width']}x{cfg['height']}",
-        }
+        if label not in status.get('qualities', {}):
+            if label not in selected_presets:
+                # mark as skipped
+                status.setdefault('qualities', {})
+                status['qualities'][label] = {
+                    "status": "skipped",
+                    "progress": 0,
+                    "target_resolution": f"{cfg['width']}x{cfg['height']}",
+                }
+            else:
+                # queue for processing
+                status.setdefault('qualities', {})
+                status['qualities'][label] = {
+                    "status": "queued",
+                    "progress": 0,
+                    "target_resolution": f"{cfg['width']}x{cfg['height']}",
+                }
 
     _update_status(upload_id, lambda _: status)
 
@@ -523,83 +571,163 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
         except Exception:
             pass
 
-    # Run per-quality jobs in parallel
-    with ThreadPoolExecutor(max_workers=min(4, len(QUALITY_PRESETS))) as ex:
-        futures = {}
-        for label, cfg in QUALITY_PRESETS.items():
-            if label not in selected_presets:
-                # skip creating dirs/jobs for skipped presets
-                continue
-            out_dir = os.path.join(base_folder, label)
-            _cleanup_quality_dir(out_dir)
-            ready_at = time.time()
-            playlist_rel = os.path.join(label, 'playlist.m3u8').replace('\\', '/')
+    try:
+        # Check if stopped before starting jobs
+        if is_transcoding_stopped(upload_id):
+            status['overall'] = 'stopped'
+            _update_status(upload_id, lambda _: status)
+            print(f"Transcoding stopped for {upload_id} before jobs")
+            return status
 
-            _merge_quality_status(
-                upload_id,
-                label,
-                {
-                    'status': 'starting',
-                    'progress': 0,
-                    'started_at': ready_at,
-                    'updated_at': ready_at,
-                    'target_resolution': f"{cfg['width']}x{cfg['height']}",
-                    'path': playlist_rel,
-                    'playlist': playlist_rel,
-                },
-            )
+        # Run per-quality jobs in parallel
+        with ThreadPoolExecutor(max_workers=min(4, len(QUALITY_PRESETS))) as ex:
+            futures = {}
+            for label, cfg in QUALITY_PRESETS.items():
+                if label not in selected_presets:
+                    # skip creating dirs/jobs for skipped presets
+                    continue
+                out_dir = os.path.join(base_folder, label)
+                _cleanup_quality_dir(out_dir)
+                ready_at = time.time()
+                playlist_rel = os.path.join(label, 'playlist.m3u8').replace('\\', '/')
 
-            def make_job(s=source_path, directory=out_dir, preset=dict(cfg), lbl=label):
                 _merge_quality_status(
                     upload_id,
-                    lbl,
+                    label,
                     {
-                        'status': 'running',
+                        'status': 'starting',
                         'progress': 0,
-                        'updated_at': time.time(),
+                        'started_at': ready_at,
+                        'updated_at': ready_at,
+                        'target_resolution': f"{cfg['width']}x{cfg['height']}",
+                        'path': playlist_rel,
+                        'playlist': playlist_rel,
                     },
                 )
-                rc, err = _run_hls_with_progress(s, directory, preset, upload_id, lbl)
-                return lbl, rc, err
 
-            futures[ex.submit(make_job)] = label
+                def make_job(s=source_path, directory=out_dir, preset=dict(cfg), lbl=label):
+                    try:
+                        _merge_quality_status(
+                            upload_id,
+                            lbl,
+                            {
+                                'status': 'running',
+                                'progress': 0,
+                                'updated_at': time.time(),
+                            },
+                        )
+                        rc, err = _run_hls_with_progress(s, directory, preset, upload_id, lbl)
+                        return lbl, rc, err
+                    except Exception as e:
+                        print(f"Error in transcoding job for {upload_id}/{lbl}: {e}")
+                        return lbl, 1, str(e)
 
-        # collect results as they finish
-        for fut in as_completed(futures.keys()):
-            lbl, rc, err = fut.result()
-            if rc != 0:
-                # ensure an error message is recorded even if ffmpeg failed very early
-                snapshot = get_status_snapshot(upload_id)
-                existing = (snapshot.get('qualities', {}) if snapshot else {}).get(lbl, {})
-                updates = {
-                    'status': 'error',
-                    'updated_at': time.time(),
-                }
-                if err:
-                    updates['message'] = err
-                if 'progress' not in existing:
-                    updates['progress'] = 0
-                _merge_quality_status(upload_id, lbl, updates)
+                futures[ex.submit(make_job)] = label
+
+            # collect results as they finish
+            for fut in as_completed(futures.keys()):
+                try:
+                    lbl, rc, err = fut.result()
+                    if rc != 0:
+                        # ensure an error message is recorded even if ffmpeg failed very early
+                        snapshot = get_status_snapshot(upload_id)
+                        existing = (snapshot.get('qualities', {}) if snapshot else {}).get(lbl, {})
+                        updates = {
+                            'status': 'error',
+                            'updated_at': time.time(),
+                        }
+                        if err:
+                            updates['message'] = err
+                        if 'progress' not in existing:
+                            updates['progress'] = 0
+                        _merge_quality_status(upload_id, lbl, updates)
+                except Exception as e:
+                    print(f"Error processing transcoding result for {upload_id}: {e}")
+                    continue
+    except Exception as e:
+        print(f"Error during parallel transcoding for {upload_id}: {e}")
+        # Mark overall status as error
+        _update_status(upload_id, lambda s: {**s, 'overall': 'error', 'error': str(e), 'finished_at': time.time()})
 
     # finalize overall status
-    def finalize(status_snapshot: Dict) -> Dict:
-        status_snapshot = status_snapshot or {}
-        qualities = status_snapshot.get('qualities', {})
-        any_error = any(q.get('status') == 'error' for q in qualities.values())
-        status_snapshot['overall'] = 'error' if any_error else 'ok'
-        status_snapshot['finished_at'] = time.time()
-        status_snapshot.setdefault('upload_id', upload_id)
-        status_snapshot.setdefault('filename', filename)
-        master_written = _write_master_playlist(upload_id, status_snapshot)
-        if master_written:
-            status_snapshot['master_playlist'] = 'master.m3u8'
-        return status_snapshot
+    try:
+        def finalize(status_snapshot: Dict) -> Dict:
+            status_snapshot = status_snapshot or {}
+            qualities = status_snapshot.get('qualities', {})
+            any_error = any(q.get('status') == 'error' for q in qualities.values())
+            any_stopped = any(q.get('status') == 'stopped' for q in qualities.values())
+            if any_stopped:
+                status_snapshot['overall'] = 'stopped'
+            elif any_error:
+                status_snapshot['overall'] = 'error'
+            else:
+                status_snapshot['overall'] = 'ok'
+            status_snapshot['finished_at'] = time.time()
+            status_snapshot.setdefault('upload_id', upload_id)
+            status_snapshot.setdefault('filename', filename)
+            master_written = _write_master_playlist(upload_id, status_snapshot)
+            if master_written:
+                status_snapshot['master_playlist'] = 'master.m3u8'
+            return status_snapshot
 
-    final_status = _update_status(upload_id, finalize)
+        final_status = _update_status(upload_id, finalize)
+        print(f"Transcoding completed for {upload_id}: {final_status.get('overall', 'unknown')}")
+        return final_status
+    except Exception as e:
+        print(f"Error finalizing transcoding for {upload_id}: {e}")
+        # Update status to error if finalization fails
+        error_status = {
+            "overall": "error",
+            "error": f"Finalization failed: {str(e)}",
+            "finished_at": time.time()
+        }
+        _update_status(upload_id, lambda _: error_status)
+        return error_status
 
-    return final_status
 
+def resume_incomplete_transcoding():
+    """Check for and resume any incomplete transcoding jobs on server startup."""
+    print("Checking for incomplete transcoding jobs...")
+    if not os.path.exists("videos"):
+        print("Videos directory not found, skipping recovery")
+        return
 
-def transcode_async(upload_id: str, filename: str):
-    # kept for compatibility; caller can spawn a thread
-    return transcode_video(upload_id, filename)
+    resumed_count = 0
+    for item in os.listdir("videos"):
+        folder_path = os.path.join("videos", item)
+        if not os.path.isdir(folder_path):
+            continue
+
+        status_path = os.path.join(folder_path, ".transcode_status.json")
+        if not os.path.exists(status_path):
+            continue
+
+        try:
+            with open(status_path, 'r', encoding='utf-8') as f:
+                status = json.load(f)
+
+            overall_status = status.get('overall', 'unknown')
+            filename = status.get('filename', '')
+
+            # Resume if transcoding was running, failed, or never completed
+            if overall_status in ['running', 'error', 'unknown'] or overall_status != 'ok':
+                if not filename:
+                    print(f"Skipping {item}: no filename in status")
+                    continue
+
+                source_path = os.path.join(folder_path, filename)
+                if not os.path.exists(source_path):
+                    print(f"Skipping {item}: source file {filename} not found")
+                    continue
+
+                print(f"Resuming incomplete transcoding for {item}: {filename}")
+                # Start transcoding in background thread
+                import threading
+                t = threading.Thread(target=transcode_video, args=(item, filename), daemon=True)
+                t.start()
+                resumed_count += 1
+        except Exception as e:
+            print(f"Error checking transcoding status for {item}: {e}")
+            continue
+
+    print(f"Resumed {resumed_count} incomplete transcoding jobs")
