@@ -16,7 +16,7 @@ app = FastAPI()
 # Allow CORS from frontend (adjust origin as needed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:4000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +34,8 @@ class Video(Base):
     hash = Column(String, unique=True, index=True)
     filename = Column(String)
     thumbnail_filename = Column(String, nullable=True)
+    original_resolution = Column(String, nullable=True)
+    original_quality_label = Column(String, nullable=True)
 
 Base.metadata.create_all(bind=engine)
 
@@ -222,6 +224,16 @@ async def transcode_status(hash: str):
         return JSONResponse({"status": "not_found"}, status_code=404)
     try:
         data = get_status_snapshot(hash)
+        
+        # Update database with original resolution if available
+        if data and data.get('original_resolution'):
+            db = get_db()
+            video = db.query(Video).filter(Video.hash == hash).first()
+            if video and not video.original_resolution:
+                video.original_resolution = data.get('original_resolution')
+                video.original_quality_label = data.get('original_quality_label')
+                db.commit()
+        
         return JSONResponse(data)
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
@@ -232,6 +244,27 @@ async def transcode_qualities(hash: str):
     base = f"videos/{hash}"
     if not os.path.exists(base):
         raise HTTPException(status_code=404, detail="Video not found")
+    
+    # Get original quality info from database or status
+    db = get_db()
+    video = db.query(Video).filter(Video.hash == hash).first()
+    original_quality_label = None
+    original_resolution = None
+    
+    if video:
+        original_quality_label = video.original_quality_label
+        original_resolution = video.original_resolution
+    
+    # If not in database, try to get from transcode status
+    if not original_quality_label:
+        try:
+            status_data = get_status_snapshot(hash)
+            if status_data:
+                original_quality_label = status_data.get('original_quality_label')
+                original_resolution = status_data.get('original_resolution')
+        except Exception:
+            pass
+    
     qualities = {}
     for label, cfg in QUALITY_PRESETS.items():
         playlist_rel = os.path.join(label, 'playlist.m3u8').replace('\\', '/')
@@ -246,12 +279,40 @@ async def transcode_qualities(hash: str):
                 "bandwidth": max(1, video_peak + audio_bitrate),
                 "average_bandwidth": max(1, video_avg + audio_bitrate),
             }
+    # include original file as a quality if present
+    original_path = None
+    # try to find an mp4 in the base folder
+    for f in os.listdir(base):
+        if f.lower().endswith('.mp4'):
+            original_path = f
+            break
+
+    if original_path:
+        # probe resolution using ffprobe if available
+        try:
+            import subprocess
+            cmd = [
+                'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x',
+                os.path.join(base, original_path)
+            ]
+            out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode('utf-8').strip()
+            res = out if out else (original_resolution or '')
+        except Exception:
+            res = original_resolution or ''
+        qualities['original'] = {
+            'file': original_path,
+            'resolution': res,
+            'quality_label': original_quality_label or '',
+        }
 
     master_path = os.path.join(base, 'master.m3u8')
     response = {
         "master": "master.m3u8" if os.path.exists(master_path) else None,
         "qualities": qualities,
         "available": list(qualities.keys()),
+        "original_quality_label": original_quality_label,
+        "original_resolution": original_resolution,
     }
     return JSONResponse(response)
 
@@ -259,7 +320,59 @@ async def transcode_qualities(hash: str):
 async def get_videos():
     db = get_db()
     videos = db.query(Video).all()
-    return [{"id": video.id, "hash": video.hash, "filename": video.filename, "thumbnail_filename": video.thumbnail_filename} for video in videos]
+    return [{
+        "id": video.id, 
+        "hash": video.hash, 
+        "filename": video.filename, 
+        "thumbnail_filename": video.thumbnail_filename,
+        "original_resolution": video.original_resolution,
+        "original_quality_label": video.original_quality_label
+    } for video in videos]
+
+
+@app.delete("/api/videos/{hash}")
+@app.delete("/videos/{hash}")
+async def delete_video(hash: str):
+    """Delete a video's files and database record by hash."""
+    db = get_db()
+    video = db.query(Video).filter(Video.hash == hash).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    base_folder = f"videos/{hash}"
+
+    # Attempt to remove folder and all contents
+    try:
+        if os.path.exists(base_folder):
+            # remove files inside then folder
+            for root, dirs, files in os.walk(base_folder, topdown=False):
+                for name in files:
+                    try:
+                        os.remove(os.path.join(root, name))
+                    except Exception:
+                        pass
+                for name in dirs:
+                    try:
+                        os.rmdir(os.path.join(root, name))
+                    except Exception:
+                        pass
+            try:
+                os.rmdir(base_folder)
+            except Exception:
+                # if not empty or permission issue, ignore for now
+                pass
+    except Exception as e:
+        # Log error and continue to DB removal
+        print(f"Error removing files for {hash}: {e}")
+
+    # Remove DB record
+    try:
+        db.delete(video)
+        db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete video record: {e}")
+
+    return JSONResponse({"status": "deleted"})
 
 @app.get("/video/{hash}")
 async def get_video(hash: str, quality: Optional[str] = None, format: Optional[str] = None):

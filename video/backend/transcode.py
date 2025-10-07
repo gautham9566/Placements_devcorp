@@ -245,6 +245,30 @@ def _get_duration_seconds(path: str) -> float:
         return 0.0
 
 
+def _probe_video_resolution(path: str):
+    """Return (width, height) of the first video stream or (0,0) on failure."""
+    try:
+        cmd = [
+            'ffprobe',
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=width,height',
+            '-of', 'csv=p=0:s=x',
+            path,
+        ]
+        out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode('utf-8').strip()
+        if not out:
+            return 0, 0
+        parts = out.split('x')
+        if len(parts) >= 2:
+            w = int(parts[0]) if parts[0].isdigit() else 0
+            h = int(parts[1]) if parts[1].isdigit() else 0
+            return w, h
+        return 0, 0
+    except Exception:
+        return 0, 0
+
+
 def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_id: str, label: str):
     """Run ffmpeg to generate HLS output for a single quality while updating status."""
     width = int(preset.get("width"))
@@ -398,6 +422,31 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
         return 1, str(e)
 
 
+def _get_quality_label_from_resolution(width: int, height: int) -> str:
+    """Map resolution to quality label like '1080p', '720p', etc."""
+    if height <= 0:
+        return "unknown"
+    
+    # Define common resolution heights to quality labels
+    quality_map = {
+        2160: "2160p",
+        1440: "1440p",
+        1080: "1080p",
+        720: "720p",
+        480: "480p",
+        360: "360p",
+        240: "240p"
+    }
+    
+    # Find the closest match
+    for h, label in quality_map.items():
+        if height >= h:
+            return label
+    
+    # If lower than 240p, return custom label
+    return f"{height}p"
+
+
 def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
     """Transcode the uploaded video into multiple quality folders in parallel and persist status.
 
@@ -410,6 +459,20 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
         _update_status(upload_id, lambda _: status)
         return status
 
+    # probe original resolution and choose which presets to run
+    orig_w, orig_h = _probe_video_resolution(source_path)
+    # if probe fails, default to running all presets
+    if orig_h <= 0:
+        selected_presets = list(QUALITY_PRESETS.keys())
+        original_quality_label = "unknown"
+    else:
+        # Select presets with height <= original (includes original quality + lower resolutions)
+        selected_presets = [label for label, cfg in QUALITY_PRESETS.items() if int(cfg.get('height', 0)) <= orig_h]
+        original_quality_label = _get_quality_label_from_resolution(orig_w, orig_h)
+
+    # prepare original entry
+    original_res = f"{orig_w}x{orig_h}" if orig_h > 0 and orig_w > 0 else ""
+
     # initialize status
     status = {
         "upload_id": upload_id,
@@ -417,8 +480,33 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
         "started_at": time.time(),
         "qualities": {},
         "overall": "running",
+        "original_resolution": original_res,
+        "original_quality_label": original_quality_label,
     }
+
+    # include original as a quality entry so status shows the original file/resolution
+    try:
+        status['qualities']['original'] = {
+            'status': 'ok',
+            'progress': 100,
+            'file': filename,
+            'path': filename,
+            'resolution': original_res,
+            'quality_label': original_quality_label,
+        }
+    except Exception:
+        pass
+    # only set statuses for selected presets
     for label, cfg in QUALITY_PRESETS.items():
+        if label not in selected_presets:
+            # mark as skipped
+            status['qualities'][label] = {
+                "status": "skipped",
+                "progress": 0,
+                "target_resolution": f"{cfg['width']}x{cfg['height']}",
+            }
+            continue
+        # otherwise queue for processing
         status['qualities'][label] = {
             "status": "queued",
             "progress": 0,
@@ -439,6 +527,9 @@ def transcode_video(upload_id: str, filename: str) -> Dict[str, Dict]:
     with ThreadPoolExecutor(max_workers=min(4, len(QUALITY_PRESETS))) as ex:
         futures = {}
         for label, cfg in QUALITY_PRESETS.items():
+            if label not in selected_presets:
+                # skip creating dirs/jobs for skipped presets
+                continue
             out_dir = os.path.join(base_folder, label)
             _cleanup_quality_dir(out_dir)
             ready_at = time.time()

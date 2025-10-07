@@ -13,6 +13,8 @@ export default function VideoUpload() {
   const [selectedVideo, setSelectedVideo] = useState('');
   const [transcoding, setTranscoding] = useState({});
   const [transcodeStatus, setTranscodeStatus] = useState({});
+  const [deleting, setDeleting] = useState({});
+  const [qualities, setQualities] = useState({});
 
   const fetchVideos = async () => {
     try {
@@ -21,6 +23,8 @@ export default function VideoUpload() {
         const data = await response.json();
         if (Array.isArray(data)) {
           setVideos(data);
+          // fetch qualities for videos as a fallback for displaying original
+          fetchQualitiesForVideos(data);
         }
       } else {
         setError('Failed to load videos');
@@ -28,6 +32,25 @@ export default function VideoUpload() {
     } catch (error) {
       setError('Network error while loading videos');
     }
+  };
+
+  const fetchQualitiesForVideos = async (videosList) => {
+    const qualitiesData = {};
+    for (const v of videosList) {
+      try {
+        const res = await fetch(`/api/transcode/${v.hash}/qualities`);
+        if (res.ok) {
+          const qdata = await res.json();
+          qualitiesData[v.hash] = {
+            master: qdata.master,
+            qualities: qdata.qualities || {},
+          };
+        }
+      } catch (err) {
+        // ignore individual errors
+      }
+    }
+    setQualities(qualitiesData);
   };
 
   useEffect(() => {
@@ -229,6 +252,53 @@ export default function VideoUpload() {
     }
   };
 
+  const handleDelete = async (hash) => {
+    if (!hash) return;
+    const ok = confirm('Delete this video and all its files? This cannot be undone.');
+    if (!ok) return;
+    try {
+      // start progress indicator
+      setDeleting(prev => ({ ...prev, [hash]: { status: 'pending', progress: 10 } }));
+
+      // slowly advance UI progress while waiting (visual only)
+      let tick = 0;
+      const interval = setInterval(() => {
+        tick += 1;
+        setDeleting(prev => {
+          const cur = prev[hash];
+          if (!cur || cur.status !== 'pending') return prev;
+          const next = Math.min(95, (cur.progress || 10) + Math.floor(Math.random() * 8) + 2);
+          return { ...prev, [hash]: { ...cur, progress: next } };
+        });
+      }, 300);
+
+      const resp = await fetch(`/api/videos/${hash}`, { method: 'DELETE' });
+      if (resp.ok) {
+        clearInterval(interval);
+        setDeleting(prev => ({ ...prev, [hash]: { status: 'done', progress: 100 } }));
+        // small delay so progress reaches 100%
+        setTimeout(async () => {
+          // refresh list
+          await fetchVideos();
+          setDeleting(prev => {
+            const copy = { ...prev };
+            delete copy[hash];
+            return copy;
+          });
+        }, 350);
+      } else {
+        clearInterval(interval);
+        setDeleting(prev => ({ ...prev, [hash]: { status: 'error', progress: 100 } }));
+        const txt = await resp.text().catch(() => 'error');
+        alert(`Delete failed: ${txt}`);
+        // clear after pause
+        setTimeout(() => setDeleting(prev => { const c = { ...prev }; delete c[hash]; return c; }), 1500);
+      }
+    } catch (err) {
+      alert(`Delete error: ${err.message}`);
+    }
+  };
+
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', backgroundColor: '#f9f9f9', minHeight: '100vh' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -275,6 +345,7 @@ export default function VideoUpload() {
                 <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Filename</th>
                 <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Transcode</th>
                 <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Thumbnail</th>
+                <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Delete</th>
               </tr>
             </thead>
             <tbody>
@@ -289,56 +360,218 @@ export default function VideoUpload() {
                   <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000', minWidth: 240 }}>
                     {transcodeStatus[video.hash] ? (
                       <div>
+                        {/* Original video quality header - PROMINENTLY DISPLAYED */}
+                        {(() => {
+                          // Try to get original quality label from multiple sources
+                          const origFromStatus = transcodeStatus[video.hash]?.original_quality_label;
+                          const origFromQualitiesObj = transcodeStatus[video.hash]?.qualities?.original?.quality_label;
+                          const origFromVideoRecord = video.original_quality_label;
+                          const originalQualityLabel = origFromStatus || origFromQualitiesObj || origFromVideoRecord;
+                          
+                          const origResFromStatus = transcodeStatus[video.hash]?.original_resolution;
+                          const origResFromQualitiesObj = transcodeStatus[video.hash]?.qualities?.original?.resolution;
+                          const origResFromVideoRecord = video.original_resolution;
+                          const originalResolution = origResFromStatus || origResFromQualitiesObj || origResFromVideoRecord;
+                          
+                          if (originalQualityLabel || originalResolution) {
+                            return (
+                              <div style={{ 
+                                marginBottom: 12, 
+                                padding: '8px 10px', 
+                                backgroundColor: '#e8f4ff', 
+                                borderLeft: '4px solid #007bff',
+                                borderRadius: 4 
+                              }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#0056b3', marginBottom: 4 }}>
+                                  Original video quality
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: '#003d82' }}>
+                                  {originalQualityLabel || 'unknown'} {originalResolution && `(${originalResolution})`}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
                         <div style={{ fontSize: 12, color: '#444', marginBottom: 8 }}>
                           Overall:{' '}
                           <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>
                             {transcodeStatus[video.hash].overall || 'pending'}
                           </span>
                         </div>
+
                         {transcodeStatus[video.hash].qualities ? (
-                          Object.entries(transcodeStatus[video.hash].qualities).map(([q, s]) => {
-                            const percent = typeof s.progress === 'number'
-                              ? s.progress
-                              : (s.status === 'ok' ? 100 : 0);
-                            const barColor = s.status === 'ok'
-                              ? '#28a745'
-                              : s.status === 'error'
-                                ? '#dc3545'
-                                : '#0d6efd';
-                            const detail = s.message || s.error;
-                            const statusLabel = s.status || 'pending';
-                            return (
-                              <div key={q} style={{ marginBottom: 10 }}>
-                                <div style={{ fontSize: 12, color: '#222', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
-                                  <span>{q}</span>
-                                  <span>{percent}%</span>
+                          (() => {
+                            const entries = Object.entries(transcodeStatus[video.hash].qualities || {});
+                            // Filter out 'original' from the processing list as it's shown above
+                            const filteredEntries = entries.filter(([q]) => q !== 'original');
+                            filteredEntries.sort((a, b) => {
+                              const ra = a[1].resolution || a[1].target_resolution || '';
+                              const rb = b[1].resolution || b[1].target_resolution || '';
+                              const ha = parseInt((ra.split('x')[1] || '').toString(), 10) || 0;
+                              const hb = parseInt((rb.split('x')[1] || '').toString(), 10) || 0;
+                              return hb - ha; // descending by height
+                            });
+
+                            return filteredEntries.map(([q, s]) => {
+                              const percent = typeof s.progress === 'number'
+                                ? s.progress
+                                : (s.status === 'ok' ? 100 : 0);
+                              const barColor = s.status === 'ok'
+                                ? '#28a745'
+                                : s.status === 'error'
+                                  ? '#dc3545'
+                                  : s.status === 'skipped'
+                                    ? '#6c757d'
+                                    : '#0d6efd';
+                              const detail = s.message || s.error || '';
+                              const statusLabel = s.status || 'pending';
+                              const label = q;
+                              
+                              // Skip rendering skipped qualities
+                              if (s.status === 'skipped') {
+                                return null;
+                              }
+                              
+                              return (
+                                <div key={q} style={{ marginBottom: 10 }}>
+                                  <div style={{ fontSize: 12, color: '#222', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>{label}</span>
+                                    <span>{percent}%</span>
+                                  </div>
+                                  <div style={{ height: 10, background: '#eee', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                                    <div
+                                      style={{
+                                        width: `${percent}%`,
+                                        height: '100%',
+                                        background: barColor,
+                                        transition: 'width 0.5s ease',
+                                      }}
+                                    />
+                                  </div>
+                                  <div style={{ fontSize: 11, color: statusLabel === 'error' ? '#b30000' : '#555', marginTop: 4 }}>
+                                    {statusLabel}{detail ? ` · ${detail}` : ''}
+                                  </div>
                                 </div>
-                                <div style={{ height: 10, background: '#eee', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
-                                  <div
-                                    style={{
-                                      width: `${percent}%`,
-                                      height: '100%',
-                                      background: barColor,
-                                      transition: 'width 0.5s ease',
-                                    }}
-                                  />
-                                </div>
-                                <div style={{ fontSize: 11, color: statusLabel === 'error' ? '#b30000' : '#555', marginTop: 4 }}>
-                                  {statusLabel}{detail ? ` · ${detail}` : ''}
-                                </div>
-                              </div>
-                            );
-                          })
+                              );
+                            });
+                          })()
                         ) : (
-                          <div style={{ fontSize: 12, color: '#555' }}>{transcodeStatus[video.hash].overall || 'pending'}</div>
+                          // fallback to qualities fetched from /api/transcode/{hash}/qualities
+                          (qualities[video.hash] && qualities[video.hash].qualities) ? (
+                            (() => {
+                              const entries = Object.entries(qualities[video.hash].qualities || {});
+                              // Filter out 'original' from the processing list
+                              const filteredEntries = entries.filter(([q]) => q !== 'original');
+                              filteredEntries.sort((a, b) => {
+                                const ra = a[1].resolution || a[1].target_resolution || '';
+                                const rb = b[1].resolution || b[1].target_resolution || '';
+                                const ha = parseInt((ra.split('x')[1] || '').toString(), 10) || 0;
+                                const hb = parseInt((rb.split('x')[1] || '').toString(), 10) || 0;
+                                return hb - ha;
+                              });
+
+                              return filteredEntries.map(([q, s]) => {
+                                const percent = typeof s.progress === 'number' ? s.progress : 100;
+                                const barColor = s.status === 'ok' || !s.status ? '#28a745' : s.status === 'error' ? '#dc3545' : '#0d6efd';
+                                const detail = s.message || s.error || '';
+                                const statusLabel = s.status || 'ok';
+                                const label = q;
+                                return (
+                                  <div key={q} style={{ marginBottom: 10 }}>
+                                    <div style={{ fontSize: 12, color: '#222', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                                      <span>{label}</span>
+                                      <span>{percent}%</span>
+                                    </div>
+                                    <div style={{ height: 10, background: '#eee', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                                      <div style={{ width: `${percent}%`, height: '100%', background: barColor, transition: 'width 0.5s ease' }} />
+                                    </div>
+                                    <div style={{ fontSize: 11, color: statusLabel === 'error' ? '#b30000' : '#555', marginTop: 4 }}>
+                                      {statusLabel}{detail ? ` · ${detail}` : ''}
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()
+                          ) : (
+                            <div style={{ fontSize: 12, color: '#555' }}>{transcodeStatus[video.hash].overall || 'pending'}</div>
+                          )
                         )}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 12, color: '#777' }}>No status</div>
+                      <div>
+                        {/* Show original quality even if no transcode status */}
+                        {(() => {
+                          const origFromVideoRecord = video.original_quality_label;
+                          const origResFromVideoRecord = video.original_resolution;
+                          const origFromQualities = qualities[video.hash]?.original_quality_label;
+                          const origResFromQualities = qualities[video.hash]?.original_resolution;
+                          
+                          const originalQualityLabel = origFromVideoRecord || origFromQualities;
+                          const originalResolution = origResFromVideoRecord || origResFromQualities;
+                          
+                          if (originalQualityLabel || originalResolution) {
+                            return (
+                              <div style={{ 
+                                marginBottom: 12, 
+                                padding: '8px 10px', 
+                                backgroundColor: '#e8f4ff', 
+                                borderLeft: '4px solid #007bff',
+                                borderRadius: 4 
+                              }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#0056b3', marginBottom: 4 }}>
+                                  Original video quality
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: '#003d82' }}>
+                                  {originalQualityLabel || 'unknown'} {originalResolution && `(${originalResolution})`}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        <div style={{ fontSize: 12, color: '#777' }}>No transcode status</div>
+                      </div>
                     )}
                   </td>
                   <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000' }}>
               {video.thumbnail_filename ? 'Yes' : 'No'}
+                  </td>
+                  <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000', width: 140 }}>
+                    {deleting[video.hash] ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ height: 8, background: '#eee', borderRadius: 6, overflow: 'hidden' }}>
+                          <div style={{ width: `${deleting[video.hash].progress || 0}%`, height: '100%', background: deleting[video.hash].status === 'error' ? '#dc3545' : '#28a745', transition: 'width 0.25s' }} />
+                        </div>
+                        <div style={{ fontSize: 12, color: deleting[video.hash].status === 'error' ? '#b30000' : '#333', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{deleting[video.hash].status === 'pending' ? 'Deleting...' : deleting[video.hash].status === 'done' ? 'Deleted' : 'Error'}</span>
+                          <span>{deleting[video.hash].progress || 0}%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleDelete(video.hash)}
+                        title="Delete video"
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 6,
+                          display: 'inline-flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        {/* simple trash icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b30000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                          <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    )}
                   </td>
                   {/* transcode control removed from admin UI */}
                 </tr>
