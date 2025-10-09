@@ -87,9 +87,11 @@ export default function StudentPage() {
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
-          setVideos(data);
-          // Fetch qualities asynchronously after videos are loaded
-          fetchQualitiesForVideos(data);
+          // Only expose published videos to students
+          const published = data.filter(v => (v.status || '').toString().toLowerCase() === 'published');
+          setVideos(published);
+          // Fetch qualities asynchronously after videos are loaded (only for published)
+          fetchQualitiesForVideos(published);
         }
       } else {
         setError('Failed to load videos');

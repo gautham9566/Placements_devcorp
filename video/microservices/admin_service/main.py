@@ -73,6 +73,25 @@ async def get_video_metadata(video_hash: str):
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
 
+
+@app.put("/videos/{video_hash}")
+async def update_video_metadata(video_hash: str, request: Request):
+    """Proxy to metadata service - Update video metadata (used for publishing etc)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    try:
+        resp = requests.put(
+            f"{METADATA_SERVICE_URL}/videos/{video_hash}",
+            json=body,
+            timeout=10
+        )
+        return JSONResponse(content=resp.json() if resp.text else {}, status_code=resp.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
+
 @app.delete("/videos/{video_hash}")
 async def delete_video(video_hash: str):
     """Delete a video completely (files and metadata)."""
@@ -176,6 +195,21 @@ async def resume_transcoding(video_hash: str):
             detail=f"Service unavailable: {str(e)}"
         )
 
+@app.post("/videos/{video_hash}/publish")
+async def publish_video(video_hash: str):
+    """Proxy to metadata service - Publish a video."""
+    try:
+        response = requests.post(
+            f"{METADATA_SERVICE_URL}/videos/{video_hash}/publish",
+            timeout=10
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Metadata service unavailable: {str(e)}"
+        )
+
 @app.post("/upload/init")
 async def upload_init_proxy(filename: str = Form(...), total_chunks: int = Form(...)):
     """Proxy to upload service - Initialize chunked upload."""
@@ -235,8 +269,10 @@ async def transcode_trigger(video_hash: str, request: Request):
     """Proxy to transcoding service - Start transcoding."""
     try:
         body = await request.json()
+        qualities = body.get('qualities', [])
         network_speed = body.get('networkSpeed', 10)
     except:
+        qualities = []
         network_speed = 10
     
     try:
@@ -249,9 +285,17 @@ async def transcode_trigger(video_hash: str, request: Request):
         filename = video_data.get("filename")
         
         # Start transcoding
+        transcode_payload = {
+            "upload_id": video_hash,
+            "filename": filename,
+            "network_speed": network_speed
+        }
+        if qualities:
+            transcode_payload["qualities"] = qualities
+        
         response = requests.post(
             f"{TRANSCODING_SERVICE_URL}/transcode/start",
-            json={"upload_id": video_hash, "filename": filename, "network_speed": network_speed},
+            json=transcode_payload,
             timeout=10
         )
         return JSONResponse(content=response.json(), status_code=response.status_code)

@@ -1,13 +1,17 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
-from models import Video, get_db
+from models import Video, get_db, SessionLocal
+import asyncio
+from datetime import datetime
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 import orjson
 import time
 from functools import lru_cache
+import requests
+import logging
 
 # Simple cache for videos endpoint
 _videos_cache = None
@@ -15,6 +19,8 @@ _cache_timestamp = 0
 CACHE_TTL = 0.1  # 100ms cache
 
 app = FastAPI(title="Metadata Service", default_response_class=ORJSONResponse)
+
+logging.basicConfig(level=logging.INFO)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,12 +34,19 @@ class VideoCreate(BaseModel):
     hash: str
     filename: str
     thumbnail_filename: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    scheduled_at: Optional[str] = None
 
 class VideoUpdate(BaseModel):
     thumbnail_filename: Optional[str] = None
     original_resolution: Optional[str] = None
     original_quality_label: Optional[str] = None
     stopped: Optional[int] = None
+    title: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
 
 @app.post("/videos")
 async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
@@ -47,6 +60,11 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
     db_video = Video(
         hash=video.hash,
         filename=video.filename,
+        title=video.title or video.filename,
+        description=video.description or None,
+        status=video.status or ("Scheduled" if video.scheduled_at else "draft"),
+        scheduled_at=video.scheduled_at or None,
+        category="uncategorized",
         thumbnail_filename=video.thumbnail_filename
     )
     db.add(db_video)
@@ -73,10 +91,14 @@ async def get_videos(db: Session = Depends(get_db)):
                 "id": v.id,
                 "hash": v.hash,
                 "filename": v.filename,
+                "title": v.title,
+                "category": v.category,
+                "status": v.status,
                 "thumbnail_filename": v.thumbnail_filename,
                 "original_resolution": v.original_resolution,
                 "original_quality_label": v.original_quality_label,
-                "stopped": v.stopped
+                "stopped": v.stopped,
+                "created_at": v.created_at.isoformat() if v.created_at else None
             }
             for v in videos
         ]
@@ -99,6 +121,9 @@ async def get_video(hash: str, db: Session = Depends(get_db)):
         "id": video.id,
         "hash": video.hash,
         "filename": video.filename,
+        "title": video.title,
+        "category": video.category,
+        "status": video.status,
         "thumbnail_filename": video.thumbnail_filename,
         "original_resolution": video.original_resolution,
         "original_quality_label": video.original_quality_label,
@@ -120,9 +145,59 @@ async def update_video(hash: str, video_update: VideoUpdate, db: Session = Depen
         video.original_quality_label = video_update.original_quality_label
     if video_update.stopped is not None:
         video.stopped = video_update.stopped
+    if video_update.title is not None:
+        video.title = video_update.title
+    if video_update.category is not None:
+        video.category = video_update.category
+    if video_update.status is not None:
+        video.status = video_update.status
     
     db.commit()
     return {"status": "updated"}
+
+
+TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
+
+
+def _publish_video_db(video_hash: str):
+    db = SessionLocal()
+    try:
+        video = db.query(Video).filter(Video.hash == video_hash).first()
+        if not video:
+            return False, 'not found'
+        video.status = 'Published'
+        db.add(video)
+        db.commit()
+        return True, 'published'
+    except Exception as e:
+        db.rollback()
+        return False, str(e)
+    finally:
+        db.close()
+
+
+@app.post('/videos/{hash}/publish')
+def publish_video_endpoint(hash: str):
+    """Publish a video if transcode completed successfully. Returns JSON status."""
+    # Check transcode status via transcoding service
+    try:
+        r = requests.get(f"{TRANSCODING_SERVICE_URL}/transcode/{hash}/status", timeout=5)
+        if r.ok:
+            data = r.json()
+            overall = (data.get('overall') or '').lower()
+            if overall not in ('ok', 'finished', 'completed'):
+                return JSONResponse({'status': 'not_ready', 'detail': 'transcode not completed'}, status_code=400)
+    except Exception as e:
+        logging.warning('Could not check transcode status: %s', e)
+        # allow publish if we cannot reach transcoder? Safer to block
+        return JSONResponse({'status': 'error', 'detail': 'transcode status unavailable'}, status_code=503)
+
+    ok, msg = _publish_video_db(hash)
+    if ok:
+        logging.info('Published video %s', hash)
+        return {'status': 'published'}
+    logging.error('Failed to publish %s: %s', hash, msg)
+    return JSONResponse({'status': 'error', 'detail': msg}, status_code=500)
 
 @app.delete("/videos/{hash}")
 async def delete_video(hash: str, db: Session = Depends(get_db)):
@@ -170,3 +245,56 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8003)
+
+
+async def _scheduler_loop():
+    """Background loop that publishes scheduled videos when their scheduled_at <= now."""
+    while True:
+        try:
+            db = SessionLocal()
+            now = datetime.now()
+            scheduled_videos = db.query(Video).filter(Video.status == 'Scheduled', Video.scheduled_at != None).all()
+            for v in scheduled_videos:
+                try:
+                    sched = v.scheduled_at
+                    if not sched:
+                        continue
+                    try:
+                        sched_dt = datetime.fromisoformat(sched)
+                    except Exception:
+                        # ignore parse errors
+                        continue
+                    if sched_dt <= now:
+                        # call the publish endpoint instead of mutating DB here
+                        publish_url = f"http://127.0.0.1:8003/videos/{v.hash}/publish"
+                        attempts = 0
+                        success = False
+                        while attempts < 3 and not success:
+                            attempts += 1
+                            try:
+                                resp = requests.post(publish_url, timeout=5)
+                                if resp.ok:
+                                    logging.info('Scheduler: published %s on attempt %d', v.hash, attempts)
+                                    success = True
+                                else:
+                                    logging.warning('Scheduler: publish %s failed attempt %d: %s', v.hash, attempts, resp.text)
+                            except Exception as e:
+                                logging.warning('Scheduler: publish %s exception on attempt %d: %s', v.hash, attempts, e)
+                            if not success:
+                                await asyncio.sleep(2 ** attempts)
+                except Exception:
+                    db.rollback()
+            db.close()
+        except Exception:
+            # swallow errors and continue
+            try:
+                db.close()
+            except Exception:
+                pass
+        await asyncio.sleep(60)
+
+
+@app.on_event("startup")
+async def start_scheduler():
+    # start the scheduler loop as a background task
+    asyncio.create_task(_scheduler_loop())

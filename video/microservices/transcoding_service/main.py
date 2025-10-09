@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional, Callable, List
 import os
 import json
 import subprocess
@@ -89,6 +89,7 @@ class TranscodeRequest(BaseModel):
     upload_id: str
     filename: str
     network_speed: float = 10.0
+    qualities: Optional[List[str]] = None
 
 # Status lock management
 _STATUS_LOCKS: Dict[str, Lock] = {}
@@ -451,7 +452,7 @@ def _write_master_playlist(upload_id: str, status_snapshot: Dict) -> str:
 
     return master_path
 
-def transcode_video_task(upload_id: str, filename: str, network_speed: float = 10.0) -> Dict:
+def transcode_video_task(upload_id: str, filename: str, network_speed: float = 10.0, qualities: Optional[List[str]] = None) -> Dict:
     """Main transcoding function that runs in background."""
     print(f"Starting transcoding for {upload_id}: {filename}")
 
@@ -481,6 +482,10 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
     else:
         selected_presets = [label for label, cfg in QUALITY_PRESETS.items() if int(cfg.get('height', 0)) <= orig_h]
         original_quality_label = _get_quality_label_from_resolution(orig_w, orig_h)
+
+    # If qualities specified, use them instead
+    if qualities:
+        selected_presets = [p for p in qualities if p in QUALITY_PRESETS]
 
     # Filter by network speed
     if network_speed < 1:
@@ -661,6 +666,7 @@ async def transcode_start(request: TranscodeRequest):
     upload_id = request.upload_id
     filename = request.filename
     network_speed = request.network_speed
+    qualities = request.qualities
     
     source_path = os.path.join(ORIGINALS_PATH, upload_id, filename)
     if not os.path.exists(source_path):
@@ -669,12 +675,73 @@ async def transcode_start(request: TranscodeRequest):
     # Start transcoding in background thread
     thread = threading.Thread(
         target=transcode_video_task,
-        args=(upload_id, filename, network_speed),
+        args=(upload_id, filename, network_speed, qualities),
         daemon=True
     )
     thread.start()
     
     return {"status": "started", "upload_id": upload_id}
+
+
+# Compatibility endpoints used by frontend proxy (path-style: /transcode/{upload_id})
+@app.post("/transcode/{upload_id}")
+async def transcode_trigger(upload_id: str, request: Request):
+    """Trigger a transcode for an upload_id. Accepts optional JSON body { networkSpeed }.
+    This mirrors the frontend expectation of POST /transcode/{hash}.
+    """
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    network_speed = float(body.get('networkSpeed') or body.get('network_speed') or 10.0)
+
+    # Determine filename: prefer existing status filename, otherwise inspect originals folder
+    status = _read_status(upload_id)
+    filename = None
+    if status and status.get('filename'):
+        filename = status.get('filename')
+    else:
+        folder = os.path.join(ORIGINALS_PATH, upload_id)
+        if os.path.exists(folder) and os.path.isdir(folder):
+            # pick the first regular file
+            for name in os.listdir(folder):
+                if name.startswith('.'):
+                    continue
+                file_path = os.path.join(folder, name)
+                if os.path.isfile(file_path):
+                    filename = name
+                    break
+
+    if not filename:
+        raise HTTPException(status_code=404, detail="Source file not found")
+
+    # Start background transcode using existing task
+    thread = threading.Thread(target=transcode_video_task, args=(upload_id, filename, network_speed), daemon=True)
+    thread.start()
+    return {"status": "started", "upload_id": upload_id}
+
+
+@app.get("/transcode/{upload_id}/status")
+async def transcode_status_compat(upload_id: str):
+    """Return current transcode status for upload_id (compat path)."""
+    status = get_status_snapshot(upload_id)
+    if status is None or status == {}:
+        raise HTTPException(status_code=404, detail="Status not found")
+    return status
+
+
+@app.get("/transcode/{upload_id}/qualities")
+async def transcode_qualities(upload_id: str):
+    """Return qualities and master playlist info for an upload_id."""
+    status = get_status_snapshot(upload_id) or {}
+    qualities = status.get('qualities', {})
+    master_path = os.path.join(HLS_PATH, upload_id, 'master.m3u8')
+    master = None
+    if os.path.exists(master_path):
+        master = 'master.m3u8'
+    return { 'master': master, 'qualities': qualities }
 
 @app.get("/transcode/status/{upload_id}")
 async def transcode_status(upload_id: str):
