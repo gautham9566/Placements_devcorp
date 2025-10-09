@@ -1,7 +1,7 @@
 import React from 'react';
 import VideoListItem from './VideoListItem';
 
-const VideoList = ({ videos, onSelectVideo, onPublish, onDelete, onEdit, onPreview }) => {
+const VideoList = ({ videos, onSelectVideo, onPublish, onDelete, onEdit, onPreview, onUnpublish }) => {
   return (
     <div className="bg-gray-900 bg-opacity-30 backdrop-blur-sm rounded-lg overflow-hidden border border-gray-800/30">
       <div className="grid grid-cols-13 gap-4 items-center p-4 border-b border-gray-800/30 text-gray-200 font-bold text-sm">
@@ -17,7 +17,7 @@ const VideoList = ({ videos, onSelectVideo, onPublish, onDelete, onEdit, onPrevi
         <div className="col-span-1">Actions</div>
       </div>
       {videos.map(video => (
-        <VideoListItem key={video.id} video={video} onSelect={onSelectVideo} onPublish={onPublish} onDelete={onDelete} onEdit={onEdit} onPreview={onPreview} />
+        <VideoListItem key={video.id} video={video} onSelect={onSelectVideo} onPublish={onPublish} onDelete={onDelete} onEdit={onEdit} onPreview={onPreview} onUnpublish={onUnpublish} />
       ))}
     </div>
   );

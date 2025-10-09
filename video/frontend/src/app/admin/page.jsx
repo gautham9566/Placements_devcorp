@@ -91,6 +91,30 @@ export default function AdminPage() {
     }
   };
 
+  const handleUnpublish = async (videoOrHash) => {
+    // Accept either a hash string or the video object
+    const hash = typeof videoOrHash === 'string' ? videoOrHash : (videoOrHash && videoOrHash.hash);
+    if (!hash) {
+      alert('Missing video hash');
+      return;
+    }
+    try {
+      const resp = await fetch(`/api/videos/${encodeURIComponent(hash)}`, { 
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Draft' })
+      });
+      if (resp.ok) {
+        fetchVideos(); // Refresh list
+      } else {
+        const data = await resp.json().catch(() => ({}));
+        alert(`Failed to unpublish: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (e) {
+      alert('Failed to unpublish');
+    }
+  };
+
   const handleDelete = async (hash) => {
     if (confirm('Are you sure you want to delete this video?')) {
       try {
@@ -194,7 +218,7 @@ export default function AdminPage() {
 
           {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
-          <VideoList videos={paginatedVideos} onSelectVideo={(id) => console.log('selected', id)} onPublish={handlePublish} onDelete={handleDelete} onEdit={handleEdit} onPreview={handlePreview} />
+          <VideoList videos={paginatedVideos} onSelectVideo={(id) => console.log('selected', id)} onPublish={handlePublish} onDelete={handleDelete} onEdit={handleEdit} onPreview={handlePreview} onUnpublish={handleUnpublish} />
 
           {totalPages > 1 && (
             <Pagination

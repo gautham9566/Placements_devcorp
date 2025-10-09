@@ -1,6 +1,6 @@
 import React from 'react';
 
-const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview }) => {
+const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview, onUnpublish }) => {
   const getStatusChip = (status) => {
     switch (status.toLowerCase()) {
       case 'published':
@@ -36,6 +36,17 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </button>
+        <button 
+          onClick={() => onUnpublish && onUnpublish(video.hash)}
+          className={`transition-colors duration-200 ${video.status?.toLowerCase() === 'published' ? 'text-orange-400 hover:text-orange-300' : 'text-gray-600 cursor-not-allowed'}`}
+          title="Unpublish"
+          disabled={video.status?.toLowerCase() !== 'published'}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a4 4 0 000-8 5 5 0 10-9.9 1" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
           </svg>
         </button>
         <button 
