@@ -15,6 +15,13 @@ const UploadPage = () => {
       alert('Please select a video file to upload');
       return;
     }
+    
+    // Validate schedule if set
+    if (scheduledAt && !scheduleConfirmed) {
+      alert('Please click the "Schedule Video" button to confirm the scheduled time before uploading');
+      return;
+    }
+    
     setUploading(true);
     try {
       // 1) upload video in chunks
@@ -23,21 +30,44 @@ const UploadPage = () => {
       // 2) upload thumbnail if present
       if (thumbnailFile) await uploadThumbnail(hash, thumbnailFile);
 
-        // record current hash so we can poll status
-        setCurrentHash(hash);
+      // record current hash so we can poll status
+      setCurrentHash(hash);
 
       // 3) trigger transcode with default qualities
       await triggerTranscode(hash, { '360p': true, '480p': true, '720p': true }, null);
 
-    // 4) create metadata entry (include title and description)
-    const metadata = { hash, filename: videoFile.name, title: title, description: description || '' };
-    if (scheduledAt) {
-      metadata.status = 'Scheduled';
-      metadata.scheduled_at = scheduledAt;
-    }
-    await fetch('/api/videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(metadata) });
-    // Do NOT automatically reset the form here; allow the user to keep the data until they explicitly clear or upload next.
+      // 4) create metadata entry (include title and description)
+      const metadata = { 
+        hash, 
+        filename: videoFile.name, 
+        title: title || videoFile.name, 
+        description: description || '' 
+      };
+      
+      if (scheduledAt && scheduleConfirmed) {
+        metadata.status = 'Scheduled';
+        metadata.scheduled_at = scheduledAt + ':00'; // append seconds for ISO format
+      }
+      
+      console.log('Sending metadata to /api/videos:', metadata);
+      const metadataResp = await fetch('/api/videos', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(metadata) 
+      });
+      
+      if (!metadataResp.ok) {
+        const errorText = await metadataResp.text();
+        console.error('Metadata creation failed:', errorText);
+        throw new Error('Failed to create video metadata: ' + errorText);
+      }
+      
+      const metadataResult = await metadataResp.json();
+      console.log('Metadata created successfully:', metadataResult);
+      
+      // Do NOT automatically reset the form here; allow the user to keep the data until they explicitly clear or upload next.
     } catch (e) {
+      console.error('Upload error:', e);
       alert('Upload failed: ' + (e.message || e));
     } finally {
       setUploading(false);
@@ -64,6 +94,7 @@ const UploadPage = () => {
 
   // Scheduling state
   const [scheduledAt, setScheduledAt] = useState('');
+  const [scheduleConfirmed, setScheduleConfirmed] = useState(false);
 
   const handleBack = () => router.push('/admin');
 
@@ -156,8 +187,50 @@ const UploadPage = () => {
                 <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 h-24"></textarea>
                 <div>
                   <label className="block text-sm text-gray-300 mb-2">Schedule publish (optional)</label>
-                  <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="w-full bg-gray-700 p-2 rounded-lg border border-gray-600" />
+                  <input 
+                    type="datetime-local" 
+                    value={scheduledAt} 
+                    onChange={(e) => { 
+                      setScheduledAt(e.target.value); 
+                      setScheduleConfirmed(false); // Reset confirmation when time changes
+                    }} 
+                    className="w-full bg-gray-700 p-2 rounded-lg border border-gray-600" 
+                  />
+                  {scheduledAt && (
+                    <button
+                      onClick={() => {
+                        setScheduledAt('');
+                        setScheduleConfirmed(false);
+                      }}
+                      className="mt-2 text-sm text-red-400 hover:text-red-300"
+                    >
+                      Clear schedule
+                    </button>
+                  )}
                 </div>
+                {scheduledAt && (
+                  <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-yellow-400 font-medium">
+                          {scheduleConfirmed ? 'Video scheduled for publishing' : 'Ready to schedule video'}
+                        </div>
+                        <div className="text-yellow-300 text-sm">Publish time: {new Date(scheduledAt + ':00').toLocaleString()}</div>
+                      </div>
+                      <button
+                        onClick={() => setScheduleConfirmed(true)}
+                        disabled={scheduleConfirmed}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          scheduleConfirmed 
+                            ? 'bg-green-600 text-white cursor-not-allowed' 
+                            : 'bg-yellow-600 hover:bg-yellow-500 text-white'
+                        }`}
+                      >
+                        {scheduleConfirmed ? 'Scheduled ✓' : 'Schedule Video'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -180,7 +253,7 @@ const UploadPage = () => {
             </div>
 
             <div className="flex space-x-4">
-              <button onClick={() => handleSubmit()} disabled={uploading} className="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold">{uploading ? 'Uploading...' : 'Upload'}</button>
+              <button onClick={() => handleSubmit()} disabled={uploading} className="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold">{uploading ? 'Uploading...' : scheduleConfirmed ? 'Schedule & Upload' : 'Upload'}</button>
             </div>
 
             {/* Upload and transcode panels moved to the right preview column */}

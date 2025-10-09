@@ -92,6 +92,25 @@ async def update_video_metadata(video_hash: str, request: Request):
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
 
+@app.post("/videos")
+async def create_video_metadata(request: Request):
+    """Proxy to metadata service - Create video metadata."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    try:
+        resp = requests.post(
+            f"{METADATA_SERVICE_URL}/videos",
+            json=body,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        return JSONResponse(content=resp.json() if resp.text else {}, status_code=resp.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
+
 @app.delete("/videos/{video_hash}")
 async def delete_video(video_hash: str):
     """Delete a video completely (files and metadata)."""

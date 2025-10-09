@@ -130,7 +130,7 @@ export default function AdminPage() {
     setEditingVideo(video);
     setEditTitle(video.title || '');
     setEditDescription(video.description || '');
-    setEditScheduledAt(video.scheduled_at || '');
+    setEditScheduledAt(video.scheduled_at ? video.scheduled_at.slice(0, 16) : '');
     setEditModal(true);
   };
 
@@ -138,7 +138,7 @@ export default function AdminPage() {
     if (!editingVideo) return;
     const updates = { title: editTitle, description: editDescription };
     if (editingVideo.status?.toLowerCase() === 'scheduled') {
-      updates.scheduled_at = editScheduledAt;
+      updates.scheduled_at = editScheduledAt + ':00';
     }
     await updateVideo(editingVideo.hash, updates);
     setEditModal(false);
@@ -166,6 +166,15 @@ export default function AdminPage() {
   // load videos on mount
   React.useEffect(() => {
     fetchVideos();
+  }, []);
+
+  // Auto-refresh videos every 30 seconds to check for scheduled video status changes
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      fetchVideos();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   return (

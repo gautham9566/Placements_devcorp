@@ -12,13 +12,67 @@ import time
 from functools import lru_cache
 import requests
 import logging
+from contextlib import asynccontextmanager
 
 # Simple cache for videos endpoint
 _videos_cache = None
 _cache_timestamp = 0
 CACHE_TTL = 0.1  # 100ms cache
 
-app = FastAPI(title="Metadata Service", default_response_class=ORJSONResponse)
+async def _scheduler_loop():
+    """Background loop that publishes scheduled videos when their scheduled_at <= now."""
+    while True:
+        try:
+            db = SessionLocal()
+            now = datetime.now()
+            scheduled_videos = db.query(Video).filter(Video.status == 'Scheduled', Video.scheduled_at != None).all()
+            for v in scheduled_videos:
+                try:
+                    sched = v.scheduled_at
+                    if not sched:
+                        continue
+                    try:
+                        sched_dt = datetime.fromisoformat(sched)
+                    except Exception:
+                        # ignore parse errors
+                        continue
+                    if sched_dt <= now:
+                        # call the publish endpoint instead of mutating DB here
+                        publish_url = f"http://127.0.0.1:8003/videos/{v.hash}/publish"
+                        attempts = 0
+                        success = False
+                        while attempts < 3 and not success:
+                            attempts += 1
+                            try:
+                                resp = requests.post(publish_url, timeout=5)
+                                if resp.ok:
+                                    logging.info('Scheduler: published %s on attempt %d', v.hash, attempts)
+                                    success = True
+                                else:
+                                    logging.warning('Scheduler: publish %s failed attempt %d: %s', v.hash, attempts, resp.text)
+                            except Exception as e:
+                                logging.warning('Scheduler: publish %s exception on attempt %d: %s', v.hash, attempts, e)
+                            if not success:
+                                await asyncio.sleep(2 ** attempts)
+                except Exception:
+                    db.rollback()
+            db.close()
+        except Exception:
+            # swallow errors and continue
+            try:
+                db.close()
+            except Exception:
+                pass
+        await asyncio.sleep(60)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: start the scheduler loop as a background task
+    asyncio.create_task(_scheduler_loop())
+    yield
+    # Shutdown: nothing to do
+
+app = FastAPI(title="Metadata Service", default_response_class=ORJSONResponse, lifespan=lifespan)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -45,8 +99,10 @@ class VideoUpdate(BaseModel):
     original_quality_label: Optional[str] = None
     stopped: Optional[int] = None
     title: Optional[str] = None
+    description: Optional[str] = None
     category: Optional[str] = None
     status: Optional[str] = None
+    scheduled_at: Optional[str] = None
 
 @app.post("/videos")
 async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
@@ -55,6 +111,36 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
     # Check if exists
     existing = db.query(Video).filter(Video.hash == video.hash).first()
     if existing:
+        updated = False
+
+        if video.title is not None and video.title != existing.title:
+            existing.title = video.title or existing.filename
+            updated = True
+
+        if video.description is not None and video.description != existing.description:
+            existing.description = video.description or None
+            updated = True
+
+        if video.thumbnail_filename is not None and video.thumbnail_filename != existing.thumbnail_filename:
+            existing.thumbnail_filename = video.thumbnail_filename
+            updated = True
+
+        if video.status is not None and video.status != existing.status:
+            existing.status = video.status or existing.status
+            updated = True
+
+        if video.scheduled_at is not None and video.scheduled_at != existing.scheduled_at:
+            existing.scheduled_at = video.scheduled_at or None
+            # auto-promote to Scheduled when a schedule is provided and no explicit status override
+            if video.status is None:
+                existing.status = "Scheduled" if video.scheduled_at else (existing.status or "draft")
+            updated = True
+
+        if updated:
+            db.add(existing)
+            db.commit()
+            db.refresh(existing)
+
         return {"id": existing.id, "hash": existing.hash}
     
     db_video = Video(
@@ -98,7 +184,8 @@ async def get_videos(db: Session = Depends(get_db)):
                 "original_resolution": v.original_resolution,
                 "original_quality_label": v.original_quality_label,
                 "stopped": v.stopped,
-                "created_at": v.created_at.isoformat() if v.created_at else None
+                "created_at": v.created_at.isoformat() if v.created_at else None,
+                "scheduled_at": v.scheduled_at
             }
             for v in videos
         ]
@@ -127,7 +214,8 @@ async def get_video(hash: str, db: Session = Depends(get_db)):
         "thumbnail_filename": video.thumbnail_filename,
         "original_resolution": video.original_resolution,
         "original_quality_label": video.original_quality_label,
-        "stopped": video.stopped
+        "stopped": video.stopped,
+        "scheduled_at": video.scheduled_at
     }
 
 @app.put("/videos/{hash}")
@@ -147,10 +235,14 @@ async def update_video(hash: str, video_update: VideoUpdate, db: Session = Depen
         video.stopped = video_update.stopped
     if video_update.title is not None:
         video.title = video_update.title
+    if video_update.description is not None:
+        video.description = video_update.description
     if video_update.category is not None:
         video.category = video_update.category
     if video_update.status is not None:
         video.status = video_update.status
+    if video_update.scheduled_at is not None:
+        video.scheduled_at = video_update.scheduled_at
     
     db.commit()
     return {"status": "updated"}
@@ -245,56 +337,3 @@ async def health():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8003)
-
-
-async def _scheduler_loop():
-    """Background loop that publishes scheduled videos when their scheduled_at <= now."""
-    while True:
-        try:
-            db = SessionLocal()
-            now = datetime.now()
-            scheduled_videos = db.query(Video).filter(Video.status == 'Scheduled', Video.scheduled_at != None).all()
-            for v in scheduled_videos:
-                try:
-                    sched = v.scheduled_at
-                    if not sched:
-                        continue
-                    try:
-                        sched_dt = datetime.fromisoformat(sched)
-                    except Exception:
-                        # ignore parse errors
-                        continue
-                    if sched_dt <= now:
-                        # call the publish endpoint instead of mutating DB here
-                        publish_url = f"http://127.0.0.1:8003/videos/{v.hash}/publish"
-                        attempts = 0
-                        success = False
-                        while attempts < 3 and not success:
-                            attempts += 1
-                            try:
-                                resp = requests.post(publish_url, timeout=5)
-                                if resp.ok:
-                                    logging.info('Scheduler: published %s on attempt %d', v.hash, attempts)
-                                    success = True
-                                else:
-                                    logging.warning('Scheduler: publish %s failed attempt %d: %s', v.hash, attempts, resp.text)
-                            except Exception as e:
-                                logging.warning('Scheduler: publish %s exception on attempt %d: %s', v.hash, attempts, e)
-                            if not success:
-                                await asyncio.sleep(2 ** attempts)
-                except Exception:
-                    db.rollback()
-            db.close()
-        except Exception:
-            # swallow errors and continue
-            try:
-                db.close()
-            except Exception:
-                pass
-        await asyncio.sleep(60)
-
-
-@app.on_event("startup")
-async def start_scheduler():
-    # start the scheduler loop as a background task
-    asyncio.create_task(_scheduler_loop())

@@ -8,7 +8,16 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
       case 'draft':
         return <span className="bg-gray-500 text-white px-2 py-1 rounded-full text-xs">{status}</span>;
       case 'scheduled':
-        return <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs">{status}</span>;
+        return (
+          <div className="flex flex-col items-start">
+            <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-xs mb-1">{status}</span>
+            {video.scheduled_at && (
+              <span className="text-xs text-yellow-400">
+                {new Date(video.scheduled_at).toLocaleString()}
+              </span>
+            )}
+          </div>
+        );
       default:
         return <span className="bg-red-500 text-white px-2 py-1 rounded-full text-xs">{status}</span>;
     }
@@ -30,7 +39,11 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
       <div className="col-span-1 flex items-center space-x-2">
         <button 
           onClick={() => onPublish && onPublish(video.hash)}
-          className={`transition-colors duration-200 ${video.status?.toLowerCase() === 'draft' ? 'text-purple-400 hover:text-purple-300' : 'text-gray-600 cursor-not-allowed'}`}
+          className={`transition-colors duration-200 ${
+            video.status?.toLowerCase() === 'draft' 
+              ? 'text-purple-400 hover:text-purple-300' 
+              : 'text-gray-600 cursor-not-allowed'
+          }`}
           title="Publish"
           disabled={video.status?.toLowerCase() !== 'draft'}
         >
@@ -40,7 +53,11 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
         </button>
         <button 
           onClick={() => onUnpublish && onUnpublish(video.hash)}
-          className={`transition-colors duration-200 ${video.status?.toLowerCase() === 'published' ? 'text-orange-400 hover:text-orange-300' : 'text-gray-600 cursor-not-allowed'}`}
+          className={`transition-colors duration-200 ${
+            video.status?.toLowerCase() === 'published' 
+              ? 'text-orange-400 hover:text-orange-300' 
+              : 'text-gray-600 cursor-not-allowed'
+          }`}
           title="Unpublish"
           disabled={video.status?.toLowerCase() !== 'published'}
         >
@@ -51,7 +68,11 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
         </button>
         <button 
           onClick={() => onEdit && onEdit(video)}
-          className={`transition-colors duration-200 ${video.status?.toLowerCase() === 'published' ? 'text-gray-600 cursor-not-allowed' : 'text-blue-400 hover:text-blue-300'}`}
+          className={`transition-colors duration-200 ${
+            video.status?.toLowerCase() === 'published' 
+              ? 'text-gray-600 cursor-not-allowed' 
+              : 'text-blue-400 hover:text-blue-300'
+          }`}
           title="Edit"
           disabled={video.status?.toLowerCase() === 'published'}
         >
