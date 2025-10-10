@@ -75,7 +75,7 @@ const handleSubmit = async (e) => {
   const role = 'STUDENT';
 
   try {
-    const res = await axios.post('http://127.0.0.1:8000/api/auth/register/student/', {
+    const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/register/student/`, {
       email,
       password,
       first_name: email.split('@')[0],

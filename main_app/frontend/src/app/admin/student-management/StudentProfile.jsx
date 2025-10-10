@@ -164,7 +164,7 @@ export default function StudentProfile({
     if (!studentId) return;
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/accounts/students/${studentId}/freeze/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/students/${studentId}/freeze/`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access')}`,
           'Content-Type': 'application/json'
@@ -336,7 +336,7 @@ export default function StudentProfile({
   // Handle freeze account
   const handleFreeze = async (freezeData) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/accounts/students/${selectedStudent.id}/freeze/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/students/${selectedStudent.id}/freeze/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access')}`,
@@ -363,7 +363,7 @@ export default function StudentProfile({
   // Handle unfreeze account
   const handleUnfreeze = async () => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/accounts/students/${selectedStudent.id}/freeze/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/students/${selectedStudent.id}/freeze/`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access')}`,

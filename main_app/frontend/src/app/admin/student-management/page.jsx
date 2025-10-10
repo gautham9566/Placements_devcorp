@@ -760,7 +760,7 @@ export default function StudentManagement() {
 
   // Help developers find the correct API endpoint
   const debugBackend = () => {
-    window.open('http://localhost:8000/admin/');
+    window.open(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/`);
   };
 
   // Handle pagination

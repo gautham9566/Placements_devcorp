@@ -31,7 +31,7 @@ export default function DocumentsModal({
     // Check if URL is relative (doesn't start with http)
     if (url && !url.startsWith('http')) {
       // Prepend the base URL for local development
-      return `http://localhost:8000${url}`;
+      return `${process.env.NEXT_PUBLIC_API_BASE_URL}${url}`;
     }
     return url;
   };
