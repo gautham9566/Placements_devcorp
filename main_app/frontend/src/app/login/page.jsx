@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { getApiBaseUrl } from '../../utils/apiConfig';
 import axios from 'axios';
 import { setAuthToken,setRefreshToken } from '../../api/auth';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -28,7 +29,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/login/`, {
+      const res = await axios.post(`${getApiBaseUrl()}/api/auth/login/`, {
         email,
         password,
       });

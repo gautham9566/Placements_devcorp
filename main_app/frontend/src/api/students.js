@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { getAuthToken } from './auth';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 // Set the base URL for all API requests
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,

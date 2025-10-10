@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { setupErrorInterceptor } from './errorHandler';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 const client = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -42,7 +43,7 @@ client.interceptors.response.use(
         
         if (refreshToken) {
           // Try to get a new token
-          const response = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/token/refresh/`, {
+          const response = await axios.post(`${getApiBaseUrl()}/api/auth/token/refresh/`, {
             refresh: refreshToken
           });
           

@@ -1,5 +1,6 @@
 'use client';
 
+import { getApiBaseUrl } from '../../../utils/apiConfig';
 import {
   ArrowLeft,
   Calendar,
@@ -760,7 +761,7 @@ export default function StudentManagement() {
 
   // Help developers find the correct API endpoint
   const debugBackend = () => {
-    window.open(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/`);
+    window.open(`${getApiBaseUrl()}/admin/`);
   };
 
   // Handle pagination
