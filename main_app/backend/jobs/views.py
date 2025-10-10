@@ -949,7 +949,9 @@ class CompanyFormViewSet(viewsets.ModelViewSet):
     queryset = CompanyForm.objects.all()
     serializer_class = CompanyFormSerializer
     permission_classes = [permissions.IsAuthenticated]  # TODO: Consider IsAdminUser for production
-    
+    # Use custom pagination that respects 'page_size' query param and defaults to 10
+    from .utils import StandardResultsSetPagination
+    pagination_class = StandardResultsSetPagination
     def get_queryset(self):
         # All authenticated users can see all forms (admin interface)
         # TODO: Add creator field to CompanyForm model to filter by ownership
@@ -1109,9 +1111,9 @@ class CompanyFormViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-class CompanyFormDetailView(generics.RetrieveUpdateAPIView):
+class CompanyFormDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    API endpoint to retrieve or update a specific form by ID
+    API endpoint to retrieve, update or delete a specific form by ID
     """
     queryset = CompanyForm.objects.all()
     serializer_class = CompanyFormSerializer
@@ -1129,6 +1131,13 @@ class CompanyFormDetailView(generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a CompanyForm. Only allowed for admin users per get_permissions."""
+        instance = self.get_object()
+        # Perform delete
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class AdminJobPostingCreateView(generics.CreateAPIView):
     """
@@ -2103,7 +2112,6 @@ class PlacedStudentsExportView(generics.ListAPIView):
             'student_id': 'applicant__student_profile__student_id',
             'passout_year': 'applicant__student_profile__passout_year',
             'company_name': 'job__company__name',
-            'placed_at': 'applied_at',
             'job_title': 'job__title'
         }
 

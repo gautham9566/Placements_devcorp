@@ -13,7 +13,8 @@ from django.utils import timezone
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
-    page_size_query_param = 'per_page'
+    # Accept 'page_size' query parameter from frontend
+    page_size_query_param = 'page_size'
     max_page_size = 100
     page_query_param = 'page'
 

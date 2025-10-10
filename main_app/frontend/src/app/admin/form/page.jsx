@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { IconPlus, IconCopy, IconCheck, IconSearch, IconBuilding, IconEdit, IconExternalLink, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
-import { getForms, createForm, approveForm, rejectForm, convertFormToJob } from '../../../api/forms';
+import { IconPlus, IconCopy, IconCheck, IconSearch, IconEdit, IconExternalLink, IconThumbUp, IconThumbDown } from '@tabler/icons-react';
+import { getForms, createForm, approveForm, rejectForm, convertFormToJob, deleteForm } from '../../../api/forms';
 import { toggleJobPublish } from '../../../api/jobs';
 import { fetchCompanies } from '../../../api/companies';
 
@@ -87,7 +87,9 @@ export default function AdminFormsPage() {
             ? payload.data
             : [];
 
-      setForms(formsData);
+  // Defensive: ensure frontend displays at most pageSize items even if backend returns more
+  const visibleForms = Array.isArray(formsData) ? formsData.slice(0, pageSize) : formsData;
+  setForms(visibleForms);
       
       // Set pagination data
       if (payload?.count !== undefined) {
@@ -268,12 +270,28 @@ Please share this link and key with the company.`);
     }
   };
 
+  const handleDeleteForm = async (formId) => {
+    if (!confirm('Are you sure you want to delete this form? This action cannot be undone.')) return;
+    try {
+      setIsLoading(true);
+      await deleteForm(formId);
+      // Reload current page
+      await loadForms(activeTab, currentPage, searchTerm);
+      alert('Form deleted successfully');
+    } catch (error) {
+      console.error('Error deleting form:', error);
+      alert('Failed to delete form. Check console for details.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main content - sidebar removed */}
       <div className="container mx-auto px-4 py-6">
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-screen-2xl mx-auto">
           <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-semibold text-gray-900">Forms Dashboard</h1>
               <button
@@ -362,222 +380,516 @@ Please share this link and key with the company.`);
               ) : forms.length === 0 ? (
                 <p className="text-gray-500 text-center py-10">No forms found in this category.</p>
               ) : (
-                <div className="max-h-[70vh] overflow-y-auto border border-gray-200 rounded-lg">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company / Job</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submission</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Form Status</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {Array.isArray(forms) && forms.map((form) => (
-                          <tr key={form.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-gray-900">{form.company}</span>
-                                {form.details?.title && (
-                                  <span className="text-xs text-gray-500 mt-0.5">Job: {form.details.title}</span>
-                                )}
-                                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                                  <span>ID: {form.id}</span>
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden lg:block bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-100">
+                        <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                          <tr>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                              Company / Job
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                              Submission
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                              Status
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                              Access Key
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                              Created
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-50">
+                          {Array.isArray(forms) && forms.map((form, index) => (
+                            <tr key={form.id} className={`hover:bg-blue-50/30 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/20'}`}>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex flex-col space-y-1">
+                                  <div>
+                                    <div className="text-sm font-semibold text-gray-900 leading-tight">
+                                      {form.company}
+                                    </div>
+                                    {form.details?.title && (
+                                      <div className="text-xs text-gray-500 mt-0.5 font-medium">
+                                        {form.details.title}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-400 font-mono bg-gray-100 px-2 py-1 rounded-md inline-block">
+                                    ID: {form.id}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${form.submitted ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                {form.submitted ? 'Submitted' : 'Not Submitted'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                form.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                                form.status === 'posted' ? 'bg-green-100 text-green-800' :
-                                form.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {(form.status || 'Pending').charAt(0).toUpperCase() + (form.status || 'pending').slice(1)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-700">{form.key}</span>
-                                <button
-                                  onClick={(e) => handleCopyKey(e, form.key)}
-                                  className="p-1 rounded-full hover:bg-gray-100"
-                                  title="Copy key"
-                                >
-                                  <IconCopy size={14} className={copiedKey ? 'text-green-500' : 'text-gray-400'} />
-                                </button>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(form.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-wrap gap-2">
-                                <a
-                                  href={`/forms/${form.id}`}
-                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <IconExternalLink size={14} />
-                                  Open
-                                </a>
-                                <button
-                                  onClick={(e) => handleCopyLink(e, form.id)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100"
-                                  title="Copy form link"
-                                >
-                                  {copiedFormId === form.id ? (
-                                    <IconCheck size={14} className="text-green-500" />
-                                  ) : (
-                                    <IconCopy size={14} />
-                                  )}
-                                  Link
-                                </button>
-                                {form.submitted && form.status === 'pending' && (
-                                  <>
-                                    <button
-                                      onClick={() => handleFormApproval(form.id, true)}
-                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded hover:bg-green-200"
-                                      title="Approve form"
-                                    >
-                                      <IconThumbUp size={14} />
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={() => handleFormApproval(form.id, false)}
-                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded hover:bg-red-200"
-                                      title="Reject form"
-                                    >
-                                      <IconThumbDown size={14} />
-                                      Reject
-                                    </button>
-                                  </>
-                                )}
-                                {form.status === 'approved' && (
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
+                                    form.submitted
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                      : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  }`}>
+                                    <div className={`w-2 h-2 rounded-full mr-2 ${
+                                      form.submitted ? 'bg-emerald-500' : 'bg-amber-500'
+                                    }`}></div>
+                                    {form.submitted ? 'Submitted' : 'Draft'}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
+                                  form.status === 'approved'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    : form.status === 'posted'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    : form.status === 'rejected'
+                                    ? 'bg-red-100 text-red-800 border border-red-200'
+                                    : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                                }`}>
+                                  <div className={`w-2 h-2 rounded-full mr-2 ${
+                                    form.status === 'approved'
+                                      ? 'bg-blue-500'
+                                      : form.status === 'posted'
+                                      ? 'bg-emerald-500'
+                                      : form.status === 'rejected'
+                                      ? 'bg-red-500'
+                                      : 'bg-yellow-500'
+                                  }`}></div>
+                                  {(form.status || 'pending').charAt(0).toUpperCase() + (form.status || 'pending').slice(1)}
+                                </span>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex items-center space-x-2">
+                                  <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded border text-gray-700">
+                                    {form.key}
+                                  </code>
                                   <button
-                                    onClick={() => router.push('/admin/companymanagement')}
-                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200"
+                                    onClick={(e) => handleCopyKey(e, form.key)}
+                                    className="p-1.5 rounded-md hover:bg-gray-200 transition-colors duration-150"
+                                    title="Copy access key"
+                                  >
+                                    {copiedKey ? (
+                                      <IconCheck size={16} className="text-emerald-500" />
+                                    ) : (
+                                      <IconCopy size={16} className="text-gray-400 hover:text-gray-600" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="text-sm text-gray-600">
+                                  <div className="font-medium">
+                                    {new Date(form.created_at).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}
+                                  </div>
+                                  <div className="text-xs text-gray-400 mt-0.5">
+                                    {new Date(form.created_at).toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex flex-wrap gap-2">
+                                  <a
+                                    href={`/forms/${form.id}`}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-colors duration-150"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                   >
                                     <IconExternalLink size={14} />
-                                    Manage Jobs
-                                  </button>
-                                )}
-                                {form.submitted && (
+                                    View Form
+                                  </a>
                                   <button
-                                    onClick={() => router.push(`/admin/form/edit/${form.id}`)}
-                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200"
+                                    onClick={(e) => handleCopyLink(e, form.id)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
+                                    title="Copy form link"
                                   >
-                                    <IconEdit size={14} />
-                                    View
+                                    {copiedFormId === form.id ? (
+                                      <IconCheck size={14} className="text-emerald-500" />
+                                    ) : (
+                                      <IconCopy size={14} />
+                                    )}
+                                    Copy Link
                                   </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                  {form.submitted && form.status === 'pending' && (
+                                    <>
+                                      <button
+                                        onClick={() => handleFormApproval(form.id, true)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-colors duration-150"
+                                        title="Approve form"
+                                      >
+                                        <IconThumbUp size={14} />
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleFormApproval(form.id, false)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors duration-150"
+                                        title="Reject form"
+                                      >
+                                        <IconThumbDown size={14} />
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  {/* Manage Jobs button removed per request */}
+                                  {form.submitted && (
+                                    <button
+                                      onClick={() => router.push(`/admin/form/edit/${form.id}`)}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
+                                    >
+                                      <IconEdit size={14} />
+                                      Edit Details
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteForm(form.id)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-red-600 border border-red-600 rounded-lg hover:bg-red-700 transition-colors duration-150"
+                                    title="Delete form"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+
+                  {/* Mobile Card View */}
+                  <div className="lg:hidden space-y-4">
+                    {Array.isArray(forms) && forms.map((form, index) => (
+                      <div key={form.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-150">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-900 truncate">
+                              {form.company}
+                            </h3>
+                            {form.details?.title && (
+                              <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                {form.details.title}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-400 font-mono mt-1">
+                              ID: {form.id}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              form.submitted
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}>
+                              <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                form.submitted ? 'bg-emerald-500' : 'bg-amber-500'
+                              }`}></div>
+                              {form.submitted ? 'Submitted' : 'Draft'}
+                            </span>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              form.status === 'approved'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : form.status === 'posted'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : form.status === 'rejected'
+                                ? 'bg-red-100 text-red-800 border border-red-200'
+                                : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                            }`}>
+                              <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                form.status === 'approved'
+                                  ? 'bg-blue-500'
+                                  : form.status === 'posted'
+                                  ? 'bg-emerald-500'
+                                  : form.status === 'rejected'
+                                  ? 'bg-red-500'
+                                  : 'bg-yellow-500'
+                              }`}></div>
+                              {(form.status || 'pending').charAt(0).toUpperCase() + (form.status || 'pending').slice(1)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Access Key</p>
+                            <div className="flex items-center space-x-2">
+                              <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded border text-gray-700 flex-1">
+                                {form.key}
+                              </code>
+                              <button
+                                onClick={(e) => handleCopyKey(e, form.key)}
+                                className="p-1.5 rounded-md hover:bg-gray-200 transition-colors duration-150"
+                                title="Copy access key"
+                              >
+                                {copiedKey ? (
+                                  <IconCheck size={16} className="text-emerald-500" />
+                                ) : (
+                                  <IconCopy size={16} className="text-gray-400 hover:text-gray-600" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Created</p>
+                            <div className="text-sm text-gray-600">
+                              <div className="font-medium">
+                                {new Date(form.created_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {new Date(form.created_at).toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
+                          <a
+                            href={`/forms/${form.id}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-colors duration-150"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <IconExternalLink size={14} />
+                            View Form
+                          </a>
+                          <button
+                            onClick={(e) => handleCopyLink(e, form.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
+                            title="Copy form link"
+                          >
+                            {copiedFormId === form.id ? (
+                              <IconCheck size={14} className="text-emerald-500" />
+                            ) : (
+                              <IconCopy size={14} />
+                            )}
+                            Copy Link
+                          </button>
+                          {form.submitted && form.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleFormApproval(form.id, true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 hover:border-emerald-300 transition-colors duration-150"
+                                title="Approve form"
+                              >
+                                <IconThumbUp size={14} />
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleFormApproval(form.id, false)}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors duration-150"
+                                title="Reject form"
+                              >
+                                <IconThumbDown size={14} />
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {/* Manage Jobs button removed per request */}
+                          {form.submitted && (
+                            <button
+                              onClick={() => router.push(`/admin/form/edit/${form.id}`)}
+                              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
+                            >
+                              <IconEdit size={14} />
+                              Edit Details
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteForm(form.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-red-600 border border-red-600 rounded-lg hover:bg-red-700 transition-colors duration-150"
+                            title="Delete form"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
             
-            {/* Pagination */}
+            {/* Enhanced Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 mt-4">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <button
-                    onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1
-                        ? 'bg-gray-100 text-gray-400'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === totalPages
-                        ? 'bg-gray-100 text-gray-400'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    Next
-                  </button>
-                </div>
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing page <span className="font-medium">{currentPage}</span> of{' '}
-                      <span className="font-medium">{totalPages}</span> ({totalCount} total forms)
-                    </p>
+              <div className="mt-8 bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                  {/* Results Summary */}
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium text-gray-900">{totalCount.toLocaleString()}</span> total forms •
+                    <span className="font-medium text-gray-900 ml-1">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <span className="ml-2 text-gray-500">
+                      ({Math.min((currentPage - 1) * pageSize + 1, totalCount)} - {Math.min(currentPage * pageSize, totalCount)} shown)
+                    </span>
                   </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
-                        onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
-                        disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === 1
-                            ? 'text-gray-300'
-                            : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        Previous
-                      </button>
-                      {/* Page Numbers */}
-                      {[...Array(Math.min(5, totalPages))].map((_, idx) => {
-                        let pageNum;
-                        if (totalPages <= 5) {
-                          pageNum = idx + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = idx + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + idx;
-                        } else {
-                          pageNum = currentPage - 2 + idx;
+
+                  {/* Pagination Controls */}
+                  <div className="flex items-center space-x-2">
+                    {/* First Page */}
+                    <button
+                      onClick={() => handlePageChange(1)}
+                      disabled={currentPage === 1 || isLoading}
+                      className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-all duration-150 ${
+                        currentPage === 1 || isLoading
+                          ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                      }`}
+                      title="First page"
+                    >
+                      ⇤ First
+                    </button>
+
+                    {/* Previous Page */}
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1 || isLoading}
+                      className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-all duration-150 ${
+                        currentPage === 1 || isLoading
+                          ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                      }`}
+                      title="Previous page"
+                    >
+                      ← Previous
+                    </button>
+
+                    {/* Page Numbers */}
+                    <div className="flex items-center space-x-1">
+                      {(() => {
+                        const pages = [];
+                        const maxVisible = 5;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+                        // Adjust start page if we're near the end
+                        if (endPage - startPage + 1 < maxVisible) {
+                          startPage = Math.max(1, endPage - maxVisible + 1);
                         }
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => handlePageChange(pageNum)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              currentPage === pageNum
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white hover:bg-gray-50 border border-gray-300 text-gray-700'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                      <button
-                        onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === totalPages
-                            ? 'text-gray-300'
-                            : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        Next
-                      </button>
-                    </nav>
+
+                        // Add first page and ellipsis if needed
+                        if (startPage > 1) {
+                          pages.push(
+                            <button
+                              key={1}
+                              onClick={() => handlePageChange(1)}
+                              disabled={isLoading}
+                              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-150"
+                            >
+                              1
+                            </button>
+                          );
+                          if (startPage > 2) {
+                            pages.push(
+                              <span key="ellipsis-start" className="px-2 py-2 text-gray-400">
+                                ...
+                              </span>
+                            );
+                          }
+                        }
+
+                        // Add visible page numbers
+                        for (let i = startPage; i <= endPage; i++) {
+                          pages.push(
+                            <button
+                              key={i}
+                              onClick={() => handlePageChange(i)}
+                              disabled={isLoading}
+                              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-all duration-150 ${
+                                currentPage === i
+                                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                              }`}
+                            >
+                              {i}
+                            </button>
+                          );
+                        }
+
+                        // Add last page and ellipsis if needed
+                        if (endPage < totalPages) {
+                          if (endPage < totalPages - 1) {
+                            pages.push(
+                              <span key="ellipsis-end" className="px-2 py-2 text-gray-400">
+                                ...
+                              </span>
+                            );
+                          }
+                          pages.push(
+                            <button
+                              key={totalPages}
+                              onClick={() => handlePageChange(totalPages)}
+                              disabled={isLoading}
+                              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-150"
+                            >
+                              {totalPages}
+                            </button>
+                          );
+                        }
+
+                        return pages;
+                      })()}
+                    </div>
+
+                    {/* Next Page */}
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages || isLoading}
+                      className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-all duration-150 ${
+                        currentPage === totalPages || isLoading
+                          ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                      }`}
+                      title="Next page"
+                    >
+                      Next →
+                    </button>
+
+                    {/* Last Page */}
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      disabled={currentPage === totalPages || isLoading}
+                      className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-all duration-150 ${
+                        currentPage === totalPages || isLoading
+                          ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                      }`}
+                      title="Last page"
+                    >
+                      Last ⇥
+                    </button>
                   </div>
                 </div>
+
+                {/* Loading indicator for pagination */}
+                {isLoading && (
+                  <div className="mt-4 flex justify-center">
+                    <div className="flex items-center space-x-2 text-sm text-gray-500">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span>Loading page...</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -586,7 +898,7 @@ Please share this link and key with the company.`);
       {/* Create Form Popup - Simplified to just company name */}
       {showPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-[90%] max-w-md">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-[95%] max-w-2xl">
             <h3 className="text-xl font-bold text-blue-600 mb-4">
               Create New Form
             </h3>
@@ -597,16 +909,13 @@ Please share this link and key with the company.`);
                 Company Name*
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <IconBuilding className="h-5 w-5 text-gray-400" />
-                </div>
                 <input
                   type="text"
                   value={companySearchTerm}
                   onChange={(e) => handleCompanySearchChange(e.target.value)}
                   onFocus={() => setShowCompanyDropdown(true)}
                   placeholder="Search for a company..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
