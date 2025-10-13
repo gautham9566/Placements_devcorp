@@ -178,6 +178,7 @@ async def get_videos(db: Session = Depends(get_db)):
                 "hash": v.hash,
                 "filename": v.filename,
                 "title": v.title,
+                "description": v.description,
                 "category": v.category,
                 "status": v.status,
                 "thumbnail_filename": v.thumbnail_filename,

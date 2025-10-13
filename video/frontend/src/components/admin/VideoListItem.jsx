@@ -24,14 +24,12 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
   };
 
   return (
-    <div className="grid grid-cols-13 gap-4 items-center p-4 border-b border-gray-800/30 hover:bg-gray-900/40 transition-colors duration-200">
-      <div className="col-span-1">
-        <input type="checkbox" className="form-checkbox h-5 w-5 text-blue-400 bg-gray-900 bg-opacity-20 border-gray-700 rounded focus:ring-blue-500 focus:ring-2" onChange={() => onSelect(video.id)} />
-      </div>
+    <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-800/30 hover:bg-gray-900/40 transition-colors duration-200">
       <div className="col-span-1">
         <img src={video.thumbnail_url || '/placeholder.png'} alt={video.title} className="w-16 h-9 rounded-md object-cover" />
       </div>
-      <div className="col-span-4 text-white font-medium">{video.title}</div>
+  <div className="col-span-3 text-white font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.title ? (video.title.length > 20 ? video.title.slice(0, 20) + '...' : video.title) : 'N/A'}</div>
+  <div className="col-span-1 text-gray-400 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.description ? (video.description.length > 20 ? video.description.slice(0, 20) + '...' : video.description) : 'N/A'}</div>
       <div className="col-span-2 text-gray-400">{video.category || 'N/A'}</div>
       <div className="col-span-2 text-gray-400">{new Date(video.created_at).toLocaleDateString()}</div>
       <div className="col-span-1">{getStatusChip(video.status || 'Draft')}</div>
