@@ -229,6 +229,43 @@ async def publish_video(video_hash: str):
             detail=f"Metadata service unavailable: {str(e)}"
         )
 
+@app.get("/categories")
+def get_categories():
+    """Proxy to metadata service - Get all categories."""
+    try:
+        response = requests.get(f"{METADATA_SERVICE_URL}/categories", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
+
+@app.post("/categories")
+async def create_category(request: Request):
+    """Proxy to metadata service - Create a new category."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    try:
+        response = requests.post(
+            f"{METADATA_SERVICE_URL}/categories",
+            json=body,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
+
+@app.delete("/categories/{category_id}")
+async def delete_category(category_id: int):
+    """Proxy to metadata service - Delete a category."""
+    try:
+        response = requests.delete(f"{METADATA_SERVICE_URL}/categories/{category_id}", timeout=10)
+        return JSONResponse(content=response.json() if response.content else {}, status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
+
 @app.post("/upload/init")
 async def upload_init_proxy(filename: str = Form(...), total_chunks: int = Form(...)):
     """Proxy to upload service - Initialize chunked upload."""

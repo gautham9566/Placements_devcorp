@@ -22,6 +22,10 @@ export default function AdminPage() {
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editScheduledAt, setEditScheduledAt] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const itemsPerPage = 10;
 
   const fetchVideos = async () => {
@@ -49,6 +53,70 @@ export default function AdminPage() {
       }
     } catch (error) {
       setError('Network error while loading videos');
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL || '';
+      const url = base ? `${base}/categories` : '/api/categories';
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  };
+
+  const createCategory = async () => {
+    if (!newCategoryName.trim()) {
+      alert('Category name is required');
+      return;
+    }
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL || '';
+      const url = base ? `${base}/categories` : '/api/categories';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          description: newCategoryDescription.trim() || null
+        })
+      });
+      if (response.ok) {
+        setNewCategoryName('');
+        setNewCategoryDescription('');
+        setShowCategoryModal(false);
+        fetchCategories();
+      } else {
+        const data = await response.json();
+        alert(`Failed to create category: ${data.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert('Failed to create category');
+    }
+  };
+
+  const deleteCategory = async (categoryId) => {
+    if (confirm('Are you sure you want to delete this category?')) {
+      try {
+        const base = process.env.NEXT_PUBLIC_API_URL || '';
+        const url = base ? `${base}/categories/${categoryId}` : `/api/categories/${categoryId}`;
+        const response = await fetch(url, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          fetchCategories();
+        } else {
+          const data = await response.json();
+          alert(`Failed to delete category: ${data.detail || 'Unknown error'}`);
+        }
+      } catch (error) {
+        alert('Failed to delete category');
+      }
     }
   };
 
@@ -163,9 +231,10 @@ export default function AdminPage() {
     }
   };
 
-  // load videos on mount
+  // load videos and categories on mount
   React.useEffect(() => {
     fetchVideos();
+    fetchCategories();
   }, []);
 
   // Auto-refresh videos every 30 seconds to check for scheduled video status changes
@@ -214,7 +283,13 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              <div className="flex items-center">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setShowCategoryModal(true)}
+                  className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors duration-200"
+                >
+                  Manage Categories
+                </button>
                 <button
                   onClick={() => router.push('/admin/upload')}
                   className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-500 transition-colors duration-200"
@@ -281,6 +356,79 @@ export default function AdminPage() {
             <div className="flex justify-end space-x-3 mt-6">
               <button onClick={() => setEditModal(false)} className="px-4 py-2 rounded bg-gray-700">Cancel</button>
               <button onClick={handleSaveEdit} className="px-4 py-2 rounded bg-blue-600 text-white">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Management Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-gray-900 rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-semibold mb-4">Manage Categories</h3>
+            
+            {/* Create New Category */}
+            <div className="mb-6 p-4 bg-gray-800 rounded-lg">
+              <h4 className="text-md font-medium mb-3">Create New Category</h4>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Category Name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full bg-gray-700 p-3 rounded-lg border border-gray-600"
+                />
+                <textarea
+                  placeholder="Description (optional)"
+                  value={newCategoryDescription}
+                  onChange={(e) => setNewCategoryDescription(e.target.value)}
+                  className="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 h-20"
+                />
+                <button
+                  onClick={createCategory}
+                  className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-500"
+                >
+                  Create Category
+                </button>
+              </div>
+            </div>
+
+            {/* Existing Categories */}
+            <div>
+              <h4 className="text-md font-medium mb-3">Existing Categories</h4>
+              <div className="max-h-60 overflow-y-auto">
+                {categories.length > 0 ? (
+                  <div className="space-y-2">
+                    {categories.map((category) => (
+                      <div key={category.id} className="p-3 bg-gray-800 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-medium">{category.name}</div>
+                            {category.description && (
+                              <div className="text-sm text-gray-400 mt-1">{category.description}</div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => deleteCategory(category.id)}
+                            className="text-red-500 hover:text-red-400 p-1"
+                            title="Delete category"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400">No categories created yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button onClick={() => setShowCategoryModal(false)} className="px-4 py-2 rounded bg-gray-700">Close</button>
             </div>
           </div>
         </div>

@@ -29,6 +29,13 @@ class Video(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     scheduled_at = Column(String, nullable=True)
 
+class Category(Base):
+    __tablename__ = "categories"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 Base.metadata.create_all(bind=engine)
 
 # Create sample data for in-memory database

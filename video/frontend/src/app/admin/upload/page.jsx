@@ -10,6 +10,11 @@ const UploadPage = () => {
   const [videoFile, setVideoFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [categorySearch, setCategorySearch] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
   const handleSubmit = async () => {
     if (!videoFile) {
       alert('Please select a video file to upload');
@@ -36,13 +41,17 @@ const UploadPage = () => {
       // 3) trigger transcode with default qualities
       await triggerTranscode(hash, { '360p': true, '480p': true, '720p': true }, null);
 
-      // 4) create metadata entry (include title and description)
+      // 3) create metadata entry (include title and description)
       const metadata = { 
         hash, 
         filename: videoFile.name, 
         title: title || videoFile.name, 
         description: description || '' 
       };
+      
+      if (selectedCategory) {
+        metadata.category = selectedCategory;
+      }
       
       if (scheduledAt && scheduleConfirmed) {
         metadata.status = 'Scheduled';
@@ -142,6 +151,25 @@ const UploadPage = () => {
     } catch (e) {}
   };
 
+  const fetchCategories = async () => {
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL || '';
+      const url = base ? `${base}/categories` : '/api/categories';
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  };
+
+  // Fetch categories on mount
+  React.useEffect(() => {
+    fetchCategories();
+  }, []);
+
   return (
     <div className="bg-gray-900 min-h-screen p-8 text-white">
       <div className="max-w-7xl mx-auto">
@@ -185,6 +213,68 @@ const UploadPage = () => {
               <div className="space-y-4">
                 <input type="text" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-gray-700 p-3 rounded-lg border border-gray-600" />
                 <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full bg-gray-700 p-3 rounded-lg border border-gray-600 h-24"></textarea>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">Category (optional)</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search and select category"
+                      value={categorySearch}
+                      onChange={(e) => {
+                        setCategorySearch(e.target.value);
+                        setShowCategoryDropdown(true);
+                      }}
+                      onFocus={() => setShowCategoryDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                      className="w-full bg-gray-700 p-3 rounded-lg border border-gray-600"
+                    />
+                    {selectedCategory && (
+                      <div className="absolute right-3 top-3 text-sm text-gray-400">
+                        Selected: {selectedCategory}
+                      </div>
+                    )}
+                    {showCategoryDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg max-h-40 overflow-y-auto">
+                        {categories
+                          .filter(cat => 
+                            cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+                          )
+                          .map((category) => (
+                            <div
+                              key={category.id}
+                              onClick={() => {
+                                setSelectedCategory(category.name);
+                                setCategorySearch(category.name);
+                                setShowCategoryDropdown(false);
+                              }}
+                              className="p-3 hover:bg-gray-600 cursor-pointer"
+                            >
+                              <div className="font-medium">{category.name}</div>
+                              {category.description && (
+                                <div className="text-sm text-gray-400">{category.description}</div>
+                              )}
+                            </div>
+                          ))}
+                        {categories.filter(cat => 
+                          cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+                        ).length === 0 && categorySearch && (
+                          <div className="p-3 text-gray-400">No categories found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {selectedCategory && (
+                    <button
+                      onClick={() => {
+                        setSelectedCategory('');
+                        setCategorySearch('');
+                      }}
+                      className="mt-2 text-sm text-red-400 hover:text-red-300"
+                    >
+                      Clear selection
+                    </button>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-2">Schedule publish (optional)</label>
                   <input 

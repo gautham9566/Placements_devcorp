@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
-from models import Video, get_db, SessionLocal
+from models import Video, Category, get_db, SessionLocal
 import asyncio
 from datetime import datetime
 from pydantic import BaseModel
@@ -90,6 +90,7 @@ class VideoCreate(BaseModel):
     thumbnail_filename: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[str] = None
     status: Optional[str] = None
     scheduled_at: Optional[str] = None
 
@@ -103,6 +104,16 @@ class VideoUpdate(BaseModel):
     category: Optional[str] = None
     status: Optional[str] = None
     scheduled_at: Optional[str] = None
+
+class CategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
 
 @app.post("/videos")
 async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
@@ -136,6 +147,10 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
                 existing.status = "Scheduled" if video.scheduled_at else (existing.status or "draft")
             updated = True
 
+        if video.category is not None and video.category != existing.category:
+            existing.category = video.category
+            updated = True
+
         if updated:
             db.add(existing)
             db.commit()
@@ -150,7 +165,7 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
         description=video.description or None,
         status=video.status or ("Scheduled" if video.scheduled_at else "draft"),
         scheduled_at=video.scheduled_at or None,
-        category="uncategorized",
+        category=video.category or "uncategorized",
         thumbnail_filename=video.thumbnail_filename
     )
     db.add(db_video)
@@ -330,6 +345,37 @@ async def resume_video_flag(hash: str, db: Session = Depends(get_db)):
     video.stopped = 0
     db.commit()
     return {"status": "resumed"}
+
+@app.get("/categories")
+async def get_categories(db: Session = Depends(get_db)):
+    """Get all categories."""
+    categories = db.query(Category).all()
+    return [CategoryResponse(id=c.id, name=c.name, description=c.description, created_at=c.created_at) for c in categories]
+
+@app.post("/categories")
+async def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
+    """Create a new category."""
+    # Check if category with this name already exists
+    existing = db.query(Category).filter(Category.name == category.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Category with this name already exists")
+    
+    new_category = Category(name=category.name, description=category.description)
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+    return CategoryResponse(id=new_category.id, name=new_category.name, description=new_category.description, created_at=new_category.created_at)
+
+@app.delete("/categories/{category_id}")
+async def delete_category(category_id: int, db: Session = Depends(get_db)):
+    """Delete a category by ID."""
+    category = db.query(Category).filter(Category.id == category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    db.delete(category)
+    db.commit()
+    return {"message": "Category deleted successfully"}
 
 @app.get("/health")
 async def health():
