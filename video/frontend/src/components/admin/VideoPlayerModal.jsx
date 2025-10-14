@@ -156,6 +156,14 @@ const VideoPlayerModal = ({ video, onClose }) => {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  const normalizeThumbnail = (url) => {
+    if (!url) return undefined;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    if (url.startsWith('/api/') || url.startsWith('/images/') || url.startsWith('/_next/')) return url;
+    if (url.startsWith('/thumbnails')) return `http://localhost:8006${url}`;
+    return url;
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
@@ -194,7 +202,7 @@ const VideoPlayerModal = ({ video, onClose }) => {
         <video
           ref={videoRef}
           className="w-full h-auto max-h-[80vh] bg-black rounded-lg"
-          poster={video.thumbnail_filename ? `/api/thumbnail/${video.hash}` : undefined}
+          poster={video.thumbnail_filename ? normalizeThumbnail(video.thumbnail_url || `/api/thumbnail/${video.hash}`) : undefined}
           onPlay={() => {
             setPlaying(true);
             resetControlsTimeout();

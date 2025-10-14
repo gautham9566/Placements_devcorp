@@ -23,12 +23,19 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
     }
   };
 
-  // Helper to normalize thumbnail URLs to the course service origin
+  // Helper to normalize thumbnail URLs:
+  // - If the URL is absolute (http/data) return as-is
+  // - If the URL is a frontend proxy (starts with /api/) or a local asset (/images/, /_next/) return as-is
+  // - If the URL is a backend thumbnails path (starts with /thumbnails) prefix with the course service origin
   const getThumbnail = (url) => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
-    if (url.startsWith('/')) return `http://localhost:8006${url}`;
-    return `http://localhost:8006/${url}`;
+    // frontend proxy or local public assets should be requested from the frontend origin
+    if (url.startsWith('/api/') || url.startsWith('/images/') || url.startsWith('/_next/')) return url;
+    // course service thumbnails are mounted at /thumbnails on the course service
+    if (url.startsWith('/thumbnails')) return `http://localhost:8006${url}`;
+    // fallback: treat as frontend relative
+    return url;
   };
 
   const thumbnailSrc = getThumbnail(video.thumbnail_url) || '/images/placeholder.svg';

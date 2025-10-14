@@ -20,9 +20,9 @@ export default function CoursesPage() {
   const getThumbnail = (url) => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
-    // adjust backend origin if different or move to env var
-    if (url.startsWith('/')) return `http://localhost:8006${url}`;
-    return `http://localhost:8006/${url}`;
+    if (url.startsWith('/api/') || url.startsWith('/images/') || url.startsWith('/_next/')) return url;
+    if (url.startsWith('/thumbnails')) return `http://localhost:8006${url}`;
+    return url;
   };
 
   useEffect(() => {
