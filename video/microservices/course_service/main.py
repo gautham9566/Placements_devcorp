@@ -58,6 +58,11 @@ class SectionCreate(BaseModel):
     order: int
     learning_objectives: Optional[List[str]] = []
 
+class SectionUpdate(BaseModel):
+    title: Optional[str] = None
+    order: Optional[int] = None
+    learning_objectives: Optional[List[str]] = None
+
 class LessonCreate(BaseModel):
     section_id: int
     title: str
@@ -68,6 +73,17 @@ class LessonCreate(BaseModel):
     order: int
     resources: Optional[List[dict]] = []
     downloadable: Optional[bool] = False
+
+class LessonUpdate(BaseModel):
+    section_id: Optional[int] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    video_id: Optional[str] = None
+    duration: Optional[int] = None
+    order: Optional[int] = None
+    resources: Optional[List[dict]] = None
+    downloadable: Optional[bool] = None
 
 # API Endpoints
 
@@ -207,7 +223,7 @@ async def add_section(course_id: int, section: SectionCreate, db: Session = Depe
     return {"section_id": db_section.id, "message": "Section added successfully"}
 
 @app.put("/api/courses/{course_id}/sections/{section_id}", response_model=dict)
-async def update_section(course_id: int, section_id: int, section_update: SectionCreate, db: Session = Depends(get_db)):
+async def update_section(course_id: int, section_id: int, section_update: SectionUpdate, db: Session = Depends(get_db)):
     """Update section"""
     section = db.query(Section).filter(Section.id == section_id, Section.course_id == course_id).first()
     if not section:
@@ -234,7 +250,7 @@ async def add_lesson(course_id: int, lesson: LessonCreate, db: Session = Depends
     return {"lesson_id": db_lesson.id, "message": "Lesson added successfully"}
 
 @app.put("/api/courses/{course_id}/lessons/{lesson_id}", response_model=dict)
-async def update_lesson(course_id: int, lesson_id: int, lesson_update: LessonCreate, db: Session = Depends(get_db)):
+async def update_lesson(course_id: int, lesson_id: int, lesson_update: LessonUpdate, db: Session = Depends(get_db)):
     """Update lesson"""
     lesson = db.query(Lesson).join(Section).filter(
         Lesson.id == lesson_id,

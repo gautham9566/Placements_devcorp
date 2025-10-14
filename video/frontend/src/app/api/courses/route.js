@@ -4,7 +4,7 @@ const COURSE_SERVICE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function GET() {
   try {
-    const response = await fetch(`${COURSE_SERVICE_URL}/courses`);
+  const response = await fetch(`${COURSE_SERVICE_URL}/api/courses`);
     if (!response.ok) {
       throw new Error('Failed to fetch courses');
     }

@@ -1095,9 +1095,10 @@ function ReviewPublishStep({ courseData, onPublish, onSaveDraft }) {
 				</button>
 				<button
 					onClick={onPublish}
-					className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+					disabled={courseData?.status === 'published'}
+					className={`px-6 py-2 rounded-lg transition-colors text-white ${courseData?.status === 'published' ? 'bg-green-600 opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
 				>
-					Publish Course
+					{courseData?.status === 'published' ? 'Already Published' : 'Publish Course'}
 				</button>
 			</div>
 		</div>

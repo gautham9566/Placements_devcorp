@@ -58,48 +58,6 @@ export default function CoursesPage() {
     return statusColors[status] || 'bg-gray-500';
   };
 
-  const deleteCourse = async (courseId) => {
-    if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/courses/${courseId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setCourses(courses.filter(course => course.id !== courseId));
-        alert('Course deleted successfully');
-      } else {
-        alert('Failed to delete course');
-      }
-    } catch (error) {
-      console.error('Error deleting course:', error);
-      alert('Failed to delete course');
-    }
-  };
-
-  const unpublishCourse = async (courseId) => {
-    try {
-      const response = await fetch(`/api/courses/${courseId}/unpublish`, {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        setCourses(courses.map(course =>
-          course.id === courseId ? { ...course, status: 'draft' } : course
-        ));
-        alert('Course unpublished successfully');
-      } else {
-        alert('Failed to unpublish course');
-      }
-    } catch (error) {
-      console.error('Error unpublishing course:', error);
-      alert('Failed to unpublish course');
-    }
-  };
-
   return (
     <div className="flex min-h-screen bg-gray-900">
       <Sidebar />
@@ -188,7 +146,7 @@ export default function CoursesPage() {
                 return (
                   <div key={course.id} className={`bg-gray-800 rounded-lg overflow-hidden border border-gray-700 ${viewMode === 'list' ? 'flex' : ''}`}>
                     {/* Course Thumbnail */}
-                    <div className={`${viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-video'} bg-gray-700 relative`}>
+                    <div className={`${viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-video'} bg-gray-700 relative cursor-pointer`} onClick={() => router.push(`/admin/courses/${course.id}/preview`)}>
                       {thumbnailSrc && !imageBroken ? (
                         <img
                           src={thumbnailSrc}
@@ -216,42 +174,12 @@ export default function CoursesPage() {
                     </div>
 
                     {/* Course Info */}
-                    <div className="p-4 flex-1">
+                    <div className="p-4 flex-1 cursor-pointer" onClick={() => router.push(`/admin/courses/${course.id}/preview`)}>
                       <h3 className="text-lg font-semibold text-white mb-2">{course.title}</h3>
                       <p className="text-gray-400 text-sm mb-2">{course.category}</p>
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <span>{new Date(course.created_at).toLocaleDateString()}</span>
                         <span>{course.price > 0 ? `$${course.price}` : 'Free'}</span>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-2 mt-4">
-                        <button
-                          onClick={() => router.push(`/admin/courses/${course.id}/edit`)}
-                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => router.push(`/admin/courses/${course.id}/preview`)}
-                          className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                        >
-                          Preview
-                        </button>
-                        {course.status === 'published' && (
-                          <button
-                            onClick={() => unpublishCourse(course.id)}
-                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                          >
-                            Unpublish
-                          </button>
-                        )}
-                        <button
-                          onClick={() => deleteCourse(course.id)}
-                          className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                        >
-                          Delete
-                        </button>
                       </div>
                     </div>
                   </div>

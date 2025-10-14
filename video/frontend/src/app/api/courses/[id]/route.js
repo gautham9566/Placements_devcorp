@@ -5,7 +5,7 @@ const COURSE_SERVICE_URL = process.env.NEXT_PUBLIC_API_URL;
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
-    const response = await fetch(`${COURSE_SERVICE_URL}/courses/${id}`);
+  const response = await fetch(`${COURSE_SERVICE_URL}/api/courses/${id}`);
     if (!response.ok) {
       throw new Error('Failed to fetch course');
     }
@@ -21,7 +21,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const response = await fetch(`${COURSE_SERVICE_URL}/courses/${id}`, {
+  const response = await fetch(`${COURSE_SERVICE_URL}/api/courses/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    const response = await fetch(`${COURSE_SERVICE_URL}/courses/${id}`, {
+  const response = await fetch(`${COURSE_SERVICE_URL}/api/courses/${id}`, {
       method: 'DELETE',
     });
 

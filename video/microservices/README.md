@@ -76,12 +76,12 @@ Manages video metadata using SQLite database.
 Serves HLS manifests and video segments.
 
 **Endpoints:**
-- `GET /stream/{video_id}/master.m3u8` - Master playlist
-- `GET /stream/{video_id}/{quality}/playlist.m3u8` - Quality playlist
-- `GET /stream/{video_id}/{quality}/{segment}` - HLS segment
-- `GET /stream/{video_id}/original` - Original video file
-- `GET /stream/{video_id}/qualities` - Available qualities
-- `GET /stream/{video_id}/{asset_path:path}` - Generic asset endpoint
+-- `GET /video/{video_id}/master.m3u8` - Master playlist
+-- `GET /video/{video_id}/{quality}/playlist.m3u8` - Quality playlist
+-- `GET /video/{video_id}/{quality}/{segment}` - HLS segment
+-- `GET /video/{video_id}/original` - Original video file
+-- `GET /video/{video_id}/qualities` - Available qualities
+-- `GET /video/{video_id}/{asset_path:path}` - Generic asset endpoint
 - `GET /health` - Health check
 
 ### 5. **Admin Service** (Port 8005)
@@ -273,7 +273,7 @@ Invoke-RestMethod -Uri "http://localhost:8002/transcode/status/$uploadId" | Conv
 Once transcoding is complete, access the video:
 
 ```
-http://localhost:8004/stream/{upload_id}/master.m3u8
+http://localhost:8004/video/{upload_id}/master.m3u8
 ```
 
 Use in HTML5 video player with HLS.js:
@@ -283,7 +283,7 @@ Use in HTML5 video player with HLS.js:
 <script>
   const video = document.getElementById('video');
   const hls = new Hls();
-  hls.loadSource('http://localhost:8004/stream/{upload_id}/master.m3u8');
+   hls.loadSource('http://localhost:8004/video/{upload_id}/master.m3u8');
   hls.attachMedia(video);
 </script>
 ```

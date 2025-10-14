@@ -373,7 +373,8 @@ def transcode_status(video_hash: str):
 async def transcode_qualities(video_hash: str):
     """Proxy to streaming service - Get available qualities."""
     try:
-        response = requests.get(f"{STREAMING_SERVICE_URL}/stream/{video_hash}/qualities", timeout=10)
+        # Streaming service exposes HLS under /video/<id>/... not /stream/ - proxy accordingly
+        response = requests.get(f"{STREAMING_SERVICE_URL}/video/{video_hash}/qualities", timeout=10)
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Streaming service unavailable: {str(e)}")
@@ -384,10 +385,10 @@ async def video_stream(video_hash: str, asset_path: str = None):
     """Proxy to streaming service - Stream video assets."""
     try:
         if asset_path:
-            url = f"{STREAMING_SERVICE_URL}/stream/{video_hash}/{asset_path}"
+            url = f"{STREAMING_SERVICE_URL}/video/{video_hash}/{asset_path}"
         else:
             # Default to master playlist or original
-            url = f"{STREAMING_SERVICE_URL}/stream/{video_hash}/master.m3u8"
+            url = f"{STREAMING_SERVICE_URL}/video/{video_hash}/master.m3u8"
         
         response = requests.get(url, timeout=30, stream=True)
         
@@ -719,6 +720,144 @@ async def get_video_status(video_id: str):
 
 COURSE_SERVICE_URL = "http://localhost:8006"
 
+# ---------------------------------------------------------------------------
+# Duplicate API-prefixed proxies so frontend can call NEXT_PUBLIC_API_URL/api/...
+# when NEXT_PUBLIC_API_URL points to admin service.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/courses")
+def api_get_courses():
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.post("/api/courses")
+async def api_create_course(request: Request):
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.get("/api/courses/{course_id}")
+def api_get_course(course_id: int):
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.put("/api/courses/{course_id}")
+async def api_update_course(course_id: int, request: Request):
+    try:
+        body = await request.json()
+        response = requests.put(f"{COURSE_SERVICE_URL}/api/courses/{course_id}", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.delete("/api/courses/{course_id}")
+def api_delete_course(course_id: int):
+    try:
+        response = requests.delete(f"{COURSE_SERVICE_URL}/api/courses/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.post("/api/courses/{course_id}/publish")
+async def api_publish_course(course_id: int):
+    try:
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/publish", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.post("/api/courses/{course_id}/unpublish")
+async def api_unpublish_course(course_id: int):
+    try:
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/unpublish", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.post("/api/courses/{course_id}/sections")
+async def api_create_section(course_id: int, request: Request):
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/sections", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.post("/api/courses/{course_id}/lessons")
+async def api_create_lesson(course_id: int, request: Request):
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/lessons", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.put("/api/courses/{course_id}/sections/{section_id}")
+async def api_update_section(course_id: int, section_id: int, request: Request):
+    try:
+        body = await request.json()
+        response = requests.put(
+            f"{COURSE_SERVICE_URL}/api/courses/{course_id}/sections/{section_id}",
+            json=body,
+            timeout=10,
+        )
+        # Propagate upstream 404s and error bodies for easier debugging
+        if not response.ok:
+            return JSONResponse(content=response.json() if response.headers.get('content-type','').startswith('application/json') else {'detail': response.text}, status_code=response.status_code)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.put("/api/courses/{course_id}/lessons/{lesson_id}")
+async def api_update_lesson(course_id: int, lesson_id: int, request: Request):
+    try:
+        body = await request.json()
+        response = requests.put(
+            f"{COURSE_SERVICE_URL}/api/courses/{course_id}/lessons/{lesson_id}",
+            json=body,
+            timeout=10,
+        )
+        if not response.ok:
+            return JSONResponse(content=response.json() if response.headers.get('content-type','').startswith('application/json') else {'detail': response.text}, status_code=response.status_code)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.post("/api/courses/{course_id}/thumbnail")
+async def api_upload_course_thumbnail(course_id: int, file: UploadFile = File(...)):
+    try:
+        files = {"file": (file.filename, await file.read(), file.content_type)}
+        response = requests.post(
+            f"{COURSE_SERVICE_URL}/api/courses/{course_id}/thumbnail",
+            files=files,
+            timeout=30
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
 @app.get("/courses")
 def get_courses():
     """Proxy to course service - Get all courses."""
@@ -814,6 +953,36 @@ async def create_lesson(course_id: int, request: Request):
     try:
         body = await request.json()
         response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/lessons", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.put("/courses/{course_id}/sections/{section_id}")
+async def update_section_proxy(course_id: int, section_id: int, request: Request):
+    """Proxy to course service - Update a section."""
+    try:
+        body = await request.json()
+        response = requests.put(
+            f"{COURSE_SERVICE_URL}/api/courses/{course_id}/sections/{section_id}",
+            json=body,
+            timeout=10,
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
+@app.put("/courses/{course_id}/lessons/{lesson_id}")
+async def update_lesson_proxy(course_id: int, lesson_id: int, request: Request):
+    """Proxy to course service - Update a lesson."""
+    try:
+        body = await request.json()
+        response = requests.put(
+            f"{COURSE_SERVICE_URL}/api/courses/{course_id}/lessons/{lesson_id}",
+            json=body,
+            timeout=10,
+        )
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")

@@ -34,7 +34,7 @@ QUALITY_PRESETS = {
     "360p": {"width": 640, "height": 360, "video_bitrate": 900_000, "maxrate": 1_100_000, "audio_bitrate": 96_000},
 }
 
-@app.get("/stream/{video_id}/master.m3u8")
+@app.get("/video/{video_id}/master.m3u8")
 async def get_master_playlist(video_id: str):
     """Serve master HLS playlist."""
     master_path = os.path.join(HLS_PATH, video_id, "master.m3u8")
@@ -43,7 +43,7 @@ async def get_master_playlist(video_id: str):
     
     return FileResponse(master_path, media_type="application/vnd.apple.mpegurl")
 
-@app.get("/stream/{video_id}/{quality}/playlist.m3u8")
+@app.get("/video/{video_id}/{quality}/playlist.m3u8")
 async def get_quality_playlist(video_id: str, quality: str):
     """Serve quality-specific HLS playlist."""
     playlist_path = os.path.join(HLS_PATH, video_id, quality, "playlist.m3u8")
@@ -52,7 +52,7 @@ async def get_quality_playlist(video_id: str, quality: str):
     
     return FileResponse(playlist_path, media_type="application/vnd.apple.mpegurl")
 
-@app.get("/stream/{video_id}/{quality}/{segment}")
+@app.get("/video/{video_id}/{quality}/{segment}")
 async def get_segment(video_id: str, quality: str, segment: str):
     """Serve HLS segment file."""
     segment_path = os.path.join(HLS_PATH, video_id, quality, segment)
@@ -64,7 +64,7 @@ async def get_segment(video_id: str, quality: str, segment: str):
     
     return FileResponse(segment_path, media_type=media_type)
 
-@app.get("/stream/{video_id}/original")
+@app.get("/video/{video_id}/original")
 async def get_original_video(video_id: str):
     """Serve original video file."""
     try:
@@ -86,7 +86,7 @@ async def get_original_video(video_id: str):
     except requests.RequestException:
         raise HTTPException(status_code=503, detail="Metadata service unavailable")
 
-@app.get("/stream/{video_id}/qualities")
+@app.get("/video/{video_id}/qualities")
 async def get_video_qualities(video_id: str):
     """Get available video qualities and their metadata."""
     hls_base = os.path.join(HLS_PATH, video_id)
@@ -172,7 +172,7 @@ async def get_video_qualities(video_id: str):
     }
     return JSONResponse(response)
 
-@app.get("/stream/{video_id}/{asset_path:path}")
+@app.get("/video/{video_id}/{asset_path:path}")
 async def get_video_asset(video_id: str, asset_path: str):
     """Generic endpoint to serve any video asset."""
     base_folder = os.path.abspath(os.path.join(HLS_PATH, video_id))
