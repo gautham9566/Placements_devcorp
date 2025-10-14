@@ -351,9 +351,10 @@ function BasicInformationStep({ courseData, updateCourseData }) {
         {(courseData.thumbnailFile || courseData.thumbnail_url) && (
           <div className="mt-2">
             <img
-              src={courseData.thumbnailFile ? URL.createObjectURL(courseData.thumbnailFile) : courseData.thumbnail_url}
+              src={courseData.thumbnailFile ? URL.createObjectURL(courseData.thumbnailFile) : (courseData.thumbnail_url?.startsWith('http') ? courseData.thumbnail_url : (courseData.thumbnail_url ? `http://localhost:8006${courseData.thumbnail_url}` : '/images/placeholder.svg'))}
               alt="Course thumbnail preview"
               className="w-32 h-18 object-cover rounded-lg border border-gray-600"
+              onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }}
             />
           </div>
         )}
@@ -827,7 +828,7 @@ function VideoUploadStep({ courseData, updateCourseData }) {
                     return (
                       <div key={video.id} className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-700 hover:bg-gray-700/50 transition-colors">
                         <div className="col-span-1">
-                          <img src={video.thumbnail_url || '/placeholder.png'} alt={video.title} className="w-12 h-7 rounded object-cover" />
+                          <img src={(video.thumbnail_url && (video.thumbnail_url.startsWith('http') ? video.thumbnail_url : `/api/thumbnail/${video.hash}`)) || '/images/placeholder.svg'} alt={video.title} className="w-12 h-7 rounded object-cover" onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }} />
                         </div>
                         <div className="col-span-3 text-white font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                           {video.title || video.filename || 'N/A'}

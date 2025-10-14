@@ -713,6 +713,45 @@ async def get_video_status(video_id: str):
     
     return result
 
+# ============================================================================
+# COURSE SERVICE PROXY ROUTES
+# ============================================================================
+
+COURSE_SERVICE_URL = "http://localhost:8006"
+
+@app.get("/courses")
+def get_courses():
+    """Proxy to course service - Get all courses."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.post("/courses")
+async def create_course(request: Request):
+    """Proxy to course service - Create a new course."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.post("/courses/{course_id}/thumbnail")
+async def upload_course_thumbnail_proxy(course_id: int, file: UploadFile = File(...)):
+    """Proxy to course service - Upload thumbnail for course."""
+    try:
+        files = {"file": (file.filename, await file.read(), file.content_type)}
+        response = requests.post(
+            f"{COURSE_SERVICE_URL}/api/courses/{course_id}/thumbnail",
+            files=files,
+            timeout=30
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "admin_service"}

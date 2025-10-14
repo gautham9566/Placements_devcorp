@@ -16,17 +16,15 @@ app.add_middleware(
 )
 
 SHARED_STORAGE = os.path.abspath("../shared_storage/originals")
-COURSE_STORAGE = os.path.abspath("../course_content/originals")
 
-# Use course content storage for uploads
-UPLOAD_STORAGE = COURSE_STORAGE
+# Use shared storage for uploads
+UPLOAD_STORAGE = SHARED_STORAGE
 
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
 TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 
 # Ensure storage exists
 os.makedirs(SHARED_STORAGE, exist_ok=True)
-os.makedirs(COURSE_STORAGE, exist_ok=True)
 
 ALLOWED_EXT = {"mp4", "mov", "avi", "m4v", "hevc"}
 

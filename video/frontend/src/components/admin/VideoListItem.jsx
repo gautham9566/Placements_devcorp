@@ -23,10 +23,25 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
     }
   };
 
+  // Helper to normalize thumbnail URLs to the course service origin
+  const getThumbnail = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('data:')) return url;
+    if (url.startsWith('/')) return `http://localhost:8006${url}`;
+    return `http://localhost:8006/${url}`;
+  };
+
+  const thumbnailSrc = getThumbnail(video.thumbnail_url) || '/images/placeholder.svg';
+
   return (
     <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-800/30 hover:bg-gray-900/40 transition-colors duration-200">
       <div className="col-span-1">
-        <img src={video.thumbnail_url || '/placeholder.png'} alt={video.title} className="w-16 h-9 rounded-md object-cover" />
+        <img
+          src={thumbnailSrc}
+          alt={video.title}
+          className="w-16 h-9 rounded-md object-cover"
+          onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }}
+        />
       </div>
   <div className="col-span-3 text-white font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.title ? (video.title.length > 20 ? video.title.slice(0, 20) + '...' : video.title) : 'N/A'}</div>
   <div className="col-span-1 text-gray-400 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.description ? (video.description.length > 20 ? video.description.slice(0, 20) + '...' : video.description) : 'N/A'}</div>

@@ -20,8 +20,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files for thumbnails
-thumbnails_dir = os.path.join(os.path.dirname(__file__), "thumbnails")
+# Mount static files for thumbnails from shared storage
+thumbnails_dir = os.path.abspath("../shared_storage/thumbnails")
 os.makedirs(thumbnails_dir, exist_ok=True)
 app.mount("/thumbnails", StaticFiles(directory=thumbnails_dir), name="thumbnails")
 
@@ -84,7 +84,21 @@ async def create_course(course: CourseCreate, db: Session = Depends(get_db)):
 async def list_courses(db: Session = Depends(get_db)):
     """List all courses"""
     courses = db.query(Course).all()
-    return [{"id": c.id, "title": c.title, "status": c.status, "created_at": c.created_at.isoformat()} for c in courses]
+    # Return a richer list so frontends can render thumbnails, category and price without fetching each course individually
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "status": c.status,
+            "created_at": c.created_at.isoformat(),
+            "updated_at": c.updated_at.isoformat() if getattr(c, 'updated_at', None) else None,
+            "thumbnail_url": c.thumbnail_url,
+            "category": c.category,
+            "price": c.price,
+            "currency": c.currency,
+        }
+        for c in courses
+    ]
 
 @app.get("/api/courses/{course_id}", response_model=dict)
 async def get_course(course_id: int, db: Session = Depends(get_db)):
@@ -267,7 +281,7 @@ async def upload_course_thumbnail(course_id: int, file: UploadFile = File(...), 
         raise HTTPException(status_code=404, detail="Course not found")
 
     # Create thumbnails directory if it doesn't exist
-    thumbnails_dir = os.path.join(os.path.dirname(__file__), "thumbnails")
+    thumbnails_dir = os.path.abspath("../shared_storage/thumbnails")
     os.makedirs(thumbnails_dir, exist_ok=True)
 
     # Generate unique filename

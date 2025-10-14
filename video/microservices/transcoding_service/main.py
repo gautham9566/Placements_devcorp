@@ -26,19 +26,10 @@ SHARED_STORAGE = os.path.abspath("../shared_storage")
 ORIGINALS_PATH = os.path.join(SHARED_STORAGE, "originals")
 HLS_PATH = os.path.join(SHARED_STORAGE, "hls")
 
-# Course content storage
-COURSE_STORAGE = os.path.abspath("../course_content")
-COURSE_ORIGINALS_PATH = os.path.join(COURSE_STORAGE, "originals")
-COURSE_HLS_PATH = os.path.join(COURSE_STORAGE, "hls")
-
-# Use course content paths for now
-ORIGINALS_PATH = COURSE_ORIGINALS_PATH
-HLS_PATH = COURSE_HLS_PATH
-
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
 
 os.makedirs(HLS_PATH, exist_ok=True)
-os.makedirs(COURSE_HLS_PATH, exist_ok=True)
+os.makedirs(ORIGINALS_PATH, exist_ok=True)
 
 # Quality presets
 QUALITY_PRESETS = {

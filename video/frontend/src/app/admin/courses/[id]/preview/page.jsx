@@ -153,11 +153,14 @@ export default function PreviewCoursePage() {
             <div className="flex items-start gap-6">
               <div className="w-48 h-32 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
                 {course.thumbnail_url ? (
-                  <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover rounded-lg" />
+                  <img
+                    src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `http://localhost:8006${course.thumbnail_url}`}
+                    alt={course.title}
+                    className="w-full h-full object-cover rounded-lg"
+                    onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }}
+                  />
                 ) : (
-                  <svg className="w-12 h-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
+                  <img src="/images/placeholder.svg" alt="placeholder" className="w-full h-full object-cover rounded-lg" />
                 )}
               </div>
               <div className="flex-1">

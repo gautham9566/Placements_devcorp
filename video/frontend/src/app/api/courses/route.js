@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-const COURSE_SERVICE_URL = 'http://localhost:8006';
+const COURSE_SERVICE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function GET() {
   try {
-    const response = await fetch(`${COURSE_SERVICE_URL}/api/courses`);
+    const response = await fetch(`${COURSE_SERVICE_URL}/courses`);
     if (!response.ok) {
       throw new Error('Failed to fetch courses');
     }
@@ -19,7 +19,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const response = await fetch(`${COURSE_SERVICE_URL}/api/courses`, {
+    const response = await fetch(`${COURSE_SERVICE_URL}/courses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
