@@ -160,7 +160,8 @@ const VideoPlayerModal = ({ video, onClose }) => {
     if (!url) return undefined;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
     if (url.startsWith('/api/') || url.startsWith('/images/') || url.startsWith('/_next/')) return url;
-    if (url.startsWith('/thumbnails')) return `http://localhost:8006${url}`;
+    const COURSE_SERVICE_ORIGIN = process.env.NEXT_PUBLIC_COURSE_SERVICE_ORIGIN;
+    if (url.startsWith('/thumbnails')) return `${COURSE_SERVICE_ORIGIN}${url}`;
     return url;
   };
 

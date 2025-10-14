@@ -33,7 +33,8 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
     // frontend proxy or local public assets should be requested from the frontend origin
     if (url.startsWith('/api/') || url.startsWith('/images/') || url.startsWith('/_next/')) return url;
     // course service thumbnails are mounted at /thumbnails on the course service
-    if (url.startsWith('/thumbnails')) return `http://localhost:8006${url}`;
+    const COURSE_SERVICE_ORIGIN = process.env.NEXT_PUBLIC_COURSE_SERVICE_ORIGIN;
+    if (url.startsWith('/thumbnails')) return `${COURSE_SERVICE_ORIGIN}${url}`;
     // fallback: treat as frontend relative
     return url;
   };
