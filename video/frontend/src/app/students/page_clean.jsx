@@ -1048,7 +1048,7 @@ export default function StudentPage() {
 
         {activeTab === 'courses' && (
           <>
-            {coursesLoading ? (
+            ) : courses.length === 0 ? (
               <div style={{
                 textAlign: 'center',
                 padding: '50px',

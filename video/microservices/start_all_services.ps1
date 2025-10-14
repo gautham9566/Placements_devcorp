@@ -13,7 +13,8 @@ $services = @(
     @{Name="Upload Service"; Port=8001; Dir="upload_service"},
     @{Name="Transcoding Service"; Port=8002; Dir="transcoding_service"},
     @{Name="Streaming Service"; Port=8004; Dir="streaming_service"},
-    @{Name="Admin Service"; Port=8005; Dir="admin_service"}
+    @{Name="Admin Service"; Port=8005; Dir="admin_service"},
+    @{Name="Course Service"; Port=8006; Dir="course_service"}
 )
 
 # Start each service in a new PowerShell window
@@ -36,6 +37,7 @@ Write-Host "  - Transcoding Service: http://localhost:8002" -ForegroundColor Whi
 Write-Host "  - Metadata Service:    http://localhost:8003" -ForegroundColor White
 Write-Host "  - Streaming Service:   http://localhost:8004" -ForegroundColor White
 Write-Host "  - Admin Service:       http://localhost:8005" -ForegroundColor White
+Write-Host "  - Course Service:      http://localhost:8006" -ForegroundColor White
 Write-Host ""
 Write-Host "API Documentation (Swagger UI):" -ForegroundColor Cyan
 Write-Host "  - Upload Service:      http://localhost:8001/docs" -ForegroundColor White
@@ -43,6 +45,7 @@ Write-Host "  - Transcoding Service: http://localhost:8002/docs" -ForegroundColo
 Write-Host "  - Metadata Service:    http://localhost:8003/docs" -ForegroundColor White
 Write-Host "  - Streaming Service:   http://localhost:8004/docs" -ForegroundColor White
 Write-Host "  - Admin Service:       http://localhost:8005/docs" -ForegroundColor White
+Write-Host "  - Course Service:      http://localhost:8006/docs" -ForegroundColor White
 Write-Host ""
 Write-Host "Press any key to exit (services will continue running)..." -ForegroundColor Gray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

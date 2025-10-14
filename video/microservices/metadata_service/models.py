@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
 import os
 from datetime import datetime
 
@@ -9,7 +10,7 @@ os.makedirs(SHARED_STORAGE, exist_ok=True)
 
 # DATABASE_URL = "sqlite:///:memory:"
 DATABASE_URL = f"sqlite:///{os.path.join(SHARED_STORAGE, 'videos.db')}"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

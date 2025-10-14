@@ -26,6 +26,7 @@ export default function AdminPage() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
+  const [courseVideoIds, setCourseVideoIds] = useState(new Set());
   const itemsPerPage = 10;
 
   const fetchVideos = async () => {
@@ -67,6 +68,39 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error);
+    }
+  };
+
+  const fetchCourseVideoIds = async () => {
+    try {
+      const response = await fetch('/api/courses');
+      if (response.ok) {
+        const courses = await response.json();
+        const videoIds = new Set();
+        
+        // Fetch detailed course data to get video IDs from lessons
+        for (const course of courses) {
+          try {
+            const courseResponse = await fetch(`/api/courses/${course.id}`);
+            if (courseResponse.ok) {
+              const courseData = await courseResponse.json();
+              for (const section of courseData.sections) {
+                for (const lesson of section.lessons) {
+                  if (lesson.video_id) {
+                    videoIds.add(lesson.video_id);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to fetch course ${course.id}:`, error);
+          }
+        }
+        
+        setCourseVideoIds(videoIds);
+      }
+    } catch (error) {
+      console.error('Failed to fetch course video IDs:', error);
     }
   };
 
@@ -121,6 +155,11 @@ export default function AdminPage() {
   };
 
   const filteredVideos = videos.filter(video => {
+    // Exclude videos that are used in courses
+    if (courseVideoIds.has(video.hash)) {
+      return false;
+    }
+    
     if (filter === 'All') return true;
     if (filter === 'Drafts') return !video.status || video.status.toLowerCase() === 'draft';
     return video.status === filter;
@@ -235,6 +274,7 @@ export default function AdminPage() {
   React.useEffect(() => {
     fetchVideos();
     fetchCategories();
+    fetchCourseVideoIds();
   }, []);
 
   // Auto-refresh videos every 30 seconds to check for scheduled video status changes

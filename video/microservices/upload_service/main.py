@@ -16,11 +16,17 @@ app.add_middleware(
 )
 
 SHARED_STORAGE = os.path.abspath("../shared_storage/originals")
+COURSE_STORAGE = os.path.abspath("../course_content/originals")
+
+# Use course content storage for uploads
+UPLOAD_STORAGE = COURSE_STORAGE
+
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
 TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 
-# Ensure shared storage exists
+# Ensure storage exists
 os.makedirs(SHARED_STORAGE, exist_ok=True)
+os.makedirs(COURSE_STORAGE, exist_ok=True)
 
 ALLOWED_EXT = {"mp4", "mov", "avi", "m4v", "hevc"}
 
@@ -35,7 +41,7 @@ async def upload_init(filename: str = Form(...), total_chunks: int = Form(...)):
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
     upload_id = secrets.token_hex(16)
-    folder_path = os.path.join(SHARED_STORAGE, upload_id)
+    folder_path = os.path.join(UPLOAD_STORAGE, upload_id)
     os.makedirs(folder_path, exist_ok=True)
     
     # Store metadata
@@ -48,7 +54,7 @@ async def upload_init(filename: str = Form(...), total_chunks: int = Form(...)):
 @app.post("/upload/chunk")
 async def upload_chunk(upload_id: str = Form(...), index: int = Form(...), file: UploadFile = File(...)):
     """Receive a single chunk. index starts at 0."""
-    folder_path = os.path.join(SHARED_STORAGE, upload_id)
+    folder_path = os.path.join(UPLOAD_STORAGE, upload_id)
     if not os.path.exists(folder_path):
         raise HTTPException(status_code=404, detail="Upload ID not found")
 
@@ -62,7 +68,7 @@ async def upload_chunk(upload_id: str = Form(...), index: int = Form(...), file:
 @app.post("/upload/complete")
 async def upload_complete(upload_id: str = Form(...)):
     """Assemble chunks into final file, validate type, and register in DB."""
-    folder_path = os.path.join(SHARED_STORAGE, upload_id)
+    folder_path = os.path.join(UPLOAD_STORAGE, upload_id)
     meta_path = os.path.join(folder_path, ".meta")
     
     if not os.path.exists(folder_path) or not os.path.exists(meta_path):

@@ -5,7 +5,7 @@ Write-Host "Stopping Video Microservices..." -ForegroundColor Yellow
 Write-Host ""
 
 # Service ports to check
-$servicePorts = @(8001, 8002, 8003, 8004, 8005)
+$servicePorts = @(8001, 8002, 8003, 8004, 8005, 8006)
 $servicesStopped = 0
 $windowsClosed = 0
 
@@ -15,7 +15,7 @@ $pythonProcesses = Get-Process | Where-Object { $_.ProcessName -like "*python*" 
 foreach ($process in $pythonProcesses) {
     try {
         $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
-        if ($cmdLine -and $cmdLine -like "*uvicorn*" -and ($cmdLine -like "*8001*" -or $cmdLine -like "*8002*" -or $cmdLine -like "*8003*" -or $cmdLine -like "*8004*" -or $cmdLine -like "*8005*")) {
+        if ($cmdLine -and $cmdLine -like "*uvicorn*" -and ($cmdLine -like "*8001*" -or $cmdLine -like "*8002*" -or $cmdLine -like "*8003*" -or $cmdLine -like "*8004*" -or $cmdLine -like "*8005*" -or $cmdLine -like "*8006*")) {
             Write-Host "Stopping service process (PID: $($process.Id))..." -ForegroundColor Yellow
             Stop-Process -Id $process.Id -Force
             $servicesStopped++
@@ -31,7 +31,7 @@ $powershellProcesses = Get-Process | Where-Object { $_.ProcessName -eq "powershe
 foreach ($process in $powershellProcesses) {
     try {
         $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId = $($process.Id)").CommandLine
-        if ($cmdLine -and $cmdLine -like "*uvicorn*" -and ($cmdLine -like "*8001*" -or $cmdLine -like "*8002*" -or $cmdLine -like "*8003*" -or $cmdLine -like "*8004*" -or $cmdLine -like "*8005*")) {
+        if ($cmdLine -and $cmdLine -like "*uvicorn*" -and ($cmdLine -like "*8001*" -or $cmdLine -like "*8002*" -or $cmdLine -like "*8003*" -or $cmdLine -like "*8004*" -or $cmdLine -like "*8005*" -or $cmdLine -like "*8006*")) {
             Write-Host "Closing PowerShell window (PID: $($process.Id))..." -ForegroundColor Yellow
             Stop-Process -Id $process.Id -Force
             $windowsClosed++

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories/${id}`, {
       method: 'DELETE'
     });
