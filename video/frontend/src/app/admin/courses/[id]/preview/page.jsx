@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Sidebar from '../../../../../components/admin/Sidebar';
 import TopHeader from '../../../../../components/admin/TopHeader';
+import CustomVideoPlayer from '../../../../../components/admin/CustomVideoPlayer';
 
 export default function PreviewCoursePage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function PreviewCoursePage() {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState(0);
   const [transcodeStatus, setTranscodeStatus] = useState({});
+  const [selectedVideo, setSelectedVideo] = useState(null);
 
   useEffect(() => {
     fetchCourse();
@@ -191,8 +193,10 @@ export default function PreviewCoursePage() {
           </div>
 
           {/* Course Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Curriculum */}
+          {/* Main grid now: left curriculum + right preview */}
+          {/* Adjusted grid to include preview card on the right */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+            {/* Left: Curriculum (span 2) */}
             <div className="lg:col-span-2">
               <div className="bg-gray-800 rounded-lg p-6">
                 <h3 className="text-xl font-semibold text-white mb-4">Course Content</h3>
@@ -226,7 +230,11 @@ export default function PreviewCoursePage() {
                         {activeSection === sectionIndex && (
                           <div className="px-4 pb-4 space-y-2">
                             {section.lessons.map((lesson, lessonIndex) => (
-                              <div key={lesson.id} className="flex items-center gap-3 p-3 bg-gray-700 rounded-lg">
+                              <div 
+                                key={lesson.id} 
+                                className={`flex items-center gap-3 p-3 bg-gray-700 rounded-lg ${lesson.type === 'video' ? 'cursor-pointer hover:bg-gray-600' : ''}`}
+                                onClick={() => lesson.type === 'video' && lesson.video_id && setSelectedVideo(lesson.video_id)}
+                              >
                                 <div className="flex-shrink-0">
                                   {lesson.type === 'video' && (
                                     <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,8 +275,40 @@ export default function PreviewCoursePage() {
               </div>
             </div>
 
-            {/* Course Info Sidebar */}
+            {/* Right: Video Preview Card */}
             <div className="space-y-6">
+              <div className="bg-gray-800 rounded-lg p-4">
+                {/* <div className="p-3 bg-gray-900 rounded-md border border-gray-700">
+                  <h3 className="text-sm font-semibold text-white">Video Preview</h3>
+                  {!selectedVideo && (
+                    <p className="text-xs text-gray-400 mt-1">Select a video from the curriculum</p>
+                  )}
+                </div> */}
+                <div className="mt-4 bg-black rounded-md overflow-hidden w-full h-48 flex items-center justify-center">
+                  {selectedVideo ? (
+                    <div className="w-full h-full">
+                      <CustomVideoPlayer
+                        videoHash={selectedVideo}
+                        poster="/images/placeholder.svg"
+                        className="w-full h-full"
+                        height="100%"
+                        autoplay={true}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <svg className="w-12 h-12 text-gray-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-gray-400 text-sm">No video selected</p>
+                        <p className="text-xs text-gray-400 mt-1">Select a video from the curriculum</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Course Stats */}
               <div className="bg-gray-800 rounded-lg p-6">
                 <h4 className="text-lg font-semibold text-white mb-4">Course Details</h4>
