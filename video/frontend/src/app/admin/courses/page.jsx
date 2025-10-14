@@ -21,7 +21,7 @@ export default function CoursesPage() {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
     if (url.startsWith('/api/') || url.startsWith('/images/') || url.startsWith('/_next/')) return url;
-    if (url.startsWith('/thumbnails')) return `http://localhost:8006${url}`;
+    if (url.startsWith('/thumbnails')) return `/api${url}`;
     return url;
   };
 
@@ -31,7 +31,7 @@ export default function CoursesPage() {
 
   const fetchCourses = async () => {
     try {
-      const response = await fetch('http://localhost:8006/api/courses');
+      const response = await fetch('/api/courses');
       if (response.ok) {
         const data = await response.json();
         setCourses(data);

@@ -800,7 +800,7 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 				const file = selectedFiles[i];
 				
 				// Initialize upload
-				const initResponse = await fetch('http://localhost:8001/upload/init', {
+				const initResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/init`, {
 					method: 'POST',
 					body: new URLSearchParams({
 						filename: file.name,
@@ -820,7 +820,7 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 				formData.append('index', '0');
 				formData.append('file', file);
 
-				const chunkResponse = await fetch('http://localhost:8001/upload/chunk', {
+				const chunkResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/chunk`, {
 					method: 'POST',
 					body: formData
 				});
@@ -832,7 +832,7 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 				setUploadProgress(prev => ({ ...prev, [i]: 50 }));
 
 				// Complete the upload
-				const completeResponse = await fetch('http://localhost:8001/upload/complete', {
+				const completeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/complete`, {
 					method: 'POST',
 					body: new URLSearchParams({
 						upload_id: upload_id

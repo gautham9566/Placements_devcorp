@@ -752,6 +752,86 @@ async def upload_course_thumbnail_proxy(course_id: int, file: UploadFile = File(
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
 
+@app.get("/courses/{course_id}")
+def get_course(course_id: int):
+    """Proxy to course service - Get a specific course."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.put("/courses/{course_id}")
+async def update_course(course_id: int, request: Request):
+    """Proxy to course service - Update a course."""
+    try:
+        body = await request.json()
+        response = requests.put(f"{COURSE_SERVICE_URL}/api/courses/{course_id}", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.delete("/courses/{course_id}")
+def delete_course(course_id: int):
+    """Proxy to course service - Delete a course."""
+    try:
+        response = requests.delete(f"{COURSE_SERVICE_URL}/api/courses/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.post("/courses/{course_id}/publish")
+async def publish_course(course_id: int):
+    """Proxy to course service - Publish a course."""
+    try:
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/publish", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.post("/courses/{course_id}/unpublish")
+async def unpublish_course(course_id: int):
+    """Proxy to course service - Unpublish a course."""
+    try:
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/unpublish", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.post("/courses/{course_id}/sections")
+async def create_section(course_id: int, request: Request):
+    """Proxy to course service - Create a section in a course."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/sections", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.post("/courses/{course_id}/lessons")
+async def create_lesson(course_id: int, request: Request):
+    """Proxy to course service - Create a lesson in a course."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/api/courses/{course_id}/lessons", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/thumbnails/{path:path}")
+async def get_course_thumbnail(path: str):
+    """Proxy to course service - Get course thumbnails."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/thumbnails/{path}", timeout=10)
+        if response.status_code == 200:
+            from fastapi.responses import StreamingResponse
+            import io
+            return StreamingResponse(io.BytesIO(response.content), media_type=response.headers.get('content-type', 'image/jpeg'))
+        else:
+            raise HTTPException(status_code=response.status_code, detail="Thumbnail not found")
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "admin_service"}

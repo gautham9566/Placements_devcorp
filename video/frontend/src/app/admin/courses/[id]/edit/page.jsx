@@ -351,7 +351,7 @@ function BasicInformationStep({ courseData, updateCourseData }) {
         {(courseData.thumbnailFile || courseData.thumbnail_url) && (
           <div className="mt-2">
             <img
-              src={courseData.thumbnailFile ? URL.createObjectURL(courseData.thumbnailFile) : (courseData.thumbnail_url?.startsWith('http') ? courseData.thumbnail_url : (courseData.thumbnail_url ? `http://localhost:8006${courseData.thumbnail_url}` : '/images/placeholder.svg'))}
+              src={courseData.thumbnailFile ? URL.createObjectURL(courseData.thumbnailFile) : (courseData.thumbnail_url?.startsWith('http') ? courseData.thumbnail_url : (courseData.thumbnail_url ? `/api${courseData.thumbnail_url}` : '/images/placeholder.svg'))}
               alt="Course thumbnail preview"
               className="w-32 h-18 object-cover rounded-lg border border-gray-600"
               onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }}

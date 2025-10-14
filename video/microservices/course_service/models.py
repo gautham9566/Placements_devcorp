@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text, Float, DateTime, ForeignKey, Boolean, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.pool import StaticPool
+from sqlalchemy import event
 from datetime import datetime
 
 # Database setup - use shared storage
@@ -9,6 +10,13 @@ DATABASE_URL = f"sqlite:///{os.path.abspath('../shared_storage/databases/courses
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+# Enable foreign keys for SQLite
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 class Course(Base):
     __tablename__ = "courses"

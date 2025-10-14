@@ -154,7 +154,7 @@ export default function PreviewCoursePage() {
               <div className="w-48 h-32 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
                 {course.thumbnail_url ? (
                   <img
-                    src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `http://localhost:8006${course.thumbnail_url}`}
+                    src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/api${course.thumbnail_url}`}
                     alt={course.title}
                     className="w-full h-full object-cover rounded-lg"
                     onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }}

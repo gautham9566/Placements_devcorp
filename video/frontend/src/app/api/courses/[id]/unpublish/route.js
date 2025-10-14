@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-const COURSE_SERVICE_URL = 'http://localhost:8006';
+const COURSE_SERVICE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function POST(request, { params }) {
   try {
     const { id } = await params;
 
-    const response = await fetch(`${COURSE_SERVICE_URL}/api/courses/${id}/unpublish`, {
+    const response = await fetch(`${COURSE_SERVICE_URL}/courses/${id}/unpublish`, {
       method: 'POST',
     });
 
