@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 
-const METADATA_SERVICE_URL = 'http://localhost:8003';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
 
-    // Fetch videos for this specific course from metadata service
-    const response = await fetch(`${METADATA_SERVICE_URL}/videos/course/${id}`);
+    // Fetch videos for this specific course from admin service
+    const response = await fetch(`${API_URL}/videos/course/${id}`);
 
     if (!response.ok) {
       return NextResponse.json({ error: 'Failed to fetch course videos' }, { status: response.status });

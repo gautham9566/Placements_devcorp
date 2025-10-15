@@ -1,4 +1,4 @@
-const UPLOAD_SERVICE_URL = 'http://localhost:8001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export async function POST(request, { params }) {
   try {
@@ -8,7 +8,7 @@ export async function POST(request, { params }) {
     // Add course_id to the form data
     formData.append('course_id', id);
 
-    const resp = await fetch(`${UPLOAD_SERVICE_URL}/upload/chunk`, {
+    const resp = await fetch(`${API_URL}/upload/chunk`, {
       method: 'POST',
       body: formData,
     });

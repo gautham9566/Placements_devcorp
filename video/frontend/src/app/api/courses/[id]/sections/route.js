@@ -56,7 +56,7 @@ export async function PUT(request, { params }) {
 
     // Handle single section update
     const { sectionId, ...updateData } = body;
-    const response = await fetch(`${COURSE_SERVICE_URL}/courses/${id}/sections/${sectionId}`, {
+    const response = await fetch(`${COURSE_SERVICE_URL}/api/courses/${id}/sections/${sectionId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

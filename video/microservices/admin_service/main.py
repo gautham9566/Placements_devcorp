@@ -315,6 +315,15 @@ async def publish_video(video_hash: str):
             detail=f"Metadata service unavailable: {str(e)}"
         )
 
+@app.get("/videos/course/{course_id}")
+async def get_videos_by_course(course_id: int):
+    """Proxy to metadata service - Get all videos for a specific course."""
+    try:
+        response = requests.get(f"{METADATA_SERVICE_URL}/videos/course/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
+
 @app.get("/categories")
 def get_categories():
     """Proxy to metadata service - Get all categories."""
