@@ -512,6 +512,16 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
     """Main transcoding function that runs in background."""
     print(f"Starting transcoding for {upload_id}: {filename}")
 
+    # Notify metadata service that transcoding is starting
+    try:
+        requests.post(
+            f"{METADATA_SERVICE_URL}/videos/{upload_id}/transcoding-status",
+            params={"status": "transcoding"},
+            timeout=5
+        )
+    except Exception as e:
+        print(f"Failed to update transcoding status to 'transcoding' for {upload_id}: {e}")
+
     # Resolve source path and course_id first
     source_path, course_id = _resolve_source_path(upload_id, filename)
 
@@ -530,6 +540,17 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
             status['course_id'] = course_id
         _update_status(upload_id, lambda _: status, course_id)
         print(f"Transcoding failed for {upload_id}: source file not found")
+
+        # Notify metadata service of failure
+        try:
+            requests.post(
+                f"{METADATA_SERVICE_URL}/videos/{upload_id}/transcoding-status",
+                params={"status": "failed"},
+                timeout=5
+            )
+        except Exception as e:
+            print(f"Failed to update transcoding status to 'failed' for {upload_id}: {e}")
+
         return status
 
     existing_status = _read_status(upload_id, course_id)
@@ -705,20 +726,23 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
             return status_snapshot
 
         final_status = _update_status(upload_id, finalize, course_id)
-        
-        # Update metadata service with original resolution
+
+        # Update metadata service with original resolution and transcoding status
         try:
+            transcoding_status = 'completed' if final_status.get('overall') == 'ok' else 'failed'
             requests.put(
                 f"{METADATA_SERVICE_URL}/videos/{upload_id}",
                 json={
                     "original_resolution": final_status.get("original_resolution"),
-                    "original_quality_label": final_status.get("original_quality_label")
+                    "original_quality_label": final_status.get("original_quality_label"),
+                    "transcoding_status": transcoding_status
                 },
                 timeout=5
             )
-        except Exception:
-            pass
-        
+            print(f"Updated metadata service: transcoding_status={transcoding_status} for {upload_id}")
+        except Exception as e:
+            print(f"Failed to update metadata service for {upload_id}: {e}")
+
         print(f"Transcoding completed for {upload_id}: {final_status.get('overall', 'unknown')}")
         return final_status
     except Exception as e:
@@ -731,6 +755,17 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
         if course_id:
             error_status['course_id'] = course_id
         _update_status(upload_id, lambda _: error_status, course_id)
+
+        # Notify metadata service of failure
+        try:
+            requests.post(
+                f"{METADATA_SERVICE_URL}/videos/{upload_id}/transcoding-status",
+                params={"status": "failed"},
+                timeout=5
+            )
+        except Exception as notify_error:
+            print(f"Failed to update transcoding status to 'failed' for {upload_id}: {notify_error}")
+
         return error_status
 
 # API Endpoints

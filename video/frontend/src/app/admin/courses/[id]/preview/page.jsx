@@ -192,29 +192,82 @@ export default function PreviewCoursePage() {
 
   const renderTranscodeStatus = (videoId) => {
     const status = transcodeStatus[videoId];
-    if (!status) return null;
+    if (!status) {
+      return (
+        <div className="text-xs text-gray-400 mt-1">
+          Transcoding: Pending
+        </div>
+      );
+    }
 
     const overall = status.overall || 'unknown';
     let statusColor = 'text-gray-400';
     let statusText = 'Unknown';
+    let statusIcon = null;
 
-    if (overall === 'ok') {
+    if (overall === 'ok' || overall === 'completed') {
       statusColor = 'text-green-400';
-      statusText = 'Ready';
+      statusText = 'Completed';
+      statusIcon = (
+        <svg className="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      );
     } else if (overall === 'running') {
       statusColor = 'text-blue-400';
-      statusText = 'Processing';
+      statusText = 'Transcoding...';
+      statusIcon = (
+        <svg className="w-3 h-3 inline mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      );
     } else if (overall === 'error') {
       statusColor = 'text-red-400';
       statusText = 'Failed';
+      statusIcon = (
+        <svg className="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+      );
     } else if (overall === 'stopped') {
       statusColor = 'text-yellow-400';
       statusText = 'Stopped';
+      statusIcon = (
+        <svg className="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+        </svg>
+      );
+    }
+
+    // Calculate progress if available
+    let progressBar = null;
+    if (overall === 'running' && status.qualities) {
+      const qualities = Object.values(status.qualities).filter(q => q && typeof q === 'object');
+      if (qualities.length > 0) {
+        const totalProgress = qualities.reduce((sum, q) => sum + (q.progress || 0), 0);
+        const avgProgress = Math.round(totalProgress / qualities.length);
+        progressBar = (
+          <div className="mt-1">
+            <div className="w-full bg-gray-700 rounded-full h-1.5">
+              <div
+                className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${avgProgress}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">{avgProgress}%</div>
+          </div>
+        );
+      }
     }
 
     return (
       <div className={`text-xs ${statusColor} mt-1`}>
-        Transcoding: {statusText}
+        <div>
+          {statusIcon}
+          Transcoding: {statusText}
+        </div>
+        {progressBar}
       </div>
     );
   };
@@ -286,6 +339,146 @@ export default function PreviewCoursePage() {
         }
         setCourse(updatedCourse);
         setIsEditing(false);
+
+        // Trigger transcoding for all videos in the course
+        const videoIds = [];
+        if (updatedCourse.sections) {
+          updatedCourse.sections.forEach(section => {
+            section.lessons.forEach(lesson => {
+              if (lesson.video_id) {
+                videoIds.push(lesson.video_id);
+              }
+            });
+          });
+        }
+
+        if (videoIds.length > 0) {
+          console.log('Video IDs to transcode:', videoIds);
+          alert(`Starting transcoding for ${videoIds.length} video(s) in the course.`);
+
+          for (const videoId of videoIds) {
+            if (!videoId) {
+              console.warn('Skipping empty video ID');
+              continue;
+            }
+
+            try {
+              console.log(`Starting transcoding for video: ${videoId}`);
+
+              // Update video transcoding status to 'transcoding'
+              const updateResponse = await fetch(`/api/videos/${videoId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ transcoding_status: 'transcoding' }),
+              });
+
+              if (!updateResponse.ok) {
+                console.error(`Failed to update video ${videoId} status:`, await updateResponse.text());
+              }
+
+              // Trigger transcoding
+              const transcodeResponse = await fetch(`/api/transcode/${videoId}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ qualities: ['360p', '480p', '720p'] }),
+              });
+
+              if (!transcodeResponse.ok) {
+                console.error(`Failed to start transcoding for video ${videoId}:`, await transcodeResponse.text());
+              } else {
+                console.log(`Successfully started transcoding for video ${videoId}`);
+              }
+            } catch (error) {
+              console.error(`Failed to start transcoding for video ${videoId}:`, error);
+            }
+          }
+
+          // Start polling for transcoding status updates
+          const pollInterval = setInterval(async () => {
+            try {
+              const statusPromises = videoIds.map(async (videoId) => {
+                try {
+                  const statusResponse = await fetch(`/api/transcode/${videoId}/status`);
+                  if (statusResponse.ok) {
+                    const status = await statusResponse.json();
+                    return { videoId, status };
+                  }
+                } catch (error) {
+                  console.error(`Failed to fetch transcoding status for ${videoId}:`, error);
+                }
+                return { videoId, status: null };
+              });
+
+              const statuses = await Promise.all(statusPromises);
+              const statusMap = {};
+              statuses.forEach(({ videoId, status }) => {
+                statusMap[videoId] = status;
+              });
+              setTranscodeStatus(statusMap);
+
+              // Check if all videos are transcoded
+              const allComplete = statuses.every(({ status }) =>
+                status && (status.overall === 'ok' || status.overall === 'completed')
+              );
+              const anyFailed = statuses.some(({ status }) =>
+                status && status.overall === 'error'
+              );
+
+              if (allComplete) {
+                clearInterval(pollInterval);
+
+                // Update all videos to 'completed' status
+                for (const videoId of videoIds) {
+                  try {
+                    await fetch(`/api/videos/${videoId}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ transcoding_status: 'completed' }),
+                    });
+                  } catch (error) {
+                    console.warn(`Failed to update transcoding status for video ${videoId}:`, error);
+                  }
+                }
+
+                alert('Transcoding completed successfully!');
+              } else if (anyFailed) {
+                clearInterval(pollInterval);
+
+                // Update failed videos
+                for (const { videoId, status } of statuses) {
+                  if (status && status.overall === 'error') {
+                    try {
+                      await fetch(`/api/videos/${videoId}`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ transcoding_status: 'failed' }),
+                      });
+                    } catch (error) {
+                      console.warn(`Failed to update transcoding status for video ${videoId}:`, error);
+                    }
+                  }
+                }
+
+                alert('Transcoding failed for one or more videos. Please check the video status.');
+              }
+            } catch (error) {
+              console.error('Error polling transcoding status:', error);
+            }
+          }, 3000); // Poll every 3 seconds
+
+          // Stop polling after 30 minutes
+          setTimeout(() => {
+            clearInterval(pollInterval);
+          }, 30 * 60 * 1000);
+        }
       } else {
         console.error('Failed to update course');
       }
@@ -301,25 +494,209 @@ export default function PreviewCoursePage() {
 
   const handlePublish = async () => {
     try {
-      const response = await fetch(`/api/courses/${courseId}`, {
+      // Step 1: Set course status to 'draft' first
+      const draftResponse = await fetch(`/api/courses/${courseId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...course, status: 'published' }),
+        body: JSON.stringify({ ...course, status: 'draft' }),
       });
-      if (response.ok) {
-        const updatedCourse = await response.json();
-        if (!updatedCourse.sections) {
-          updatedCourse.sections = course.sections || [];
-        }
-        setCourse(updatedCourse);
-        setEditedCourse({ ...updatedCourse, sections: updatedCourse.sections || [] });
-      } else {
-        console.error('Failed to publish course');
+
+      if (!draftResponse.ok) {
+        console.error('Failed to set course to draft');
+        alert('Failed to initiate publish process');
+        return;
       }
+
+      const draftCourse = await draftResponse.json();
+      if (!draftCourse.sections) {
+        draftCourse.sections = course.sections || [];
+      }
+      setCourse(draftCourse);
+      setEditedCourse({ ...draftCourse, sections: draftCourse.sections || [] });
+
+      // Step 2: Collect all video IDs from the course
+      const videoIds = [];
+      if (course.sections) {
+        course.sections.forEach(section => {
+          section.lessons.forEach(lesson => {
+            if (lesson.video_id) {
+              videoIds.push(lesson.video_id);
+            }
+          });
+        });
+      }
+
+      if (videoIds.length === 0) {
+        // No videos to transcode, publish immediately
+        const publishResponse = await fetch(`/api/courses/${courseId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ...course, status: 'published' }),
+        });
+
+        if (publishResponse.ok) {
+          const publishedCourse = await publishResponse.json();
+          if (!publishedCourse.sections) {
+            publishedCourse.sections = course.sections || [];
+          }
+          setCourse(publishedCourse);
+          setEditedCourse({ ...publishedCourse, sections: publishedCourse.sections || [] });
+          alert('Course published successfully!');
+        }
+        return;
+      }
+
+      // Step 3: Start transcoding for all videos
+      console.log('Video IDs to transcode (publish):', videoIds);
+      alert(`Starting transcoding for ${videoIds.length} video(s). The course will be automatically published when transcoding completes.`);
+
+      for (const videoId of videoIds) {
+        if (!videoId) {
+          console.warn('Skipping empty video ID');
+          continue;
+        }
+
+        try {
+          console.log(`Starting transcoding for video: ${videoId}`);
+
+          // Update video transcoding status to 'transcoding'
+          const updateResponse = await fetch(`/api/videos/${videoId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ transcoding_status: 'transcoding' }),
+          });
+
+          if (!updateResponse.ok) {
+            console.error(`Failed to update video ${videoId} status:`, await updateResponse.text());
+          }
+
+          // Trigger transcoding
+          const transcodeResponse = await fetch(`/api/transcode/${videoId}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ qualities: ['360p', '480p', '720p'] }),
+          });
+
+          if (!transcodeResponse.ok) {
+            console.error(`Failed to start transcoding for video ${videoId}:`, await transcodeResponse.text());
+          } else {
+            console.log(`Successfully started transcoding for video ${videoId}`);
+          }
+        } catch (error) {
+          console.error(`Failed to start transcoding for video ${videoId}:`, error);
+        }
+      }
+
+      // Step 4: Poll transcoding status and auto-publish when complete
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusPromises = videoIds.map(async (videoId) => {
+            try {
+              const statusResponse = await fetch(`/api/transcode/${videoId}/status`);
+              if (statusResponse.ok) {
+                const status = await statusResponse.json();
+                return { videoId, status };
+              }
+            } catch (error) {
+              console.error(`Failed to fetch transcoding status for ${videoId}:`, error);
+            }
+            return { videoId, status: null };
+          });
+
+          const statuses = await Promise.all(statusPromises);
+          const statusMap = {};
+          statuses.forEach(({ videoId, status }) => {
+            statusMap[videoId] = status;
+          });
+          setTranscodeStatus(statusMap);
+
+          // Check if all videos are transcoded
+          const allComplete = statuses.every(({ status }) =>
+            status && (status.overall === 'ok' || status.overall === 'completed')
+          );
+          const anyFailed = statuses.some(({ status }) =>
+            status && status.overall === 'error'
+          );
+
+          if (allComplete) {
+            clearInterval(pollInterval);
+
+            // Update all videos to 'completed' status
+            for (const videoId of videoIds) {
+              try {
+                await fetch(`/api/videos/${videoId}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ transcoding_status: 'completed' }),
+                });
+              } catch (error) {
+                console.warn(`Failed to update transcoding status for video ${videoId}:`, error);
+              }
+            }
+
+            // Auto-publish the course
+            const publishResponse = await fetch(`/api/courses/${courseId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ ...course, status: 'published' }),
+            });
+
+            if (publishResponse.ok) {
+              const publishedCourse = await publishResponse.json();
+              if (!publishedCourse.sections) {
+                publishedCourse.sections = course.sections || [];
+              }
+              setCourse(publishedCourse);
+              setEditedCourse({ ...publishedCourse, sections: publishedCourse.sections || [] });
+              alert('Transcoding completed! Course has been published successfully.');
+            }
+          } else if (anyFailed) {
+            clearInterval(pollInterval);
+
+            // Update failed videos
+            for (const { videoId, status } of statuses) {
+              if (status && status.overall === 'error') {
+                try {
+                  await fetch(`/api/videos/${videoId}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ transcoding_status: 'failed' }),
+                  });
+                } catch (error) {
+                  console.warn(`Failed to update transcoding status for video ${videoId}:`, error);
+                }
+              }
+            }
+
+            alert('Transcoding failed for one or more videos. Course remains in draft status. Please check the video status and try again.');
+          }
+        } catch (error) {
+          console.error('Error polling transcoding status:', error);
+        }
+      }, 3000); // Poll every 3 seconds
+
+      // Stop polling after 30 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 30 * 60 * 1000);
+
     } catch (error) {
       console.error('Error publishing course:', error);
+      alert('Failed to publish course: ' + error.message);
     }
   };
 
@@ -1110,6 +1487,95 @@ export default function PreviewCoursePage() {
                   )}
                 </div>
               </div>
+
+              {/* Transcoding Status Card */}
+              {Object.keys(transcodeStatus).length > 0 && (
+                <div className="bg-gray-800 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-white mb-4">Video Transcoding Status</h4>
+                  <div className="space-y-4">
+                    {Object.entries(transcodeStatus).map(([videoId, status]) => {
+                      const overall = status?.overall || 'unknown';
+                      const qualities = status?.qualities || {};
+                      const qualityEntries = Object.entries(qualities).filter(([q]) => q !== 'original');
+
+                      let statusColor = 'text-gray-400';
+                      let statusText = 'Unknown';
+                      let statusIcon = null;
+
+                      if (overall === 'ok' || overall === 'completed') {
+                        statusColor = 'text-green-400';
+                        statusText = 'Completed';
+                        statusIcon = '✓';
+                      } else if (overall === 'running') {
+                        statusColor = 'text-blue-400';
+                        statusText = 'Processing...';
+                        statusIcon = '⟳';
+                      } else if (overall === 'error') {
+                        statusColor = 'text-red-400';
+                        statusText = 'Failed';
+                        statusIcon = '✗';
+                      } else if (overall === 'stopped') {
+                        statusColor = 'text-yellow-400';
+                        statusText = 'Stopped';
+                        statusIcon = '⏸';
+                      }
+
+                      return (
+                        <div key={videoId} className="bg-gray-700 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-white font-medium text-sm">
+                              Video {videoId.slice(0, 8)}...
+                            </span>
+                            <span className={`text-sm font-medium ${statusColor}`}>
+                              {statusIcon} {statusText}
+                            </span>
+                          </div>
+
+                          {qualityEntries.length > 0 && (
+                            <div className="space-y-2">
+                              {qualityEntries.map(([quality, qStatus]) => {
+                                const progress = qStatus.progress || 0;
+                                let qColor = 'text-gray-400';
+                                let qIcon = '...';
+
+                                if (qStatus.status === 'ok') {
+                                  qColor = 'text-green-400';
+                                  qIcon = '✓';
+                                } else if (qStatus.status === 'error') {
+                                  qColor = 'text-red-400';
+                                  qIcon = '✗';
+                                } else if (qStatus.status === 'running') {
+                                  qColor = 'text-blue-400';
+                                  qIcon = `${progress}%`;
+                                }
+
+                                return (
+                                  <div key={quality} className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-300">{quality}</span>
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-12 bg-gray-600 rounded-full h-1">
+                                        <div
+                                          className={`h-1 rounded-full transition-all duration-300 ${
+                                            qStatus.status === 'ok' ? 'bg-green-500' :
+                                            qStatus.status === 'error' ? 'bg-red-500' :
+                                            qStatus.status === 'running' ? 'bg-blue-500' : 'bg-gray-500'
+                                          }`}
+                                          style={{ width: `${progress}%` }}
+                                        />
+                                      </div>
+                                      <span className={qColor}>{qIcon}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Course Stats */}
               <div className="bg-gray-800 rounded-lg p-6">

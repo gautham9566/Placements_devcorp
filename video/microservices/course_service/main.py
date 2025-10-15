@@ -177,7 +177,50 @@ async def update_course(course_id: int, course_update: CourseUpdate, db: Session
 
     course.updated_at = datetime.utcnow()
     db.commit()
-    return {"message": "Course updated successfully"}
+    db.refresh(course)
+
+    # Return full course object with sections and lessons
+    sections = []
+    for section in course.sections:
+        lessons = []
+        for lesson in section.lessons:
+            lessons.append({
+                "id": lesson.id,
+                "title": lesson.title,
+                "description": lesson.description,
+                "type": lesson.type,
+                "video_id": lesson.video_id,
+                "duration": lesson.duration,
+                "order": lesson.order,
+                "resources": lesson.resources,
+                "downloadable": lesson.downloadable
+            })
+        sections.append({
+            "id": section.id,
+            "title": section.title,
+            "order": section.order,
+            "learning_objectives": section.learning_objectives,
+            "lessons": lessons
+        })
+
+    return {
+        "id": course.id,
+        "title": course.title,
+        "subtitle": course.subtitle,
+        "description": course.description,
+        "category": course.category,
+        "subcategory": course.subcategory,
+        "level": course.level,
+        "language": course.language,
+        "price": course.price,
+        "currency": course.currency,
+        "status": course.status,
+        "thumbnail_url": course.thumbnail_url,
+        "promo_video_id": course.promo_video_id,
+        "created_at": course.created_at.isoformat(),
+        "updated_at": course.updated_at.isoformat(),
+        "sections": sections
+    }
 
 @app.delete("/api/courses/{course_id}", response_model=dict)
 async def delete_course(course_id: int, db: Session = Depends(get_db)):

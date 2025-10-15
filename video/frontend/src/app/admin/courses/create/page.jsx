@@ -850,33 +850,6 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 	const [uploadProgress, setUploadProgress] = useState({});
 	const [selectedFiles, setSelectedFiles] = useState([]);
 	const [uploadedVideos, setUploadedVideos] = useState(courseData.videos || []);
-	const [transcodeStatus, setTranscodeStatus] = useState({});
-
-	// Poll transcoding status for uploaded videos
-	useEffect(() => {
-		const pollTranscodingStatus = async () => {
-			for (const video of uploadedVideos) {
-				try {
-					const response = await fetch(`/api/transcode/${video.hash}/status`);
-					if (response.ok) {
-						const status = await response.json();
-						setTranscodeStatus(prev => ({
-							...prev,
-							[video.hash]: status
-						}));
-					}
-				} catch (error) {
-					console.error(`Failed to fetch transcoding status for ${video.hash}:`, error);
-				}
-			}
-		};
-
-		if (uploadedVideos.length > 0) {
-			pollTranscodingStatus();
-			const interval = setInterval(pollTranscodingStatus, 5000); // Poll every 5 seconds
-			return () => clearInterval(interval);
-		}
-	}, [uploadedVideos]);
 
 	const handleFileSelect = (event) => {
 		const files = Array.from(event.target.files);
@@ -1107,11 +1080,6 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 					) : (
 						<div className="space-y-2">
 							{uploadedVideos.map((video) => {
-								const status = transcodeStatus[video.hash];
-								const overallStatus = status?.overall;
-								const qualities = status?.qualities || {};
-								const completedQualities = Object.values(qualities).filter(q => q.status === 'ok').length;
-								const totalQualities = Object.keys(qualities).length;
 								return (
 									<div key={video.hash} className="bg-gray-700 rounded-lg p-3">
 										<div className="flex items-center justify-between mb-2">
@@ -1128,66 +1096,6 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 												Remove
 											</button>
 										</div>
-										{status && (
-											<div className="mt-2">
-												<div className="flex items-center justify-between mb-1">
-													<span className="text-sm text-gray-300">Transcoding:</span>
-													<span className={`text-sm font-medium ${
-														overallStatus === 'ok' ? 'text-green-400' :
-														overallStatus === 'error' ? 'text-red-400' :
-														overallStatus === 'running' ? 'text-blue-400' : 'text-yellow-400'
-													}`}>
-														{overallStatus === 'ok' ? 'Complete' :
-														 overallStatus === 'error' ? 'Error' :
-														 overallStatus === 'running' ? 'Processing...' :
-														 overallStatus === 'stopped' ? 'Stopped' : 'Pending'}
-													</span>
-												</div>
-												{totalQualities > 0 && (
-													<div className="mb-2">
-														<div className="w-full bg-gray-600 rounded-full h-2">
-															<div
-																className="bg-green-600 h-2 rounded-full transition-all duration-300"
-																style={{ width: `${completedQualities / totalQualities * 100}%` }}
-															/>
-														</div>
-														<p className="text-xs text-gray-400 mt-1">
-															{completedQualities}/{totalQualities} qualities processed
-														</p>
-													</div>
-												)}
-												{overallStatus === 'running' && Object.keys(qualities).length > 0 && (
-													<div className="space-y-1">
-														{Object.entries(qualities).map(([quality, qStatus]) => (
-															<div key={quality} className="flex items-center justify-between text-xs">
-																<span className="text-gray-400">{quality}:</span>
-																<div className="flex items-center space-x-2">
-																	<div className="w-16 bg-gray-600 rounded-full h-1">
-																		<div
-																			className={`h-1 rounded-full transition-all duration-300 ${
-																				qStatus.status === 'ok' ? 'bg-green-600' :
-																				qStatus.status === 'error' ? 'bg-red-600' :
-																				qStatus.status === 'running' ? 'bg-blue-600' : 'bg-gray-500'
-																			}`}
-																			style={{ width: `${qStatus.progress || 0}%` }}
-																		/>
-																	</div>
-																	<span className={`${
-																		qStatus.status === 'ok' ? 'text-green-400' :
-																		qStatus.status === 'error' ? 'text-red-400' :
-																		qStatus.status === 'running' ? 'text-blue-400' : 'text-gray-400'
-																	}`}>
-																		{qStatus.status === 'ok' ? '✓' :
-																		 qStatus.status === 'error' ? '✗' :
-																		 qStatus.status === 'running' ? `${qStatus.progress || 0}%` : '...'}
-																	</span>
-																</div>
-															</div>
-														))}
-													</div>
-												)}
-											</div>
-										)}
 									</div>
 								);
 							})}

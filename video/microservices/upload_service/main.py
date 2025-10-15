@@ -203,16 +203,8 @@ async def upload_complete(upload_id: str = Form(...), course_id: str = Form(None
     except Exception:
         pass
 
-    # Trigger transcoding
-    try:
-        requests.post(
-            f"{TRANSCODING_SERVICE_URL}/transcode/start",
-            json={"upload_id": upload_id, "filename": filename, "network_speed": 10.0},
-            timeout=10
-        )
-    except requests.RequestException:
-        # Non-blocking - transcoding can be triggered manually later
-        pass
+    # NOTE: Transcoding is NOT triggered automatically here anymore.
+    # It will be triggered when the user clicks "Publish" or "Save as Draft" in the course workflow.
 
     return {"hash": upload_id}
 

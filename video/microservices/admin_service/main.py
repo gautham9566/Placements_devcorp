@@ -456,7 +456,7 @@ async def transcode_trigger(video_hash: str, request: Request):
             transcode_payload["qualities"] = qualities
         
         response = requests.post(
-            f"{TRANSCODING_SERVICE_URL}/transcode/start",
+            f"{TRANSCODING_SERVICE_URL}/transcode/{video_hash}",
             json=transcode_payload,
             timeout=10
         )
@@ -468,7 +468,7 @@ async def transcode_trigger(video_hash: str, request: Request):
 def transcode_status(video_hash: str):
     """Proxy to transcoding service - Get transcoding status."""
     try:
-        response = requests.get(f"{TRANSCODING_SERVICE_URL}/transcode/status/{video_hash}", timeout=10)
+        response = requests.get(f"{TRANSCODING_SERVICE_URL}/transcode/{video_hash}/status", timeout=10)
         if response.status_code == 404:
             return JSONResponse(content={"status": "not_found"}, status_code=404)
         return JSONResponse(content=response.json(), status_code=response.status_code)

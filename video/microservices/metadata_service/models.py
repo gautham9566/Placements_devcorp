@@ -27,6 +27,7 @@ class Video(Base):
     original_resolution = Column(String, nullable=True)
     original_quality_label = Column(String, nullable=True)
     stopped = Column(Integer, default=0)  # 0: not stopped, 1: stopped
+    transcoding_status = Column(String, default='pending', nullable=True)  # pending, transcoding, completed, failed
     created_at = Column(DateTime, default=datetime.utcnow)
     scheduled_at = Column(String, nullable=True)
     course_id = Column(Integer, nullable=True)  # FK to course, nullable for backward compatibility

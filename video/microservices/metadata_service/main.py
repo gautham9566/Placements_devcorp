@@ -106,6 +106,7 @@ class VideoUpdate(BaseModel):
     status: Optional[str] = None
     scheduled_at: Optional[str] = None
     course_id: Optional[int] = None
+    transcoding_status: Optional[str] = None
 
 class CategoryCreate(BaseModel):
     name: str
@@ -207,6 +208,7 @@ async def get_videos(db: Session = Depends(get_db)):
                 "original_resolution": v.original_resolution,
                 "original_quality_label": v.original_quality_label,
                 "stopped": v.stopped,
+                "transcoding_status": v.transcoding_status,
                 "created_at": v.created_at.isoformat() if v.created_at else None,
                 "scheduled_at": v.scheduled_at,
                 "course_id": v.course_id
@@ -239,6 +241,7 @@ async def get_video(hash: str, db: Session = Depends(get_db)):
         "original_resolution": video.original_resolution,
         "original_quality_label": video.original_quality_label,
         "stopped": video.stopped,
+        "transcoding_status": video.transcoding_status,
         "scheduled_at": video.scheduled_at,
         "course_id": video.course_id
     }
@@ -270,6 +273,8 @@ async def update_video(hash: str, video_update: VideoUpdate, db: Session = Depen
         video.scheduled_at = video_update.scheduled_at
     if video_update.course_id is not None:
         video.course_id = video_update.course_id
+    if video_update.transcoding_status is not None:
+        video.transcoding_status = video_update.transcoding_status
 
     db.commit()
     return {"status": "updated"}
@@ -336,6 +341,7 @@ async def get_videos_by_course(course_id: int, db: Session = Depends(get_db)):
                 "original_resolution": v.original_resolution,
                 "original_quality_label": v.original_quality_label,
                 "stopped": v.stopped,
+                "transcoding_status": v.transcoding_status,
                 "created_at": v.created_at.isoformat() if v.created_at else None,
                 "scheduled_at": v.scheduled_at,
                 "course_id": v.course_id
@@ -343,6 +349,23 @@ async def get_videos_by_course(course_id: int, db: Session = Depends(get_db)):
             for v in videos
         ]
     }
+
+@app.post("/videos/{hash}/transcoding-status")
+async def update_transcoding_status(hash: str, status: str, db: Session = Depends(get_db)):
+    """Update transcoding status for a video. Called by transcoding service."""
+    video = db.query(Video).filter(Video.hash == hash).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    # Validate status
+    valid_statuses = ['pending', 'transcoding', 'completed', 'failed']
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+
+    video.transcoding_status = status
+    db.commit()
+
+    return {"status": "updated", "transcoding_status": status}
 
 @app.delete("/videos/{hash}")
 async def delete_video(hash: str, db: Session = Depends(get_db)):

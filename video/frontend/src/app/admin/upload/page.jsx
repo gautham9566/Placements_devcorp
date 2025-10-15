@@ -38,15 +38,15 @@ const UploadPage = () => {
       // record current hash so we can poll status
       setCurrentHash(hash);
 
-      // 3) trigger transcode with default qualities
-      await triggerTranscode(hash, { '360p': true, '480p': true, '720p': true }, null);
+      // NOTE: Transcoding is NOT triggered automatically here anymore.
+      // It will be triggered when the user clicks "Publish" or "Save as Draft" in the course workflow.
 
       // 3) create metadata entry (include title and description)
-      const metadata = { 
-        hash, 
-        filename: videoFile.name, 
-        title: title || videoFile.name, 
-        description: description || '' 
+      const metadata = {
+        hash,
+        filename: videoFile.name,
+        title: title || videoFile.name,
+        description: description || ''
       };
       
       if (selectedCategory) {
