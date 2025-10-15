@@ -115,7 +115,17 @@ async def create_video_metadata(request: Request):
 async def delete_video(video_hash: str):
     """Delete a video completely (files and metadata)."""
     errors = []
-    
+    course_id = None
+
+    # Get video metadata to find course_id
+    try:
+        response = requests.get(f"{METADATA_SERVICE_URL}/videos/{video_hash}", timeout=10)
+        if response.status_code == 200:
+            video_data = response.json()
+            course_id = video_data.get('course_id')
+    except requests.RequestException as e:
+        print(f"Warning: Could not fetch video metadata: {str(e)}")
+
     # Delete from metadata service
     try:
         response = requests.delete(f"{METADATA_SERVICE_URL}/videos/{video_hash}", timeout=10)
@@ -123,30 +133,106 @@ async def delete_video(video_hash: str):
             errors.append(f"Metadata deletion failed: HTTP {response.status_code}")
     except requests.RequestException as e:
         errors.append(f"Metadata service error: {str(e)}")
-    
-    # Delete original files
-    originals_folder = os.path.join(ORIGINALS_PATH, video_hash)
-    if os.path.exists(originals_folder):
+
+    # Delete original files - check course-based folder, default folder, and legacy flat structure
+    deleted_originals = False
+
+    # Try course-specific folder first
+    if course_id:
+        originals_folder = os.path.join(ORIGINALS_PATH, str(course_id), video_hash)
+        if os.path.exists(originals_folder):
+            try:
+                shutil.rmtree(originals_folder)
+                deleted_originals = True
+                print(f"Deleted originals from course folder: {course_id}/{video_hash}")
+            except Exception as e:
+                errors.append(f"Failed to delete course originals: {str(e)}")
+
+    # Try default folder if not found in course folder
+    if not deleted_originals:
+        default_originals_folder = os.path.join(ORIGINALS_PATH, "default", video_hash)
+        if os.path.exists(default_originals_folder):
+            try:
+                shutil.rmtree(default_originals_folder)
+                deleted_originals = True
+                print(f"Deleted originals from default folder: default/{video_hash}")
+            except Exception as e:
+                errors.append(f"Failed to delete default originals: {str(e)}")
+
+    # Try legacy flat structure if still not found
+    if not deleted_originals:
+        legacy_originals_folder = os.path.join(ORIGINALS_PATH, video_hash)
+        if os.path.exists(legacy_originals_folder):
+            try:
+                shutil.rmtree(legacy_originals_folder)
+                deleted_originals = True
+                print(f"Deleted originals from legacy folder: {video_hash}")
+            except Exception as e:
+                errors.append(f"Failed to delete legacy originals: {str(e)}")
+
+    # Delete HLS files - check course-based folder, default folder, and legacy flat structure
+    deleted_hls = False
+
+    # Try course-specific folder first
+    if course_id:
+        hls_folder = os.path.join(HLS_PATH, str(course_id), video_hash)
+        if os.path.exists(hls_folder):
+            try:
+                shutil.rmtree(hls_folder)
+                deleted_hls = True
+                print(f"Deleted HLS from course folder: {course_id}/{video_hash}")
+            except Exception as e:
+                errors.append(f"Failed to delete course HLS files: {str(e)}")
+
+    # Try default folder if not found in course folder
+    if not deleted_hls:
+        default_hls_folder = os.path.join(HLS_PATH, "default", video_hash)
+        if os.path.exists(default_hls_folder):
+            try:
+                shutil.rmtree(default_hls_folder)
+                deleted_hls = True
+                print(f"Deleted HLS from default folder: default/{video_hash}")
+            except Exception as e:
+                errors.append(f"Failed to delete default HLS files: {str(e)}")
+
+    # Try legacy flat structure if still not found
+    if not deleted_hls:
+        legacy_hls_folder = os.path.join(HLS_PATH, video_hash)
+        if os.path.exists(legacy_hls_folder):
+            try:
+                shutil.rmtree(legacy_hls_folder)
+                deleted_hls = True
+                print(f"Deleted HLS from legacy folder: {video_hash}")
+            except Exception as e:
+                errors.append(f"Failed to delete legacy HLS files: {str(e)}")
+
+    # Clean up empty course folders if video was in a course
+    if course_id:
         try:
-            shutil.rmtree(originals_folder)
+            # Check and delete empty course originals folder
+            course_originals_folder = os.path.join(ORIGINALS_PATH, str(course_id))
+            if os.path.exists(course_originals_folder) and not os.listdir(course_originals_folder):
+                os.rmdir(course_originals_folder)
+                print(f"Deleted empty course originals folder: {course_id}")
         except Exception as e:
-            errors.append(f"Failed to delete originals: {str(e)}")
-    
-    # Delete HLS files
-    hls_folder = os.path.join(HLS_PATH, video_hash)
-    if os.path.exists(hls_folder):
+            print(f"Warning: Could not delete empty course originals folder: {str(e)}")
+
         try:
-            shutil.rmtree(hls_folder)
+            # Check and delete empty course HLS folder
+            course_hls_folder = os.path.join(HLS_PATH, str(course_id))
+            if os.path.exists(course_hls_folder) and not os.listdir(course_hls_folder):
+                os.rmdir(course_hls_folder)
+                print(f"Deleted empty course HLS folder: {course_id}")
         except Exception as e:
-            errors.append(f"Failed to delete HLS files: {str(e)}")
-    
+            print(f"Warning: Could not delete empty course HLS folder: {str(e)}")
+
     if errors:
         return {
             "status": "partial_success",
             "errors": errors,
             "video_id": video_hash
         }
-    
+
     return {
         "status": "deleted",
         "video_id": video_hash
@@ -267,12 +353,20 @@ async def delete_category(category_id: int):
         raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
 
 @app.post("/upload/init")
-async def upload_init_proxy(filename: str = Form(...), total_chunks: int = Form(...)):
+async def upload_init_proxy(
+    filename: str = Form(...),
+    total_chunks: int = Form(...),
+    course_id: str = Form(None)
+):
     """Proxy to upload service - Initialize chunked upload."""
     try:
+        data = {"filename": filename, "total_chunks": total_chunks}
+        if course_id:
+            data["course_id"] = course_id
+
         response = requests.post(
             f"{UPLOAD_SERVICE_URL}/upload/init",
-            data={"filename": filename, "total_chunks": total_chunks},
+            data=data,
             timeout=30
         )
         return JSONResponse(content=response.json(), status_code=response.status_code)
@@ -280,11 +374,19 @@ async def upload_init_proxy(filename: str = Form(...), total_chunks: int = Form(
         raise HTTPException(status_code=503, detail=f"Upload service unavailable: {str(e)}")
 
 @app.post("/upload/chunk")
-async def upload_chunk(upload_id: str = Form(...), index: int = Form(...), file: UploadFile = File(...)):
+async def upload_chunk(
+    upload_id: str = Form(...),
+    index: int = Form(...),
+    file: UploadFile = File(...),
+    course_id: str = Form(None)
+):
     """Proxy to upload service - Upload a chunk."""
     try:
         files = {"file": (file.filename, await file.read(), file.content_type)}
         data = {"upload_id": upload_id, "index": index}
+        if course_id:
+            data["course_id"] = course_id
+
         response = requests.post(
             f"{UPLOAD_SERVICE_URL}/upload/chunk",
             data=data,
@@ -296,12 +398,16 @@ async def upload_chunk(upload_id: str = Form(...), index: int = Form(...), file:
         raise HTTPException(status_code=503, detail=f"Upload service unavailable: {str(e)}")
 
 @app.post("/upload/complete")
-async def upload_complete(upload_id: str = Form(...)):
+async def upload_complete(upload_id: str = Form(...), course_id: str = Form(None)):
     """Proxy to upload service - Complete upload."""
     try:
+        data = {"upload_id": upload_id}
+        if course_id:
+            data["course_id"] = course_id
+
         response = requests.post(
             f"{UPLOAD_SERVICE_URL}/upload/complete",
-            data={"upload_id": upload_id},
+            data=data,
             timeout=30
         )
         return JSONResponse(content=response.json(), status_code=response.status_code)
@@ -436,17 +542,30 @@ async def upload_thumbnail(video_hash: str, file: UploadFile = File(...)):
     """Upload thumbnail for a video."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
-    
+
     try:
-        # Get video info
+        # Get video info to find course_id
         video_response = requests.get(f"{METADATA_SERVICE_URL}/videos/{video_hash}", timeout=10)
         if video_response.status_code != 200:
             raise HTTPException(status_code=404, detail="Video not found")
-        
-        # Save thumbnail to originals folder
-        folder_path = os.path.join(ORIGINALS_PATH, video_hash)
+
+        video_data = video_response.json()
+        course_id = video_data.get('course_id')
+
+        # Determine folder path based on course_id
+        if course_id:
+            folder_path = os.path.join(ORIGINALS_PATH, str(course_id), video_hash)
+        else:
+            # Check if video is in default folder
+            default_folder = os.path.join(ORIGINALS_PATH, "default", video_hash)
+            if os.path.exists(default_folder):
+                folder_path = default_folder
+            else:
+                # Legacy flat structure
+                folder_path = os.path.join(ORIGINALS_PATH, video_hash)
+
         os.makedirs(folder_path, exist_ok=True)
-        
+
         thumbnail_filename = "thumbnail.jpg"
         file_path = os.path.join(folder_path, thumbnail_filename)
         
@@ -473,17 +592,35 @@ async def get_thumbnail(video_hash: str):
         video_response = requests.get(f"{METADATA_SERVICE_URL}/videos/{video_hash}", timeout=10)
         if video_response.status_code != 200:
             raise HTTPException(status_code=404, detail="Video not found")
-        
+
         video_data = video_response.json()
         thumbnail_filename = video_data.get("thumbnail_filename")
-        
+        course_id = video_data.get("course_id")
+
         if not thumbnail_filename:
             raise HTTPException(status_code=404, detail="Thumbnail not found")
-        
-        file_path = os.path.join(ORIGINALS_PATH, video_hash, thumbnail_filename)
-        if not os.path.exists(file_path):
+
+        # Try to find thumbnail in course-based, default, or legacy folder
+        file_path = None
+
+        if course_id:
+            course_path = os.path.join(ORIGINALS_PATH, str(course_id), video_hash, thumbnail_filename)
+            if os.path.exists(course_path):
+                file_path = course_path
+
+        if not file_path:
+            default_path = os.path.join(ORIGINALS_PATH, "default", video_hash, thumbnail_filename)
+            if os.path.exists(default_path):
+                file_path = default_path
+
+        if not file_path:
+            legacy_path = os.path.join(ORIGINALS_PATH, video_hash, thumbnail_filename)
+            if os.path.exists(legacy_path):
+                file_path = legacy_path
+
+        if not file_path:
             raise HTTPException(status_code=404, detail="Thumbnail file not found")
-        
+
         return FileResponse(file_path, media_type="image/jpeg")
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Service unavailable: {str(e)}")
@@ -577,10 +714,20 @@ async def get_all_videos():
         )
 
 @app.delete("/admin/videos/{video_id}")
-async def delete_video(video_id: str):
+async def delete_video_admin(video_id: str):
     """Delete a video completely (files and metadata)."""
     errors = []
-    
+    course_id = None
+
+    # Get video metadata to find course_id
+    try:
+        response = requests.get(f"{METADATA_SERVICE_URL}/videos/{video_id}", timeout=10)
+        if response.status_code == 200:
+            video_data = response.json()
+            course_id = video_data.get('course_id')
+    except requests.RequestException as e:
+        print(f"Warning: Could not fetch video metadata: {str(e)}")
+
     # Delete from metadata service
     try:
         response = requests.delete(f"{METADATA_SERVICE_URL}/videos/{video_id}", timeout=10)
@@ -588,30 +735,106 @@ async def delete_video(video_id: str):
             errors.append(f"Metadata deletion failed: HTTP {response.status_code}")
     except requests.RequestException as e:
         errors.append(f"Metadata service error: {str(e)}")
-    
-    # Delete original files
-    originals_folder = os.path.join(ORIGINALS_PATH, video_id)
-    if os.path.exists(originals_folder):
+
+    # Delete original files - check course-based folder, default folder, and legacy flat structure
+    deleted_originals = False
+
+    # Try course-specific folder first
+    if course_id:
+        originals_folder = os.path.join(ORIGINALS_PATH, str(course_id), video_id)
+        if os.path.exists(originals_folder):
+            try:
+                shutil.rmtree(originals_folder)
+                deleted_originals = True
+                print(f"Deleted originals from course folder: {course_id}/{video_id}")
+            except Exception as e:
+                errors.append(f"Failed to delete course originals: {str(e)}")
+
+    # Try default folder if not found in course folder
+    if not deleted_originals:
+        default_originals_folder = os.path.join(ORIGINALS_PATH, "default", video_id)
+        if os.path.exists(default_originals_folder):
+            try:
+                shutil.rmtree(default_originals_folder)
+                deleted_originals = True
+                print(f"Deleted originals from default folder: default/{video_id}")
+            except Exception as e:
+                errors.append(f"Failed to delete default originals: {str(e)}")
+
+    # Try legacy flat structure if still not found
+    if not deleted_originals:
+        legacy_originals_folder = os.path.join(ORIGINALS_PATH, video_id)
+        if os.path.exists(legacy_originals_folder):
+            try:
+                shutil.rmtree(legacy_originals_folder)
+                deleted_originals = True
+                print(f"Deleted originals from legacy folder: {video_id}")
+            except Exception as e:
+                errors.append(f"Failed to delete legacy originals: {str(e)}")
+
+    # Delete HLS files - check course-based folder, default folder, and legacy flat structure
+    deleted_hls = False
+
+    # Try course-specific folder first
+    if course_id:
+        hls_folder = os.path.join(HLS_PATH, str(course_id), video_id)
+        if os.path.exists(hls_folder):
+            try:
+                shutil.rmtree(hls_folder)
+                deleted_hls = True
+                print(f"Deleted HLS from course folder: {course_id}/{video_id}")
+            except Exception as e:
+                errors.append(f"Failed to delete course HLS files: {str(e)}")
+
+    # Try default folder if not found in course folder
+    if not deleted_hls:
+        default_hls_folder = os.path.join(HLS_PATH, "default", video_id)
+        if os.path.exists(default_hls_folder):
+            try:
+                shutil.rmtree(default_hls_folder)
+                deleted_hls = True
+                print(f"Deleted HLS from default folder: default/{video_id}")
+            except Exception as e:
+                errors.append(f"Failed to delete default HLS files: {str(e)}")
+
+    # Try legacy flat structure if still not found
+    if not deleted_hls:
+        legacy_hls_folder = os.path.join(HLS_PATH, video_id)
+        if os.path.exists(legacy_hls_folder):
+            try:
+                shutil.rmtree(legacy_hls_folder)
+                deleted_hls = True
+                print(f"Deleted HLS from legacy folder: {video_id}")
+            except Exception as e:
+                errors.append(f"Failed to delete legacy HLS files: {str(e)}")
+
+    # Clean up empty course folders if video was in a course
+    if course_id:
         try:
-            shutil.rmtree(originals_folder)
+            # Check and delete empty course originals folder
+            course_originals_folder = os.path.join(ORIGINALS_PATH, str(course_id))
+            if os.path.exists(course_originals_folder) and not os.listdir(course_originals_folder):
+                os.rmdir(course_originals_folder)
+                print(f"Deleted empty course originals folder: {course_id}")
         except Exception as e:
-            errors.append(f"Failed to delete originals: {str(e)}")
-    
-    # Delete HLS files
-    hls_folder = os.path.join(HLS_PATH, video_id)
-    if os.path.exists(hls_folder):
+            print(f"Warning: Could not delete empty course originals folder: {str(e)}")
+
         try:
-            shutil.rmtree(hls_folder)
+            # Check and delete empty course HLS folder
+            course_hls_folder = os.path.join(HLS_PATH, str(course_id))
+            if os.path.exists(course_hls_folder) and not os.listdir(course_hls_folder):
+                os.rmdir(course_hls_folder)
+                print(f"Deleted empty course HLS folder: {course_id}")
         except Exception as e:
-            errors.append(f"Failed to delete HLS files: {str(e)}")
-    
+            print(f"Warning: Could not delete empty course HLS folder: {str(e)}")
+
     if errors:
         return {
             "status": "partial_success",
             "errors": errors,
             "video_id": video_id
         }
-    
+
     return {
         "status": "deleted",
         "video_id": video_id

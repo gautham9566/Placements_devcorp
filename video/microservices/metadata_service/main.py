@@ -93,6 +93,7 @@ class VideoCreate(BaseModel):
     category: Optional[str] = None
     status: Optional[str] = None
     scheduled_at: Optional[str] = None
+    course_id: Optional[int] = None
 
 class VideoUpdate(BaseModel):
     thumbnail_filename: Optional[str] = None
@@ -104,6 +105,7 @@ class VideoUpdate(BaseModel):
     category: Optional[str] = None
     status: Optional[str] = None
     scheduled_at: Optional[str] = None
+    course_id: Optional[int] = None
 
 class CategoryCreate(BaseModel):
     name: str
@@ -151,13 +153,17 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
             existing.category = video.category
             updated = True
 
+        if video.course_id is not None and video.course_id != existing.course_id:
+            existing.course_id = video.course_id
+            updated = True
+
         if updated:
             db.add(existing)
             db.commit()
             db.refresh(existing)
 
         return {"id": existing.id, "hash": existing.hash}
-    
+
     db_video = Video(
         hash=video.hash,
         filename=video.filename,
@@ -166,12 +172,13 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
         status=video.status or ("Scheduled" if video.scheduled_at else "draft"),
         scheduled_at=video.scheduled_at or None,
         category=video.category or "uncategorized",
-        thumbnail_filename=video.thumbnail_filename
+        thumbnail_filename=video.thumbnail_filename,
+        course_id=video.course_id
     )
     db.add(db_video)
     db.commit()
     db.refresh(db_video)
-    
+
     return {"id": db_video.id, "hash": db_video.hash}
 
 @app.get("/videos")
@@ -201,7 +208,8 @@ async def get_videos(db: Session = Depends(get_db)):
                 "original_quality_label": v.original_quality_label,
                 "stopped": v.stopped,
                 "created_at": v.created_at.isoformat() if v.created_at else None,
-                "scheduled_at": v.scheduled_at
+                "scheduled_at": v.scheduled_at,
+                "course_id": v.course_id
             }
             for v in videos
         ]
@@ -231,7 +239,8 @@ async def get_video(hash: str, db: Session = Depends(get_db)):
         "original_resolution": video.original_resolution,
         "original_quality_label": video.original_quality_label,
         "stopped": video.stopped,
-        "scheduled_at": video.scheduled_at
+        "scheduled_at": video.scheduled_at,
+        "course_id": video.course_id
     }
 
 @app.put("/videos/{hash}")
@@ -259,7 +268,9 @@ async def update_video(hash: str, video_update: VideoUpdate, db: Session = Depen
         video.status = video_update.status
     if video_update.scheduled_at is not None:
         video.scheduled_at = video_update.scheduled_at
-    
+    if video_update.course_id is not None:
+        video.course_id = video_update.course_id
+
     db.commit()
     return {"status": "updated"}
 
@@ -307,13 +318,39 @@ def publish_video_endpoint(hash: str):
     logging.error('Failed to publish %s: %s', hash, msg)
     return JSONResponse({'status': 'error', 'detail': msg}, status_code=500)
 
+@app.get("/videos/course/{course_id}")
+async def get_videos_by_course(course_id: int, db: Session = Depends(get_db)):
+    """Get all videos for a specific course."""
+    videos = db.query(Video).filter(Video.course_id == course_id).all()
+    return {
+        "videos": [
+            {
+                "id": v.id,
+                "hash": v.hash,
+                "filename": v.filename,
+                "title": v.title,
+                "description": v.description,
+                "category": v.category,
+                "status": v.status,
+                "thumbnail_filename": v.thumbnail_filename,
+                "original_resolution": v.original_resolution,
+                "original_quality_label": v.original_quality_label,
+                "stopped": v.stopped,
+                "created_at": v.created_at.isoformat() if v.created_at else None,
+                "scheduled_at": v.scheduled_at,
+                "course_id": v.course_id
+            }
+            for v in videos
+        ]
+    }
+
 @app.delete("/videos/{hash}")
 async def delete_video(hash: str, db: Session = Depends(get_db)):
     """Delete a video entry."""
     video = db.query(Video).filter(Video.hash == hash).first()
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
-    
+
     db.delete(video)
     db.commit()
     return {"status": "deleted"}

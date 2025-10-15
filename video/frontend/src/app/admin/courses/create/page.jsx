@@ -55,33 +55,63 @@ export default function CreateCoursePage() {
 
 		// Step 5: Review & Publish
 		// Will be populated from previous steps
+
+		// Course ID - generated after step 1
+		course_id: null,
 	});
 
 	const handleSaveDraft = async () => {
 		try {
-			// Create the course as draft
-			const courseResponse = await fetch('/api/courses', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					title: courseData.title,
-					subtitle: courseData.subtitle,
-					description: courseData.description,
-					category: courseData.category,
-					subcategory: courseData.subcategory,
-					level: courseData.level,
-					language: courseData.language,
-					status: 'draft',
-				}),
-			});
+			let course_id = courseData.course_id;
 
-			if (!courseResponse.ok) {
-				throw new Error('Failed to create course');
+			// If course doesn't exist yet, create it
+			if (!course_id) {
+				const courseResponse = await fetch('/api/courses', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						title: courseData.title,
+						subtitle: courseData.subtitle,
+						description: courseData.description,
+						category: courseData.category,
+						subcategory: courseData.subcategory,
+						level: courseData.level,
+						language: courseData.language,
+						status: 'draft',
+					}),
+				});
+
+				if (!courseResponse.ok) {
+					throw new Error('Failed to create course');
+				}
+
+				const result = await courseResponse.json();
+				course_id = result.course_id;
+			} else {
+				// Update existing course
+				const updateResponse = await fetch(`/api/courses/${course_id}`, {
+					method: 'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						title: courseData.title,
+						subtitle: courseData.subtitle,
+						description: courseData.description,
+						category: courseData.category,
+						subcategory: courseData.subcategory,
+						level: courseData.level,
+						language: courseData.language,
+						status: 'draft',
+					}),
+				});
+
+				if (!updateResponse.ok) {
+					throw new Error('Failed to update course');
+				}
 			}
-
-			const { course_id } = await courseResponse.json();
 
 			// Upload course thumbnail if provided
 			if (courseData.thumbnailFile) {
@@ -175,28 +205,56 @@ export default function CreateCoursePage() {
 
 	const handlePublish = async () => {
 		try {
-			// Create the course
-			const courseResponse = await fetch('/api/courses', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					title: courseData.title,
-					subtitle: courseData.subtitle,
-					description: courseData.description,
-					category: courseData.category,
-					subcategory: courseData.subcategory,
-					level: courseData.level,
-					language: courseData.language,
-				}),
-			});
+			let course_id = courseData.course_id;
 
-			if (!courseResponse.ok) {
-				throw new Error('Failed to create course');
+			// If course doesn't exist yet, create it
+			if (!course_id) {
+				const courseResponse = await fetch('/api/courses', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						title: courseData.title,
+						subtitle: courseData.subtitle,
+						description: courseData.description,
+						category: courseData.category,
+						subcategory: courseData.subcategory,
+						level: courseData.level,
+						language: courseData.language,
+						status: 'published',
+					}),
+				});
+
+				if (!courseResponse.ok) {
+					throw new Error('Failed to create course');
+				}
+
+				const result = await courseResponse.json();
+				course_id = result.course_id;
+			} else {
+				// Update existing course and publish it
+				const updateResponse = await fetch(`/api/courses/${course_id}`, {
+					method: 'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						title: courseData.title,
+						subtitle: courseData.subtitle,
+						description: courseData.description,
+						category: courseData.category,
+						subcategory: courseData.subcategory,
+						level: courseData.level,
+						language: courseData.language,
+						status: 'published',
+					}),
+				});
+
+				if (!updateResponse.ok) {
+					throw new Error('Failed to update course');
+				}
 			}
-
-			const { course_id } = await courseResponse.json();
 
 			// Upload course thumbnail if provided
 			if (courseData.thumbnailFile) {
@@ -301,8 +359,52 @@ export default function CreateCoursePage() {
 		setCourseData(prev => ({ ...prev, ...updates }));
 	};
 
-	const nextStep = () => {
-		if (currentStep < STEPS.length) {
+	const nextStep = async () => {
+		// If moving from step 1 to step 2, create the course first
+		if (currentStep === 1) {
+			try {
+				// Validate required fields
+				if (!courseData.title) {
+					alert('Please enter a course title');
+					return;
+				}
+
+				// Create the course
+				const courseResponse = await fetch('/api/courses', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						title: courseData.title,
+						subtitle: courseData.subtitle,
+						description: courseData.description,
+						category: courseData.category,
+						subcategory: courseData.subcategory,
+						level: courseData.level,
+						language: courseData.language,
+						status: 'draft',
+					}),
+				});
+
+				if (!courseResponse.ok) {
+					throw new Error('Failed to create course');
+				}
+
+				const { course_id } = await courseResponse.json();
+
+				// Store the course_id in state
+				setCourseData(prev => ({ ...prev, course_id }));
+
+				console.log('Course created with ID:', course_id);
+
+				// Move to next step
+				setCurrentStep(currentStep + 1);
+			} catch (error) {
+				console.error('Error creating course:', error);
+				alert('Failed to create course: ' + error.message);
+			}
+		} else if (currentStep < STEPS.length) {
 			setCurrentStep(currentStep + 1);
 		}
 	};
@@ -786,6 +888,12 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 	const uploadVideos = async () => {
 		if (selectedFiles.length === 0) return;
 
+		// Check if course_id exists
+		if (!courseData.course_id) {
+			alert('Course ID not found. Please go back to step 1 and try again.');
+			return;
+		}
+
 		setUploading(true);
 		const newProgress = {};
 		selectedFiles.forEach((_, index) => {
@@ -798,14 +906,27 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 		try {
 			for (let i = 0; i < selectedFiles.length; i++) {
 				const file = selectedFiles[i];
+
+				// Initialize upload with course_id
+				const initFormData = new FormData();
+				initFormData.append('filename', file.name);
+				initFormData.append('total_chunks', '1'); // For simplicity, upload as single chunk
+				initFormData.append('course_id', courseData.course_id.toString());
 				
-				// Initialize upload
+				// Log what's being sent to the backend
+				console.log('UPLOAD INIT REQUEST:', {
+					url: `${process.env.NEXT_PUBLIC_API_URL}/upload/init`,
+					method: 'POST',
+					data: {
+						filename: file.name,
+						total_chunks: '1',
+						course_id: courseData.course_id.toString()
+					}
+				});
+
 				const initResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/init`, {
 					method: 'POST',
-					body: new URLSearchParams({
-						filename: file.name,
-						total_chunks: '1' // For simplicity, upload as single chunk
-					})
+					body: initFormData
 				});
 
 				if (!initResponse.ok) {
@@ -813,12 +934,26 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 				}
 
 				const { upload_id } = await initResponse.json();
+				console.log(`Upload initialized for ${file.name} with upload_id: ${upload_id}, course_id: ${courseData.course_id}`);
 
 				// Upload the file as a single chunk
 				const formData = new FormData();
 				formData.append('upload_id', upload_id);
 				formData.append('index', '0');
 				formData.append('file', file);
+				formData.append('course_id', courseData.course_id.toString()); // Add course_id to chunk upload
+				
+				// Log what's being sent to the backend (except file content)
+				console.log('UPLOAD CHUNK REQUEST:', {
+					url: `${process.env.NEXT_PUBLIC_API_URL}/upload/chunk`,
+					method: 'POST',
+					data: {
+						upload_id,
+						index: '0',
+						file: file.name, // Just log the filename, not the file content
+						course_id: courseData.course_id.toString()
+					}
+				});
 
 				const chunkResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/chunk`, {
 					method: 'POST',
@@ -832,11 +967,25 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 				setUploadProgress(prev => ({ ...prev, [i]: 50 }));
 
 				// Complete the upload
+				const completeData = {
+					upload_id: upload_id,
+					course_id: courseData.course_id.toString()
+				};
+				
+				// Log what's being sent to the backend
+				console.log('UPLOAD COMPLETE REQUEST:', {
+					url: `${process.env.NEXT_PUBLIC_API_URL}/upload/complete`,
+					method: 'POST',
+					data: completeData
+				});
+				
+				const completeFormData = new FormData();
+				completeFormData.append('upload_id', upload_id);
+				completeFormData.append('course_id', courseData.course_id.toString());
+				
 				const completeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/complete`, {
 					method: 'POST',
-					body: new URLSearchParams({
-						upload_id: upload_id
-					})
+					body: completeFormData
 				});
 
 				if (!completeResponse.ok) {
@@ -882,6 +1031,19 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 		<div className="space-y-6">
 			<div>
 				<h3 className="text-lg font-medium text-white mb-4">Upload Course Videos</h3>
+
+				{/* Course ID Indicator */}
+				{courseData.course_id && (
+					<div className="bg-green-900/30 border border-green-600 rounded-lg p-3 mb-4">
+						<p className="text-green-400 text-sm">
+							✓ Course created successfully! Course ID: <span className="font-mono font-bold">{courseData.course_id}</span>
+						</p>
+						<p className="text-green-300 text-xs mt-1">
+							Videos will be uploaded to: <span className="font-mono">originals/{courseData.course_id}/[video_hash]/</span>
+						</p>
+					</div>
+				)}
+
 				<div className="bg-gray-700 rounded-lg p-4 mb-6">
 					<div className="mb-4">
 						<label className="block text-sm font-medium text-gray-300 mb-2">

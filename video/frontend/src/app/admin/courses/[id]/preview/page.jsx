@@ -150,6 +150,10 @@ export default function PreviewCoursePage() {
   const [availableVideos, setAvailableVideos] = useState([]);
   const [showVideoSelector, setShowVideoSelector] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [videoFile, setVideoFile] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -170,11 +174,12 @@ export default function PreviewCoursePage() {
 
   const fetchAvailableVideos = async () => {
     try {
-      const response = await fetch('/api/videos');
+      // Fetch only videos for this specific course
+      const response = await fetch(`/api/courses/${courseId}/videos`);
       if (response.ok) {
         const videos = await response.json();
         // Filter out videos without hashes and ensure uniqueness
-        const validVideos = videos.filter(video => video && video.hash).filter((video, index, self) => 
+        const validVideos = videos.filter(video => video && video.hash).filter((video, index, self) =>
           self.findIndex(v => v.hash === video.hash) === index
         );
         setAvailableVideos(validVideos);
@@ -536,6 +541,78 @@ export default function PreviewCoursePage() {
     }
   };
 
+  const handleVideoUpload = async () => {
+    if (!videoFile) return;
+
+    setUploadingVideo(true);
+    setUploadProgress(0);
+
+    try {
+      // Upload video in chunks
+      const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+      const totalChunks = Math.ceil(videoFile.size / CHUNK_SIZE);
+
+      // Initialize upload
+      const initForm = new FormData();
+      initForm.append('filename', videoFile.name);
+      initForm.append('total_chunks', totalChunks.toString());
+
+      const initResp = await fetch(`/api/courses/${courseId}/upload/init`, {
+        method: 'POST',
+        body: initForm,
+      });
+
+      if (!initResp.ok) throw new Error('Failed to initialize upload');
+      const { upload_id } = await initResp.json();
+
+      // Upload chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, videoFile.size);
+        const chunk = videoFile.slice(start, end);
+
+        const chunkForm = new FormData();
+        chunkForm.append('upload_id', upload_id);
+        chunkForm.append('index', i.toString());
+        chunkForm.append('file', chunk);
+
+        const chunkResp = await fetch(`/api/courses/${courseId}/upload/chunk`, {
+          method: 'POST',
+          body: chunkForm,
+        });
+
+        if (!chunkResp.ok) throw new Error(`Failed to upload chunk ${i}`);
+        setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
+      }
+
+      // Complete upload
+      const completeForm = new FormData();
+      completeForm.append('upload_id', upload_id);
+
+      const completeResp = await fetch(`/api/courses/${courseId}/upload/complete`, {
+        method: 'POST',
+        body: completeForm,
+      });
+
+      if (!completeResp.ok) throw new Error('Failed to complete upload');
+
+      // Refresh available videos
+      await fetchAvailableVideos();
+
+      // Reset form
+      setVideoFile(null);
+      setShowUploadDialog(false);
+      setUploadProgress(0);
+
+      alert('Video uploaded successfully!');
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload failed: ' + error.message);
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-gray-900">
@@ -742,6 +819,12 @@ export default function PreviewCoursePage() {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-semibold text-white">Course Content</h3>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowUploadDialog(true)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                    >
+                      Upload Video
+                    </button>
                     <button
                       onClick={() => setIsReordering(!isReordering)}
                       className={`px-3 py-1 rounded text-sm transition-colors ${
@@ -1081,8 +1164,71 @@ export default function PreviewCoursePage() {
           </div>
         </div>
       </div>
+
+      {/* Upload Video Dialog */}
+      {showUploadDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-white mb-4">Upload Video for Course</h3>
+
+            {!uploadingVideo ? (
+              <>
+                <div className="mb-4">
+                  <label className="block text-gray-300 mb-2">Select Video File</label>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setVideoFile(e.target.files[0])}
+                    className="w-full bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                  />
+                  {videoFile && (
+                    <p className="text-gray-400 text-sm mt-2">
+                      Selected: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => {
+                      setShowUploadDialog(false);
+                      setVideoFile(null);
+                    }}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleVideoUpload}
+                    disabled={!videoFile}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Upload
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div>
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm text-gray-300 mb-2">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <p className="text-gray-400 text-sm">Please wait while your video is being uploaded...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
     </div>
-  
+
   );
 }

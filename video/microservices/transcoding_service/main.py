@@ -31,6 +31,24 @@ METADATA_SERVICE_URL = "http://127.0.0.1:8003"
 os.makedirs(HLS_PATH, exist_ok=True)
 os.makedirs(ORIGINALS_PATH, exist_ok=True)
 
+def _resolve_source_path(upload_id: str, filename: str) -> tuple[Optional[str], Optional[str]]:
+    """Resolve source file path, checking both course-specific and legacy locations.
+    Returns (file_path, course_id) tuple."""
+    # First try legacy path (direct under originals/)
+    legacy_path = os.path.join(ORIGINALS_PATH, upload_id, filename)
+    if os.path.exists(legacy_path):
+        return legacy_path, None
+
+    # Search in course-specific folders
+    for item in os.listdir(ORIGINALS_PATH):
+        item_path = os.path.join(ORIGINALS_PATH, item)
+        if os.path.isdir(item_path):
+            course_specific_path = os.path.join(item_path, upload_id, filename)
+            if os.path.exists(course_specific_path):
+                return course_specific_path, item  # item is the course_id folder name
+
+    return None, None
+
 # Quality presets
 QUALITY_PRESETS = {
     "1080p": {
@@ -105,12 +123,30 @@ def _get_status_lock(upload_id: str) -> Lock:
             _STATUS_LOCKS[upload_id] = lock
         return lock
 
-def _status_path(upload_id: str) -> str:
+def _status_path(upload_id: str, course_id: Optional[str] = None) -> str:
+    """Get the path to the transcode status file.
+    If course_id is provided, use course-based folder structure.
+    Otherwise, try to read existing status to get course_id, or use flat structure."""
+    if course_id:
+        return os.path.join(HLS_PATH, str(course_id), upload_id, ".transcode_status.json")
+
+    # Try to find existing status file in course folders
+    if os.path.exists(ORIGINALS_PATH):
+        for item in os.listdir(ORIGINALS_PATH):
+            item_path = os.path.join(ORIGINALS_PATH, item)
+            if os.path.isdir(item_path):
+                # Check if upload_id exists in this course folder
+                upload_path = os.path.join(item_path, upload_id)
+                if os.path.exists(upload_path):
+                    # Found the course folder, use it for status
+                    return os.path.join(HLS_PATH, item, upload_id, ".transcode_status.json")
+
+    # Fallback to flat structure for legacy uploads
     return os.path.join(HLS_PATH, upload_id, ".transcode_status.json")
 
-def _read_status(upload_id: str) -> Optional[Dict]:
+def _read_status(upload_id: str, course_id: Optional[str] = None) -> Optional[Dict]:
     """Read transcode status from JSON file."""
-    status_path = _status_path(upload_id)
+    status_path = _status_path(upload_id, course_id)
     if not os.path.exists(status_path):
         return None
     try:
@@ -119,9 +155,13 @@ def _read_status(upload_id: str) -> Optional[Dict]:
     except Exception:
         return None
 
-def _write_status(upload_id: str, data: Dict):
+def _write_status(upload_id: str, data: Dict, course_id: Optional[str] = None):
     """Write status to JSON file."""
-    path = _status_path(upload_id)
+    # If course_id is in the data, use it
+    if not course_id and 'course_id' in data:
+        course_id = data['course_id']
+
+    path = _status_path(upload_id, course_id)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         with open(path, 'w', encoding='utf-8') as f:
@@ -129,18 +169,23 @@ def _write_status(upload_id: str, data: Dict):
     except Exception:
         pass
 
-def _update_status(upload_id: str, mutator: Callable[[Dict], Dict]) -> Dict:
+def _update_status(upload_id: str, mutator: Callable[[Dict], Dict], course_id: Optional[str] = None) -> Dict:
     """Thread-safe status update."""
     lock = _get_status_lock(upload_id)
     with lock:
-        current = _read_status(upload_id) or {}
+        current = _read_status(upload_id, course_id) or {}
+        # If course_id is provided but not in current status, add it
+        if course_id and 'course_id' not in current:
+            current['course_id'] = course_id
         updated = mutator(current) if mutator else current
         if updated is None:
             updated = current
-        _write_status(upload_id, updated)
+        # Extract course_id from updated status if available
+        status_course_id = updated.get('course_id') or course_id
+        _write_status(upload_id, updated, status_course_id)
         return updated
 
-def _merge_quality_status(upload_id: str, label: str, updates: Dict) -> Dict:
+def _merge_quality_status(upload_id: str, label: str, updates: Dict, course_id: Optional[str] = None) -> Dict:
     """Merge quality-specific status updates."""
     def mutate(status: Dict) -> Dict:
         status = status or {}
@@ -153,8 +198,8 @@ def _merge_quality_status(upload_id: str, label: str, updates: Dict) -> Dict:
             merged[key] = value
         status['qualities'][label] = merged
         return status
-    
-    return _update_status(upload_id, mutate)
+
+    return _update_status(upload_id, mutate, course_id)
 
 def get_status_snapshot(upload_id: str) -> Dict:
     """Get current status snapshot."""
@@ -247,7 +292,7 @@ def _build_scale_filter(width: int, height: int) -> str:
     """Build FFmpeg scale filter ensuring dimensions divisible by 2."""
     return f"scale='min({width},iw)':'min({height},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2"
 
-def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_id: str, label: str):
+def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_id: str, label: str, course_id: Optional[str] = None):
     """Run ffmpeg to generate HLS output for a single quality while updating status."""
     width = int(preset.get("width"))
     height = int(preset.get("height"))
@@ -303,16 +348,17 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
             'started_at': started_at,
             'updated_at': started_at,
             'target_resolution': f'{width}x{height}',
-        }
+        },
+        course_id
     )
-    
+
     try:
         while True:
             line = proc.stderr.readline()
             if not line:
                 break
             line = line.strip()
-            
+
             # Check if transcoding should be stopped on every iteration
             if _is_transcoding_stopped(upload_id):
                 proc.terminate()
@@ -326,10 +372,11 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
                         'status': 'stopped',
                         'progress': current_progress,
                         'updated_at': time.time(),
-                    }
+                    },
+                    course_id
                 )
                 return 1, 'Transcoding stopped by user'
-            
+
             if 'time=' in line:
                 try:
                     time_str = line.split('time=')[1].split()[0]
@@ -347,7 +394,8 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
                                 'status': 'running',
                                 'progress': percent,
                                 'updated_at': time.time(),
-                            }
+                            },
+                            course_id
                         )
                 except Exception:
                     pass
@@ -364,7 +412,8 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
                     'playlist': os.path.join(label, 'playlist.m3u8').replace('\\', '/'),
                     'finished_at': finished_at,
                     'updated_at': finished_at,
-                }
+                },
+                course_id
             )
             return 0, ''
         else:
@@ -383,7 +432,8 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
                     'message': err,
                     'finished_at': finished_at,
                     'updated_at': finished_at,
-                }
+                },
+                course_id
             )
             return rc, err
     except Exception as e:
@@ -400,13 +450,17 @@ def _run_hls_with_progress(source_path: str, out_dir: str, preset: Dict, upload_
                 'message': str(e),
                 'finished_at': finished_at,
                 'updated_at': finished_at,
-            }
+            },
+            course_id
         )
         return 1, str(e)
 
-def _write_master_playlist(upload_id: str, status_snapshot: Dict) -> str:
+def _write_master_playlist(upload_id: str, status_snapshot: Dict, course_id: Optional[str] = None) -> str:
     """Write master HLS playlist."""
-    base_folder = os.path.join(HLS_PATH, upload_id)
+    if course_id:
+        base_folder = os.path.join(HLS_PATH, str(course_id), upload_id)
+    else:
+        base_folder = os.path.join(HLS_PATH, upload_id)
     lines = [
         "#EXTM3U",
         "#EXT-X-VERSION:3",
@@ -458,21 +512,27 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
     """Main transcoding function that runs in background."""
     print(f"Starting transcoding for {upload_id}: {filename}")
 
+    # Resolve source path and course_id first
+    source_path, course_id = _resolve_source_path(upload_id, filename)
+
     if _is_transcoding_stopped(upload_id):
         print(f"Transcoding stopped for {upload_id}")
-        status = _read_status(upload_id) or {}
+        status = _read_status(upload_id, course_id) or {}
         status['overall'] = 'stopped'
-        _update_status(upload_id, lambda _: status)
+        if course_id:
+            status['course_id'] = course_id
+        _update_status(upload_id, lambda _: status, course_id)
         return status
 
-    source_path = os.path.join(ORIGINALS_PATH, upload_id, filename)
-    if not os.path.exists(source_path):
-        status = {"error": f"Source file not found: {source_path}"}
-        _update_status(upload_id, lambda _: status)
+    if not source_path:
+        status = {"error": f"Source file not found for upload_id: {upload_id}"}
+        if course_id:
+            status['course_id'] = course_id
+        _update_status(upload_id, lambda _: status, course_id)
         print(f"Transcoding failed for {upload_id}: source file not found")
         return status
 
-    existing_status = _read_status(upload_id)
+    existing_status = _read_status(upload_id, course_id)
     if existing_status and existing_status.get('overall') == 'ok':
         print(f"Transcoding already complete for {upload_id}")
         return existing_status
@@ -511,6 +571,10 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
         "original_quality_label": original_quality_label,
     }
 
+    # Add course_id to status if available
+    if course_id:
+        status['course_id'] = course_id
+
     if 'original' not in status.get('qualities', {}):
         status.setdefault('qualities', {})
         status['qualities']['original'] = {
@@ -544,9 +608,15 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
                     "target_resolution": f"{cfg['width']}x{cfg['height']}",
                 }
 
-    _update_status(upload_id, lambda _: status)
+    _update_status(upload_id, lambda _: status, course_id)
 
-    master_path = os.path.join(HLS_PATH, upload_id, "master.m3u8")
+    # Determine HLS output path based on course_id
+    if course_id:
+        hls_base_path = os.path.join(HLS_PATH, str(course_id), upload_id)
+    else:
+        hls_base_path = os.path.join(HLS_PATH, upload_id)
+
+    master_path = os.path.join(hls_base_path, "master.m3u8")
     if os.path.exists(master_path):
         try:
             os.remove(master_path)
@@ -556,7 +626,7 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
     try:
         if _is_transcoding_stopped(upload_id):
             status['overall'] = 'stopped'
-            _update_status(upload_id, lambda _: status)
+            _update_status(upload_id, lambda _: status, course_id)
             print(f"Transcoding stopped for {upload_id} before jobs")
             return status
 
@@ -565,7 +635,7 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
             for label, cfg in QUALITY_PRESETS.items():
                 if label not in selected_presets:
                     continue
-                out_dir = os.path.join(HLS_PATH, upload_id, label)
+                out_dir = os.path.join(hls_base_path, label)
                 _cleanup_quality_dir(out_dir)
                 ready_at = time.time()
                 playlist_rel = os.path.join(label, 'playlist.m3u8').replace('\\', '/')
@@ -580,13 +650,14 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
                         'target_resolution': f"{cfg['width']}x{cfg['height']}",
                         'path': playlist_rel,
                         'playlist': playlist_rel,
-                    }
+                    },
+                    course_id
                 )
 
-                def make_job(s=source_path, directory=out_dir, preset=dict(cfg), lbl=label):
+                def make_job(s=source_path, directory=out_dir, preset=dict(cfg), lbl=label, cid=course_id):
                     try:
-                        _merge_quality_status(upload_id, lbl, {'status': 'running', 'progress': 0, 'updated_at': time.time()})
-                        rc, err = _run_hls_with_progress(s, directory, preset, upload_id, lbl)
+                        _merge_quality_status(upload_id, lbl, {'status': 'running', 'progress': 0, 'updated_at': time.time()}, cid)
+                        rc, err = _run_hls_with_progress(s, directory, preset, upload_id, lbl, cid)
                         return lbl, rc, err
                     except Exception as e:
                         print(f"Error in transcoding job for {upload_id}/{lbl}: {e}")
@@ -605,13 +676,13 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
                             updates['message'] = err
                         if 'progress' not in existing:
                             updates['progress'] = 0
-                        _merge_quality_status(upload_id, lbl, updates)
+                        _merge_quality_status(upload_id, lbl, updates, course_id)
                 except Exception as e:
                     print(f"Error processing transcoding result for {upload_id}: {e}")
                     continue
     except Exception as e:
         print(f"Error during parallel transcoding for {upload_id}: {e}")
-        _update_status(upload_id, lambda s: {**s, 'overall': 'error', 'error': str(e), 'finished_at': time.time()})
+        _update_status(upload_id, lambda s: {**s, 'overall': 'error', 'error': str(e), 'finished_at': time.time()}, course_id)
 
     try:
         def finalize(status_snapshot: Dict) -> Dict:
@@ -628,12 +699,12 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
             status_snapshot['finished_at'] = time.time()
             status_snapshot.setdefault('upload_id', upload_id)
             status_snapshot.setdefault('filename', filename)
-            master_written = _write_master_playlist(upload_id, status_snapshot)
+            master_written = _write_master_playlist(upload_id, status_snapshot, course_id)
             if master_written:
                 status_snapshot['master_playlist'] = 'master.m3u8'
             return status_snapshot
 
-        final_status = _update_status(upload_id, finalize)
+        final_status = _update_status(upload_id, finalize, course_id)
         
         # Update metadata service with original resolution
         try:
@@ -657,7 +728,9 @@ def transcode_video_task(upload_id: str, filename: str, network_speed: float = 1
             "error": f"Finalization failed: {str(e)}",
             "finished_at": time.time()
         }
-        _update_status(upload_id, lambda _: error_status)
+        if course_id:
+            error_status['course_id'] = course_id
+        _update_status(upload_id, lambda _: error_status, course_id)
         return error_status
 
 # API Endpoints
@@ -669,11 +742,11 @@ async def transcode_start(request: TranscodeRequest):
     filename = request.filename
     network_speed = request.network_speed
     qualities = request.qualities
-    
-    source_path = os.path.join(ORIGINALS_PATH, upload_id, filename)
-    if not os.path.exists(source_path):
+
+    source_path, course_id = _resolve_source_path(upload_id, filename)
+    if not source_path:
         raise HTTPException(status_code=404, detail="Source file not found")
-    
+
     # Start transcoding in background thread
     thread = threading.Thread(
         target=transcode_video_task,
@@ -681,7 +754,7 @@ async def transcode_start(request: TranscodeRequest):
         daemon=True
     )
     thread.start()
-    
+
     return {"status": "started", "upload_id": upload_id}
 
 
@@ -705,6 +778,7 @@ async def transcode_trigger(upload_id: str, request: Request):
     if status and status.get('filename'):
         filename = status.get('filename')
     else:
+        # Try legacy path first
         folder = os.path.join(ORIGINALS_PATH, upload_id)
         if os.path.exists(folder) and os.path.isdir(folder):
             # pick the first regular file
@@ -715,6 +789,23 @@ async def transcode_trigger(upload_id: str, request: Request):
                 if os.path.isfile(file_path):
                     filename = name
                     break
+
+        # If not found, search in course-specific folders
+        if not filename:
+            for item in os.listdir(ORIGINALS_PATH):
+                item_path = os.path.join(ORIGINALS_PATH, item)
+                if os.path.isdir(item_path):
+                    course_folder = os.path.join(item_path, upload_id)
+                    if os.path.exists(course_folder) and os.path.isdir(course_folder):
+                        for name in os.listdir(course_folder):
+                            if name.startswith('.'):
+                                continue
+                            file_path = os.path.join(course_folder, name)
+                            if os.path.isfile(file_path):
+                                filename = name
+                                break
+                    if filename:
+                        break
 
     if not filename:
         raise HTTPException(status_code=404, detail="Source file not found")
@@ -739,10 +830,22 @@ async def transcode_qualities(upload_id: str):
     """Return qualities and master playlist info for an upload_id."""
     status = get_status_snapshot(upload_id) or {}
     qualities = status.get('qualities', {})
+
+    # Try legacy path first
     master_path = os.path.join(HLS_PATH, upload_id, 'master.m3u8')
     master = None
     if os.path.exists(master_path):
         master = 'master.m3u8'
+    else:
+        # Search in course-specific folders
+        for item in os.listdir(HLS_PATH):
+            item_path = os.path.join(HLS_PATH, item)
+            if os.path.isdir(item_path):
+                course_master_path = os.path.join(item_path, upload_id, 'master.m3u8')
+                if os.path.exists(course_master_path):
+                    master = 'master.m3u8'
+                    break
+
     return { 'master': master, 'qualities': qualities }
 
 @app.get("/transcode/status/{upload_id}")

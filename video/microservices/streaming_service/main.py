@@ -20,6 +20,50 @@ HLS_PATH = os.path.join(SHARED_STORAGE, "hls")
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
 TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 
+def _resolve_original_path(video_id: str, filename: str = None):
+    """Resolve original video path, checking both course-specific and legacy locations."""
+    # First try legacy path (direct under originals/)
+    legacy_path = os.path.join(ORIGINALS_PATH, video_id)
+    if os.path.exists(legacy_path):
+        if filename:
+            file_path = os.path.join(legacy_path, filename)
+            if os.path.exists(file_path):
+                return file_path
+        else:
+            return legacy_path
+
+    # Search in course-specific folders
+    for item in os.listdir(ORIGINALS_PATH):
+        item_path = os.path.join(ORIGINALS_PATH, item)
+        if os.path.isdir(item_path):
+            course_specific_path = os.path.join(item_path, video_id)
+            if os.path.exists(course_specific_path):
+                if filename:
+                    file_path = os.path.join(course_specific_path, filename)
+                    if os.path.exists(file_path):
+                        return file_path
+                else:
+                    return course_specific_path
+
+    return None
+
+def _resolve_hls_path(video_id: str, *path_parts):
+    """Resolve HLS file path, checking both course-specific and legacy locations."""
+    # First try legacy path (direct under hls/)
+    legacy_path = os.path.join(HLS_PATH, video_id, *path_parts)
+    if os.path.exists(legacy_path):
+        return legacy_path
+
+    # Search in course-specific folders
+    for item in os.listdir(HLS_PATH):
+        item_path = os.path.join(HLS_PATH, item)
+        if os.path.isdir(item_path):
+            course_specific_path = os.path.join(item_path, video_id, *path_parts)
+            if os.path.exists(course_specific_path):
+                return course_specific_path
+
+    return None
+
 HLS_CONTENT_TYPES = {
     ".m3u8": "application/vnd.apple.mpegurl",
     ".ts": "video/mp2t",
@@ -37,31 +81,31 @@ QUALITY_PRESETS = {
 @app.get("/video/{video_id}/master.m3u8")
 async def get_master_playlist(video_id: str):
     """Serve master HLS playlist."""
-    master_path = os.path.join(HLS_PATH, video_id, "master.m3u8")
-    if not os.path.exists(master_path):
+    master_path = _resolve_hls_path(video_id, "master.m3u8")
+    if not master_path:
         raise HTTPException(status_code=404, detail="Master playlist not found")
-    
+
     return FileResponse(master_path, media_type="application/vnd.apple.mpegurl")
 
 @app.get("/video/{video_id}/{quality}/playlist.m3u8")
 async def get_quality_playlist(video_id: str, quality: str):
     """Serve quality-specific HLS playlist."""
-    playlist_path = os.path.join(HLS_PATH, video_id, quality, "playlist.m3u8")
-    if not os.path.exists(playlist_path):
+    playlist_path = _resolve_hls_path(video_id, quality, "playlist.m3u8")
+    if not playlist_path:
         raise HTTPException(status_code=404, detail="Playlist not found")
-    
+
     return FileResponse(playlist_path, media_type="application/vnd.apple.mpegurl")
 
 @app.get("/video/{video_id}/{quality}/{segment}")
 async def get_segment(video_id: str, quality: str, segment: str):
     """Serve HLS segment file."""
-    segment_path = os.path.join(HLS_PATH, video_id, quality, segment)
-    if not os.path.exists(segment_path):
+    segment_path = _resolve_hls_path(video_id, quality, segment)
+    if not segment_path:
         raise HTTPException(status_code=404, detail="Segment not found")
-    
+
     ext = os.path.splitext(segment)[1].lower()
     media_type = HLS_CONTENT_TYPES.get(ext, "application/octet-stream")
-    
+
     return FileResponse(segment_path, media_type=media_type)
 
 @app.get("/video/{video_id}/original")
@@ -72,16 +116,16 @@ async def get_original_video(video_id: str):
         response = requests.get(f"{METADATA_SERVICE_URL}/videos/{video_id}", timeout=5)
         if response.status_code != 200:
             raise HTTPException(status_code=404, detail="Video not found")
-        
+
         video_data = response.json()
         filename = video_data.get("filename")
         if not filename:
             raise HTTPException(status_code=404, detail="Filename not found")
-        
-        original_path = os.path.join(ORIGINALS_PATH, video_id, filename)
-        if not os.path.exists(original_path):
+
+        original_path = _resolve_original_path(video_id, filename)
+        if not original_path:
             raise HTTPException(status_code=404, detail="Original file not found")
-        
+
         return FileResponse(original_path, media_type="video/mp4")
     except requests.RequestException:
         raise HTTPException(status_code=503, detail="Metadata service unavailable")
@@ -90,9 +134,9 @@ async def get_original_video(video_id: str):
 async def get_video_qualities(video_id: str):
     """Get available video qualities and their metadata."""
     hls_base = os.path.join(HLS_PATH, video_id)
-    originals_base = os.path.join(ORIGINALS_PATH, video_id)
-    
-    if not os.path.exists(hls_base) and not os.path.exists(originals_base):
+    originals_base = _resolve_original_path(video_id)
+
+    if not os.path.exists(hls_base) and not originals_base:
         raise HTTPException(status_code=404, detail="Video not found")
     
     # Get metadata from metadata service

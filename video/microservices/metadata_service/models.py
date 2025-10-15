@@ -29,6 +29,7 @@ class Video(Base):
     stopped = Column(Integer, default=0)  # 0: not stopped, 1: stopped
     created_at = Column(DateTime, default=datetime.utcnow)
     scheduled_at = Column(String, nullable=True)
+    course_id = Column(Integer, nullable=True)  # FK to course, nullable for backward compatibility
 
 class Category(Base):
     __tablename__ = "categories"

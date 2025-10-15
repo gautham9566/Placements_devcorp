@@ -193,19 +193,132 @@ async def delete_course(course_id: int, db: Session = Depends(get_db)):
             if lesson.video_id:
                 video_ids.append(lesson.video_id)
 
+    # Store course thumbnail URL before deleting
+    course_thumbnail_url = course.thumbnail_url
+
     # Delete the course (cascade will delete sections and lessons)
     db.delete(course)
     db.commit()
 
-    # Delete associated videos from metadata service
+    # Delete associated videos from metadata service and physical files
     import requests
+    shared_storage = os.path.abspath("../shared_storage")
+    originals_path = os.path.join(shared_storage, "originals")
+    hls_path = os.path.join(shared_storage, "hls")
+
     for video_id in video_ids:
         try:
+            # Delete from metadata service
             response = requests.delete(f"http://127.0.0.1:8003/videos/{video_id}")
             if response.status_code not in [200, 404]:  # 404 is ok if video already deleted
                 print(f"Warning: Failed to delete video {video_id}: {response.status_code}")
         except Exception as e:
             print(f"Warning: Error deleting video {video_id}: {str(e)}")
+
+        # Delete original files - check course-specific, default, and legacy folders
+        try:
+            deleted_originals = False
+
+            # Try course-specific folder first
+            course_originals_folder = os.path.join(originals_path, str(course_id), video_id)
+            if os.path.exists(course_originals_folder):
+                shutil.rmtree(course_originals_folder)
+                deleted_originals = True
+                print(f"Deleted original files from course folder for video {video_id}")
+
+            # Try default folder if not found
+            if not deleted_originals:
+                default_originals_folder = os.path.join(originals_path, "default", video_id)
+                if os.path.exists(default_originals_folder):
+                    shutil.rmtree(default_originals_folder)
+                    deleted_originals = True
+                    print(f"Deleted original files from default folder for video {video_id}")
+
+            # Try legacy flat structure if still not found
+            if not deleted_originals:
+                legacy_originals_folder = os.path.join(originals_path, video_id)
+                if os.path.exists(legacy_originals_folder):
+                    shutil.rmtree(legacy_originals_folder)
+                    print(f"Deleted original files from legacy folder for video {video_id}")
+        except Exception as e:
+            print(f"Warning: Error deleting original files for video {video_id}: {str(e)}")
+
+        # Delete HLS files - check course-specific, default, and legacy folders
+        try:
+            deleted_hls = False
+
+            # Try course-specific HLS folder first
+            course_hls_folder = os.path.join(hls_path, str(course_id), video_id)
+            if os.path.exists(course_hls_folder):
+                shutil.rmtree(course_hls_folder)
+                deleted_hls = True
+                print(f"Deleted HLS files from course folder for video {video_id}")
+
+            # Try default folder if not found
+            if not deleted_hls:
+                default_hls_folder = os.path.join(hls_path, "default", video_id)
+                if os.path.exists(default_hls_folder):
+                    shutil.rmtree(default_hls_folder)
+                    deleted_hls = True
+                    print(f"Deleted HLS files from default folder for video {video_id}")
+
+            # Try legacy flat structure if still not found
+            if not deleted_hls:
+                legacy_hls_folder = os.path.join(hls_path, video_id)
+                if os.path.exists(legacy_hls_folder):
+                    shutil.rmtree(legacy_hls_folder)
+                    print(f"Deleted HLS files from legacy folder for video {video_id}")
+        except Exception as e:
+            print(f"Warning: Error deleting HLS files for video {video_id}: {str(e)}")
+
+    # Delete course-specific folders (even if not empty, since we're deleting the course)
+    try:
+        # Delete course originals folder
+        course_originals_folder = os.path.join(originals_path, str(course_id))
+        if os.path.exists(course_originals_folder):
+            try:
+                # Check if empty first
+                if not os.listdir(course_originals_folder):
+                    os.rmdir(course_originals_folder)
+                    print(f"Deleted empty course originals folder {course_id}")
+                else:
+                    # Force delete if not empty (cleanup any remaining files)
+                    shutil.rmtree(course_originals_folder)
+                    print(f"Deleted course originals folder {course_id} (had remaining files)")
+            except Exception as e:
+                print(f"Warning: Error deleting course originals folder {course_id}: {str(e)}")
+
+        # Delete course HLS folder
+        course_hls_folder = os.path.join(hls_path, str(course_id))
+        if os.path.exists(course_hls_folder):
+            try:
+                # Check if empty first
+                if not os.listdir(course_hls_folder):
+                    os.rmdir(course_hls_folder)
+                    print(f"Deleted empty course HLS folder {course_id}")
+                else:
+                    # Force delete if not empty (cleanup any remaining files)
+                    shutil.rmtree(course_hls_folder)
+                    print(f"Deleted course HLS folder {course_id} (had remaining files)")
+            except Exception as e:
+                print(f"Warning: Error deleting course HLS folder {course_id}: {str(e)}")
+    except Exception as e:
+        print(f"Warning: Error during course folder cleanup: {str(e)}")
+
+    # Delete course thumbnail if it exists
+    if course_thumbnail_url:
+        try:
+            # Extract filename from URL (format: /thumbnails/course_{course_id}_{uuid}.jpg)
+            if course_thumbnail_url.startswith('/thumbnails/'):
+                thumbnail_filename = course_thumbnail_url.replace('/thumbnails/', '')
+                thumbnails_dir = os.path.abspath("../shared_storage/thumbnails")
+                thumbnail_path = os.path.join(thumbnails_dir, thumbnail_filename)
+
+                if os.path.exists(thumbnail_path):
+                    os.remove(thumbnail_path)
+                    print(f"Deleted course thumbnail: {thumbnail_filename}")
+        except Exception as e:
+            print(f"Warning: Error deleting course thumbnail: {str(e)}")
 
     return {"message": "Course deleted successfully"}
 
