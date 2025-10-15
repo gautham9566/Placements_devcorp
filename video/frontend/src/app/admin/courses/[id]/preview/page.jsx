@@ -973,15 +973,40 @@ export default function PreviewCoursePage() {
 
       if (!completeResp.ok) throw new Error('Failed to complete upload');
 
+      const uploadResult = await completeResp.json();
+      const videoHash = uploadResult.hash;
+
       // Refresh available videos
       await fetchAvailableVideos();
+
+      // Trigger transcoding for the uploaded video
+      try {
+        const transcodeResp = await fetch(`/api/transcode/${videoHash}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}) // Empty body for default transcoding
+        });
+
+        if (transcodeResp.ok) {
+          console.log('Transcoding started successfully for video:', videoHash);
+          alert(`Transcoding started successfully for video: ${videoHash}`);
+        } else {
+          const errorText = await transcodeResp.text();
+          console.warn('Failed to start transcoding:', errorText);
+          alert(`Failed to start transcoding: ${errorText}`);
+        }
+      } catch (transcodeError) {
+        console.warn('Error triggering transcoding:', transcodeError);
+        alert(`Error triggering transcoding: ${transcodeError.message}`);
+        // Don't fail the upload if transcoding fails
+      }
 
       // Reset form
       setVideoFile(null);
       setShowUploadDialog(false);
       setUploadProgress(0);
 
-      alert('Video uploaded successfully!');
+      alert('Video uploaded successfully! Transcoding has been started.');
     } catch (error) {
       console.error('Upload error:', error);
       alert('Upload failed: ' + error.message);
