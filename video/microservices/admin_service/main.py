@@ -1060,6 +1060,21 @@ async def api_update_section(course_id: int, section_id: int, request: Request):
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
 
 
+@app.delete("/api/courses/{course_id}/sections/{section_id}")
+async def api_delete_section(course_id: int, section_id: int):
+    try:
+        response = requests.delete(
+            f"{COURSE_SERVICE_URL}/api/courses/{course_id}/sections/{section_id}",
+            timeout=10,
+        )
+        # Propagate upstream 404s and error bodies for easier debugging
+        if not response.ok:
+            return JSONResponse(content=response.json() if response.headers.get('content-type','').startswith('application/json') else {'detail': response.text}, status_code=response.status_code)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+
 @app.put("/api/courses/{course_id}/lessons/{lesson_id}")
 async def api_update_lesson(course_id: int, lesson_id: int, request: Request):
     try:

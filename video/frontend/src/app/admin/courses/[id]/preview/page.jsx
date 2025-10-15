@@ -204,9 +204,11 @@ export default function PreviewCoursePage() {
   );
 
   const sortedSections = useMemo(() => {
-    if (!course?.sections) return [];
-    return [...course.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [course?.sections]);
+    // Use editedCourse when in editing mode, otherwise use course
+    const sourceCourse = isEditing && editedCourse ? editedCourse : course;
+    if (!sourceCourse?.sections) return [];
+    return [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [course?.sections, editedCourse?.sections, isEditing]);
 
   useEffect(() => {
     fetchCourse();
@@ -363,49 +365,197 @@ export default function PreviewCoursePage() {
     }
   };
 
-  const handleDeleteSection = (sectionIndex) => {
+  const handleDeleteSection = async (sectionIndex) => {
     if (!confirm('Are you sure you want to delete this section? This will also delete all lessons in this section.')) {
       return;
     }
 
-    const updatedSections = [...editedCourse.sections];
+    const sourceCourse = editedCourse || course;
+    if (!sourceCourse || !sourceCourse.sections) return;
+
+    const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const sectionToDelete = sortedSections[sectionIndex];
+
+    // OPTIMISTIC UI UPDATE - Remove section immediately
+    const updatedSections = [...sortedSections];
     updatedSections.splice(sectionIndex, 1);
-    
+
     // Reorder the remaining sections
-    updatedSections.forEach((section, index) => {
-      section.order = index;
-    });
+    const reorderedSections = updatedSections.map((section, index) => ({
+      ...section,
+      order: index
+    }));
 
-    setEditedCourse({
-      ...editedCourse,
-      sections: updatedSections
-    });
+    const updatedCourse = {
+      ...sourceCourse,
+      sections: reorderedSections
+    };
+
+    setEditedCourse(updatedCourse);
+    setCourse(updatedCourse);
+
+    // Delete from backend asynchronously
+    (async () => {
+      try {
+        const response = await fetch(`/api/courses/${courseId}/sections/${sectionToDelete.id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete section');
+        }
+
+        // Update order in backend
+        await Promise.all(
+          reorderedSections.map((section) =>
+            fetch(`/api/courses/${courseId}/sections/${section.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ order: section.order }),
+            })
+          )
+        );
+      } catch (error) {
+        console.error('Error deleting section:', error);
+        alert('Failed to delete section. Reverting changes.');
+        // Revert to original state
+        setEditedCourse(sourceCourse);
+        setCourse(sourceCourse);
+      }
+    })();
   };
 
-  const handleEditSectionTitle = (sectionIndex, newTitle) => {
-    const updatedSections = [...editedCourse.sections];
-    updatedSections[sectionIndex] = {
-      ...updatedSections[sectionIndex],
-      title: newTitle
-    };
-    setEditedCourse({
-      ...editedCourse,
+  const handleEditSectionTitle = async (sectionIndex, newTitle) => {
+    const sourceCourse = editedCourse || course;
+    if (!sourceCourse || !sourceCourse.sections) return;
+
+    const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const sectionToUpdate = sortedSections[sectionIndex];
+    const oldTitle = sectionToUpdate.title;
+
+    // OPTIMISTIC UI UPDATE - Update title immediately
+    const updatedSections = sourceCourse.sections.map(section =>
+      section.id === sectionToUpdate.id
+        ? { ...section, title: newTitle }
+        : section
+    );
+
+    const updatedCourse = {
+      ...sourceCourse,
       sections: updatedSections
-    });
+    };
+
+    setEditedCourse(updatedCourse);
+    setCourse(updatedCourse);
     setEditingSectionTitle(null);
+
+    // Update in backend asynchronously
+    (async () => {
+      try {
+        const response = await fetch(`/api/courses/${courseId}/sections/${sectionToUpdate.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title: newTitle }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update section title');
+        }
+      } catch (error) {
+        console.error('Error updating section title:', error);
+        alert('Failed to update section title. Reverting changes.');
+        // Revert to original title
+        const revertedSections = updatedCourse.sections.map(section =>
+          section.id === sectionToUpdate.id
+            ? { ...section, title: oldTitle }
+            : section
+        );
+        const revertedCourse = {
+          ...updatedCourse,
+          sections: revertedSections
+        };
+        setEditedCourse(revertedCourse);
+        setCourse(revertedCourse);
+      }
+    })();
   };
 
-  const handleChangeLessonVideo = (sectionIndex, lessonIndex, newVideoId) => {
-    const updatedSections = [...editedCourse.sections];
-    updatedSections[sectionIndex].lessons[lessonIndex] = {
-      ...updatedSections[sectionIndex].lessons[lessonIndex],
-      video_id: newVideoId
-    };
-    setEditedCourse({
-      ...editedCourse,
-      sections: updatedSections
+  const handleChangeLessonVideo = async (sectionIndex, lessonIndex, newVideoId) => {
+    const sourceCourse = editedCourse || course;
+    if (!sourceCourse || !sourceCourse.sections) return;
+
+    const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const sectionToUpdate = sortedSections[sectionIndex];
+    const lessonToUpdate = sectionToUpdate.lessons[lessonIndex];
+    const oldVideoId = lessonToUpdate.video_id;
+
+    // OPTIMISTIC UI UPDATE - Update video immediately
+    const updatedSections = sourceCourse.sections.map(section => {
+      if (section.id === sectionToUpdate.id) {
+        return {
+          ...section,
+          lessons: section.lessons.map(lesson =>
+            lesson.id === lessonToUpdate.id
+              ? { ...lesson, video_id: newVideoId }
+              : lesson
+          )
+        };
+      }
+      return section;
     });
+
+    const updatedCourse = {
+      ...sourceCourse,
+      sections: updatedSections
+    };
+
+    setEditedCourse(updatedCourse);
+    setCourse(updatedCourse);
     setChangingLessonVideo(null);
+
+    // Update in backend asynchronously
+    (async () => {
+      try {
+        const response = await fetch(`/api/courses/${courseId}/lessons/${lessonToUpdate.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ video_id: newVideoId }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update lesson video');
+        }
+      } catch (error) {
+        console.error('Error updating lesson video:', error);
+        alert('Failed to update lesson video. Reverting changes.');
+        // Revert to original video
+        const revertedSections = updatedCourse.sections.map(section => {
+          if (section.id === sectionToUpdate.id) {
+            return {
+              ...section,
+              lessons: section.lessons.map(lesson =>
+                lesson.id === lessonToUpdate.id
+                  ? { ...lesson, video_id: oldVideoId }
+                  : lesson
+              )
+            };
+          }
+          return section;
+        });
+        const revertedCourse = {
+          ...updatedCourse,
+          sections: revertedSections
+        };
+        setEditedCourse(revertedCourse);
+        setCourse(revertedCourse);
+      }
+    })();
   };
 
   const handleSave = async () => {
@@ -576,6 +726,15 @@ export default function PreviewCoursePage() {
   const handleCancel = () => {
     setEditedCourse({ ...course });
     setIsEditing(false);
+  };
+
+  const updateCourseField = (field, value) => {
+    const sourceCourse = editedCourse || course;
+    if (!sourceCourse) return;
+
+    const updatedCourse = { ...sourceCourse, [field]: value };
+    setEditedCourse(updatedCourse);
+    setCourse(updatedCourse);
   };
 
   const handlePublish = async () => {
@@ -837,6 +996,8 @@ export default function PreviewCoursePage() {
   const handleAddSection = async () => {
     if (!newSectionTitle.trim()) return;
 
+    const sourceCourse = isEditing && editedCourse ? editedCourse : course;
+
     try {
       const response = await fetch(`/api/courses/${courseId}/sections`, {
         method: 'POST',
@@ -845,15 +1006,15 @@ export default function PreviewCoursePage() {
         },
         body: JSON.stringify({
           title: newSectionTitle,
-          order: (course.sections || []).length
+          order: (sourceCourse.sections || []).length
         }),
       });
 
       if (response.ok) {
         const newSection = await response.json();
         const updatedCourse = {
-          ...course,
-          sections: [...(course.sections || []), newSection]
+          ...sourceCourse,
+          sections: [...(sourceCourse.sections || []), newSection]
         };
         setCourse(updatedCourse);
         setEditedCourse({ ...updatedCourse, sections: updatedCourse.sections });
@@ -870,7 +1031,10 @@ export default function PreviewCoursePage() {
   const handleAddLesson = async (sectionIndex) => {
     if (!newLesson.title.trim()) return;
 
-    const section = course.sections[sectionIndex];
+    const sourceCourse = isEditing && editedCourse ? editedCourse : course;
+    const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const section = sortedSections[sectionIndex];
+
     try {
       const response = await fetch(`/api/courses/${courseId}/lessons`, {
         method: 'POST',
@@ -886,14 +1050,20 @@ export default function PreviewCoursePage() {
 
       if (response.ok) {
         const newLessonData = await response.json();
-        const updatedSections = [...course.sections];
-        if (!updatedSections[sectionIndex].lessons) {
-          updatedSections[sectionIndex].lessons = [];
-        }
-        updatedSections[sectionIndex].lessons = [...updatedSections[sectionIndex].lessons, newLessonData];
+
+        // Update the section in the original sections array
+        const updatedSections = sourceCourse.sections.map(s => {
+          if (s.id === section.id) {
+            return {
+              ...s,
+              lessons: [...(s.lessons || []), newLessonData]
+            };
+          }
+          return s;
+        });
 
         const updatedCourse = {
-          ...course,
+          ...sourceCourse,
           sections: updatedSections
         };
         setCourse(updatedCourse);
@@ -924,39 +1094,51 @@ export default function PreviewCoursePage() {
     const activeId = active.id;
     const overId = over.id;
 
+    // Use editedCourse when in editing mode, otherwise use course
+    const sourceCourse = isEditing && editedCourse ? editedCourse : course;
+
     // Check if we're reordering sections
     if (activeId.startsWith('section-') && overId.startsWith('section-')) {
       const activeIndex = parseInt(activeId.replace('section-', ''));
       const overIndex = parseInt(overId.replace('section-', ''));
 
       // Sort sections by order for drag operations
-      const sortedSections = [...course.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-      const updatedSections = arrayMove(sortedSections, activeIndex, overIndex);
+      const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+      const reorderedSections = arrayMove(sortedSections, activeIndex, overIndex);
 
-      // Update order in the backend
-      try {
-        await Promise.all(
-          updatedSections.map((section, index) =>
-            fetch(`/api/courses/${courseId}/sections/${section.id}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ ...section, order: index }),
-            })
-          )
-        );
-      } catch (error) {
-        console.error('Error updating section order:', error);
-        return;
-      }
+      // Update the order property for each section
+      const updatedSections = reorderedSections.map((section, index) => ({
+        ...section,
+        order: index
+      }));
 
+      // OPTIMISTIC UI UPDATE - Update state immediately for fluid UX
       const updatedCourse = {
-        ...course,
+        ...sourceCourse,
         sections: updatedSections
       };
       setCourse(updatedCourse);
       setEditedCourse({ ...updatedCourse, sections: updatedCourse.sections });
+
+      // Update order in the backend asynchronously (don't await)
+      Promise.all(
+        updatedSections.map((section, index) =>
+          fetch(`/api/courses/${courseId}/sections/${section.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ...section, order: index }),
+          })
+        )
+      ).catch(error => {
+        console.error('Error updating section order:', error);
+        // Optionally: Show a toast notification or revert the change
+        alert('Failed to save section order. Please try again.');
+        // Revert to original state
+        setCourse(sourceCourse);
+        setEditedCourse(sourceCourse);
+      });
     }
     // Check if we're reordering lessons within a section
     else if (activeId.startsWith('lesson-') && overId.startsWith('lesson-')) {
@@ -967,39 +1149,54 @@ export default function PreviewCoursePage() {
 
       if (activeSectionIndex === overSectionIndex) {
         // Sort sections by order to get the correct section
-        const sortedSections = [...course.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
         const section = sortedSections[activeSectionIndex];
-        const updatedLessons = arrayMove(section.lessons, activeLessonIndex, overLessonIndex);
+        const reorderedLessons = arrayMove(section.lessons, activeLessonIndex, overLessonIndex);
 
-        // Update order in the backend
-        try {
-          await Promise.all(
-            updatedLessons.map((lesson, index) =>
-              fetch(`/api/courses/${courseId}/lessons/${lesson.id}`, {
-                method: 'PUT',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ ...lesson, order: index }),
-              })
-            )
-          );
-        } catch (error) {
-          console.error('Error updating lesson order:', error);
-          return;
-        }
+        // Update the order property for each lesson
+        const updatedLessons = reorderedLessons.map((lesson, index) => ({
+          ...lesson,
+          order: index
+        }));
 
         // Update the section in the original course.sections array
-        const originalSectionIndex = course.sections.findIndex(s => s.id === section.id);
-        const updatedSections = [...course.sections];
-        updatedSections[originalSectionIndex].lessons = updatedLessons;
+        const updatedSections = sourceCourse.sections.map(s => {
+          if (s.id === section.id) {
+            return {
+              ...s,
+              lessons: updatedLessons
+            };
+          }
+          return s;
+        });
 
+        // OPTIMISTIC UI UPDATE - Update state immediately for fluid UX
         const updatedCourse = {
-          ...course,
+          ...sourceCourse,
           sections: updatedSections
         };
         setCourse(updatedCourse);
         setEditedCourse({ ...updatedCourse, sections: updatedCourse.sections });
+
+        // Update order in the backend asynchronously (don't await)
+        Promise.all(
+          updatedLessons.map((lesson, index) =>
+            fetch(`/api/courses/${courseId}/lessons/${lesson.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ ...lesson, order: index }),
+            })
+          )
+        ).catch(error => {
+          console.error('Error updating lesson order:', error);
+          // Optionally: Show a toast notification or revert the change
+          alert('Failed to save lesson order. Please try again.');
+          // Revert to original state
+          setCourse(sourceCourse);
+          setEditedCourse(sourceCourse);
+        });
       }
     }
   };
@@ -1153,7 +1350,10 @@ export default function PreviewCoursePage() {
               {!isEditing ? (
                 <>
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                      setEditedCourse({ ...course });
+                      setIsEditing(true);
+                    }}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
                   >
                     Edit Course
@@ -1221,21 +1421,21 @@ export default function PreviewCoursePage() {
                     <input
                       type="text"
                       value={editedCourse.title || ''}
-                      onChange={(e) => setEditedCourse({ ...editedCourse, title: e.target.value })}
+                      onChange={(e) => updateCourseField('title', e.target.value)}
                       className="w-full bg-gray-700 text-white text-2xl font-bold px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
                       placeholder="Course Title"
                     />
                     <input
                       type="text"
                       value={editedCourse.subtitle || ''}
-                      onChange={(e) => setEditedCourse({ ...editedCourse, subtitle: e.target.value })}
+                      onChange={(e) => updateCourseField('subtitle', e.target.value)}
                       className="w-full bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
                       placeholder="Course Subtitle"
                     />
                     <div className="flex gap-4">
                       <select
                         value={editedCourse.category || ''}
-                        onChange={(e) => setEditedCourse({ ...editedCourse, category: e.target.value })}
+                        onChange={(e) => updateCourseField('category', e.target.value)}
                         className="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Category</option>
@@ -1246,7 +1446,7 @@ export default function PreviewCoursePage() {
                       </select>
                       <select
                         value={editedCourse.level || ''}
-                        onChange={(e) => setEditedCourse({ ...editedCourse, level: e.target.value })}
+                        onChange={(e) => updateCourseField('level', e.target.value)}
                         className="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Level</option>
@@ -1256,7 +1456,7 @@ export default function PreviewCoursePage() {
                       </select>
                       <select
                         value={editedCourse.language || ''}
-                        onChange={(e) => setEditedCourse({ ...editedCourse, language: e.target.value })}
+                        onChange={(e) => updateCourseField('language', e.target.value)}
                         className="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Language</option>
@@ -1785,7 +1985,7 @@ export default function PreviewCoursePage() {
                   {isEditing && editedCourse ? (
                     <textarea
                       value={editedCourse.description || ''}
-                      onChange={(e) => setEditedCourse({ ...editedCourse, description: e.target.value })}
+                      onChange={(e) => updateCourseField('description', e.target.value)}
                       className="w-full bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none min-h-[100px] resize-vertical"
                       placeholder="Course description..."
                     ></textarea>

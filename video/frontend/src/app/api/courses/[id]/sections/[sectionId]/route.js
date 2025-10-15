@@ -29,3 +29,25 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: 'Failed to update section' }, { status: 500 });
   }
 }
+
+export async function DELETE(request, { params }) {
+  try {
+    const { id, sectionId } = await params;
+
+    const response = await fetch(`${COURSE_SERVICE_URL}/api/courses/${id}/sections/${sectionId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '<no-body>');
+      console.error(`Upstream section delete failed: status=${response.status} body=${text}`);
+      return NextResponse.json({ error: 'Failed to delete section', upstream: { status: response.status, body: text } }, { status: 500 });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Error deleting section:', error);
+    return NextResponse.json({ error: 'Failed to delete section' }, { status: 500 });
+  }
+}

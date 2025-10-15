@@ -391,6 +391,18 @@ async def update_section(course_id: int, section_id: int, section_update: Sectio
     db.commit()
     return {"message": "Section updated successfully"}
 
+@app.delete("/api/courses/{course_id}/sections/{section_id}", response_model=dict)
+async def delete_section(course_id: int, section_id: int, db: Session = Depends(get_db)):
+    """Delete section and all its lessons"""
+    section = db.query(Section).filter(Section.id == section_id, Section.course_id == course_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    # Delete the section (cascade will delete lessons)
+    db.delete(section)
+    db.commit()
+    return {"message": "Section deleted successfully"}
+
 @app.post("/api/courses/{course_id}/lessons", response_model=dict)
 async def add_lesson(course_id: int, lesson: LessonCreate, db: Session = Depends(get_db)):
     """Add lesson to course"""
