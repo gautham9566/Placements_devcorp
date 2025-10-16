@@ -11,7 +11,8 @@ import {
   User,
   GraduationCap,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { getPlacedStudents, exportPlacedStudents, getPassoutYears } from '../../../api/placedStudents';
 import { useNotification } from '../../../contexts/NotificationContext';
@@ -36,6 +37,8 @@ export default function PlacedStudentsPage() {
   const [passoutYear, setPassoutYear] = useState(searchParams.get('passout_year') || 'all');
   const [availableYears, setAvailableYears] = useState([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState('csv'); // Keep for modal
+  const [showExportModal, setShowExportModal] = useState(false); // New state for modal
 
   // Load placed students data
   const loadPlacedStudents = useCallback(async () => {
@@ -132,20 +135,23 @@ export default function PlacedStudentsPage() {
         search: searchTerm,
         sort_by: sortBy,
         sort_order: sortOrder,
-        passout_year: passoutYear
+        passout_year: passoutYear,
+        format: exportFormat
       });
 
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `placed_students_${new Date().toISOString().split('T')[0]}.csv`);
+      const extension = exportFormat === 'pdf' ? 'pdf' : exportFormat === 'xlsx' ? 'xlsx' : 'csv';
+      link.setAttribute('download', `placed_students_${new Date().toISOString().split('T')[0]}.${extension}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      showSuccess('Placed students data exported successfully');
+      showSuccess(`Placed students data exported as ${exportFormat.toUpperCase()} successfully`);
+      setShowExportModal(false); // Close modal on success
     } catch (err) {
       console.error('Error exporting placed students:', err);
       handleApiError(err);
@@ -184,12 +190,12 @@ export default function PlacedStudentsPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={handleExport}
-            disabled={isExporting || !Array.isArray(placedStudents) || placedStudents.length === 0}
+            onClick={() => setShowExportModal(true)}
+            disabled={!Array.isArray(placedStudents) || placedStudents.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            {isExporting ? 'Exporting...' : 'Export CSV'}
+            Export Data
           </button>
         </div>
       </div>
@@ -532,6 +538,61 @@ export default function PlacedStudentsPage() {
           </>
         )}
       </div>
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Export Placed Students</h2>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Export Format
+                </label>
+                <div className="flex gap-3">
+                  {['csv', 'xlsx', 'pdf'].map(format => (
+                    <label key={format} className="flex items-center">
+                      <input
+                        type="radio"
+                        name="format"
+                        value={format}
+                        checked={exportFormat === format}
+                        onChange={(e) => setExportFormat(e.target.value)}
+                        className="mr-2"
+                      />
+                      {format.toUpperCase()}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  {isExporting ? 'Exporting...' : 'Export'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
