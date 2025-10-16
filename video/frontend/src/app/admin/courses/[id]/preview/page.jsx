@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Sidebar from '../../../../../components/admin/Sidebar';
 import TopHeader from '../../../../../components/admin/TopHeader';
 import CustomVideoPlayer from '../../../../../components/admin/CustomVideoPlayer';
 import {
@@ -19,8 +18,6 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -43,58 +40,28 @@ function SortableSection({ section, sectionIndex, children, activeSection, setAc
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <div className="border border-gray-700 rounded-lg">
+      <div className="border border-gray-300 dark:border-gray-700 rounded-lg">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3 flex-1">
             {isReordering && (
-              <button
-                {...listeners}
-                className="text-gray-400 hover:text-white p-1"
-                title="Drag to reorder"
-              >
+              <div className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                 </svg>
-              </button>
+              </div>
             )}
             <button
-              onClick={() => setActiveSection(activeSection === sectionIndex ? -1 : sectionIndex)}
-              className="flex items-center gap-3 flex-1 text-left hover:bg-gray-700 transition-colors rounded px-2 py-1"
+              onClick={() => setActiveSection(sectionIndex === activeSection ? null : sectionIndex)}
+              className="flex items-center gap-3 flex-1 text-left"
             >
-              <div className="flex-1">
-                {isEditing && editingSectionTitle === sectionIndex ? (
-                  <input
-                    type="text"
-                    defaultValue={section.title}
-                    onBlur={(e) => onEditSectionTitle(sectionIndex, e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        onEditSectionTitle(sectionIndex, e.target.value);
-                      }
-                    }}
-                    className="bg-gray-600 text-white px-2 py-1 rounded w-full"
-                    autoFocus
-                  />
-                ) : (
-                  <h4 className="text-white font-medium">{section.title}</h4>
-                )}
-                <p className="text-gray-400 text-sm">{section.lessons ? section.lessons.length : 0} lessons</p>
-              </div>
-              <svg
-                className={`w-5 h-5 text-gray-400 transform transition-transform ${
-                  activeSection === sectionIndex ? 'rotate-180' : ''
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <div className="text-black dark:text-white font-medium">{section.title}</div>
             </button>
+          </div>
+          <div className="flex items-center gap-2">
             {isEditing && (
               <button
                 onClick={() => setEditingSectionTitle(editingSectionTitle === sectionIndex ? null : sectionIndex)}
-                className="text-gray-400 hover:text-white p-1"
+                className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white p-1"
                 title="Edit Section Title"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,8 +69,6 @@ function SortableSection({ section, sectionIndex, children, activeSection, setAc
                 </svg>
               </button>
             )}
-          </div>
-          <div className="flex gap-2">
             {isEditing && (
               <button
                 onClick={() => onDeleteSection(sectionIndex)}
@@ -148,11 +113,11 @@ function SortableLesson({ lesson, lessonIndex, sectionIndex, children, setSelect
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...(isReordering ? listeners : {})}>
       <div
-        className={`flex items-center gap-3 p-3 bg-gray-700 rounded-lg ${isReordering ? 'cursor-move' : ''} ${lesson.type === 'video' ? 'hover:bg-gray-600' : ''}`}
+        className={`flex items-center gap-3 p-3 bg-gray-200 dark:bg-gray-700 rounded-lg ${isReordering ? 'cursor-move' : ''} ${lesson.type === 'video' ? 'hover:bg-gray-300 dark:hover:bg-gray-600' : ''}`}
         onClick={() => lesson.type === 'video' && lesson.video_id && setSelectedVideo(lesson.video_id)}
       >
         {isReordering && (
-          <div className="text-gray-400 hover:text-white">
+          <div className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
             </svg>
@@ -1300,13 +1265,10 @@ export default function PreviewCoursePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-gray-900">
-        <Sidebar />
-        <div className="flex-1 ml-64">
-          <TopHeader />
-          <div className="flex justify-center items-center h-screen">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          </div>
+      <div className="min-h-screen bg-white dark:bg-gray-900">
+        <TopHeader />
+        <div className="flex justify-center items-center h-screen p-6">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
       </div>
     );
@@ -1314,37 +1276,32 @@ export default function PreviewCoursePage() {
 
   if (!course) {
     return (
-      <div className="flex min-h-screen bg-gray-900">
-        <Sidebar />
-        <div className="flex-1 ml-64">
-          <TopHeader />
-          <div className="flex justify-center items-center h-screen">
-            <p className="text-white">Course not found</p>
-          </div>
+      <div className="min-h-screen bg-white dark:bg-gray-900">
+        <TopHeader />
+        <div className="flex justify-center items-center h-screen p-6">
+          <p className="text-black dark:text-white">Course not found</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-900">
-      <Sidebar />
-      <div className="flex-1 ml-64">
-        <TopHeader />
-        <div className="p-6">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
+      <TopHeader />
+      <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push('/admin/courses')}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors"
                 title="Back to Courses"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h1 className="text-3xl font-bold text-white">Course Preview</h1>
+              <h1 className="text-3xl font-bold text-black dark:text-white">Course Preview</h1>
             </div>
             <div className="flex gap-4">
               {!isEditing ? (
@@ -1401,9 +1358,9 @@ export default function PreviewCoursePage() {
           </div>
 
           {/* Course Header */}
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-6">
             <div className="flex items-start gap-6">
-              <div className="w-48 h-32 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-48 h-32 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
                 {course.thumbnail_url ? (
                   <img
                     src={course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/api${course.thumbnail_url}`}
@@ -1422,21 +1379,21 @@ export default function PreviewCoursePage() {
                       type="text"
                       value={editedCourse.title || ''}
                       onChange={(e) => updateCourseField('title', e.target.value)}
-                      className="w-full bg-gray-700 text-white text-2xl font-bold px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      className="w-full bg-gray-200 dark:bg-gray-700 text-black dark:text-white text-2xl font-bold px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none"
                       placeholder="Course Title"
                     />
                     <input
                       type="text"
                       value={editedCourse.subtitle || ''}
                       onChange={(e) => updateCourseField('subtitle', e.target.value)}
-                      className="w-full bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                      className="w-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none"
                       placeholder="Course Subtitle"
                     />
                     <div className="flex gap-4">
                       <select
                         value={editedCourse.category || ''}
                         onChange={(e) => updateCourseField('category', e.target.value)}
-                        className="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Category</option>
                         <option value="Programming">Programming</option>
@@ -1447,7 +1404,7 @@ export default function PreviewCoursePage() {
                       <select
                         value={editedCourse.level || ''}
                         onChange={(e) => updateCourseField('level', e.target.value)}
-                        className="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Level</option>
                         <option value="Beginner">Beginner</option>
@@ -1457,7 +1414,7 @@ export default function PreviewCoursePage() {
                       <select
                         value={editedCourse.language || ''}
                         onChange={(e) => updateCourseField('language', e.target.value)}
-                        className="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+                        className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Select Language</option>
                         <option value="English">English</option>
@@ -1469,11 +1426,11 @@ export default function PreviewCoursePage() {
                   </div>
                 ) : (
                   <>
-                    <h2 className="text-2xl font-bold text-white mb-2">{course.title}</h2>
+                    <h2 className="text-2xl font-bold text-black dark:text-white mb-2">{course.title}</h2>
                     {course.subtitle && (
-                      <p className="text-gray-300 mb-4">{course.subtitle}</p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-4">{course.subtitle}</p>
                     )}
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                       <span>By Instructor</span>
                       <span>•</span>
                       <span>{course.category}</span>
@@ -2061,8 +2018,6 @@ export default function PreviewCoursePage() {
           </div>
         </div>
       )}
-    </div>
-    </div>
-
+      </div>
   );
 }

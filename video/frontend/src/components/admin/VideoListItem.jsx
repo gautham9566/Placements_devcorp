@@ -42,7 +42,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
   const thumbnailSrc = getThumbnail(video.thumbnail_url) || '/images/placeholder.svg';
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-800/30 hover:bg-gray-900/40 transition-colors duration-200">
+    <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
       <div className="col-span-1">
         <img
           src={thumbnailSrc}
@@ -51,12 +51,12 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }}
         />
       </div>
-  <div className="col-span-3 text-white font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.title ? (video.title.length > 20 ? video.title.slice(0, 20) + '...' : video.title) : 'N/A'}</div>
-  <div className="col-span-1 text-gray-400 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.description ? (video.description.length > 20 ? video.description.slice(0, 20) + '...' : video.description) : 'N/A'}</div>
-      <div className="col-span-2 text-gray-400">{video.category || 'N/A'}</div>
-      <div className="col-span-2 text-gray-400">{new Date(video.created_at).toLocaleDateString()}</div>
+  <div className="col-span-3 text-gray-900 dark:text-white font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.title ? (video.title.length > 20 ? video.title.slice(0, 20) + '...' : video.title) : 'N/A'}</div>
+  <div className="col-span-1 text-gray-600 dark:text-gray-400 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.description ? (video.description.length > 20 ? video.description.slice(0, 20) + '...' : video.description) : 'N/A'}</div>
+      <div className="col-span-2 text-gray-600 dark:text-gray-400">{video.category || 'N/A'}</div>
+      <div className="col-span-2 text-gray-600 dark:text-gray-400">{new Date(video.created_at).toLocaleDateString()}</div>
       <div className="col-span-1">{getStatusChip(video.status || 'Draft')}</div>
-      <div className="col-span-1 text-gray-400">{video.views || '0'}</div>
+      <div className="col-span-1 text-gray-600 dark:text-gray-400">{video.views || '0'}</div>
       <div className="col-span-1 flex items-center space-x-2">
         <button 
           onClick={() => onPublish && onPublish(video.hash)}

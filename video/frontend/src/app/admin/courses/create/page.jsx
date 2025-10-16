@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '../../../../components/admin/Sidebar';
 import TopHeader from '../../../../components/admin/TopHeader';
 
 const STEPS = [
@@ -431,21 +430,19 @@ export default function CreateCoursePage() {
 	};
 
 	return (
-		<div className="flex min-h-screen bg-gray-900">
-			<Sidebar />
-			<div className="flex-1 ml-64">
-				<TopHeader />
-				<div className="p-6">
-					{/* Header */}
-					<div className="flex justify-between items-center mb-8">
-						<h1 className="text-3xl font-bold text-white">Create New Course</h1>
-						<button
-							onClick={() => router.push('/admin/courses')}
-							className="text-gray-400 hover:text-white transition-colors"
-						>
-							← Back to Courses
-						</button>
-					</div>
+		<div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
+			<TopHeader />
+			<div className="p-6">
+				{/* Header */}
+				<div className="flex justify-between items-center mb-8">
+					<h1 className="text-3xl font-bold text-white dark:text-white">Create New Course</h1>
+					<button
+						onClick={() => router.push('/admin/courses')}
+						className="text-gray-400 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+					>
+						← Back to Courses
+					</button>
+				</div>
 
 					{/* Progress Indicator */}
 					<div className="mb-8">
@@ -484,7 +481,6 @@ export default function CreateCoursePage() {
 						{renderStepContent()}
 					</div>
 
-					{/* Navigation Buttons */}
 					<div className="flex justify-between">
 						<button
 							onClick={prevStep}
@@ -502,9 +498,8 @@ export default function CreateCoursePage() {
 						</button>
 					</div>
 				</div>
-			</div>
 		</div>
-	);
+	)
 }
 
 // Step Components

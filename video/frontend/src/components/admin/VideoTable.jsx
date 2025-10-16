@@ -3,48 +3,40 @@ import TranscodeStatus from './TranscodeStatus';
 
 export default function VideoTable({ videos, transcodeStatus, qualities, deleting, isTranscodingActive, handleDelete, stopTranscode, resumeTranscode }) {
   return (
-    <div style={{
-      backgroundColor: '#fff',
-      padding: '20px',
-      borderRadius: '8px',
-      boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-    }}>
-      <h2 style={{ marginTop: 0, color: '#000' }}>Uploaded Videos</h2>
+    <div className="bg-white dark:bg-gray-800 p-5 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+      <h2 className="mt-0 text-gray-900 dark:text-white">Uploaded Videos</h2>
       {videos.length === 0 ? (
-        <p style={{ color: '#000', textAlign: 'center', padding: '20px' }}>No videos uploaded yet.</p>
+        <p className="text-gray-900 dark:text-white text-center py-5">No videos uploaded yet.</p>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse mt-5">
             <thead>
-              <tr style={{ backgroundColor: '#007bff', color: 'white' }}>
-                <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>ID</th>
-                <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Video ID (Hash)</th>
-                <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Filename</th>
-                <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Transcode</th>
-                <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Thumbnail</th>
-                <th style={{ border: '1px solid #ddd', padding: '12px', textAlign: 'left' }}>Delete</th>
+              <tr className="bg-blue-600 text-white">
+                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">ID</th>
+                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Video ID (Hash)</th>
+                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Filename</th>
+                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Transcode</th>
+                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Thumbnail</th>
+                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Delete</th>
               </tr>
             </thead>
             <tbody>
               {videos.map((video, index) => (
-                <tr key={video.id} style={{
-                  backgroundColor: index % 2 === 0 ? '#f9f9f9' : '#fff',
-                  transition: 'background-color 0.2s'
-                }}>
-                  <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000' }}>{video.id}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000', fontFamily: 'monospace' }}>{video.hash}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000' }}>{video.filename}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000', minWidth: 240 }}>
+                <tr key={video.id} className={`${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-800'} transition-colors duration-200`}>
+                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white">{video.id}</td>
+                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white font-mono">{video.hash}</td>
+                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white">{video.filename}</td>
+                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white min-w-60">
                     <TranscodeStatus video={video} transcodeStatus={transcodeStatus} qualities={qualities} stopTranscode={stopTranscode} resumeTranscode={resumeTranscode} />
                   </td>
-                  <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000' }}>{video.thumbnail_filename ? 'Yes' : 'No'}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '12px', color: '#000', width: 140 }}>
+                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white">{video.thumbnail_filename ? 'Yes' : 'No'}</td>
+                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white w-36">
                     {deleting[video.hash] ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ height: 8, background: '#eee', borderRadius: 6, overflow: 'hidden' }}>
-                          <div style={{ width: `${deleting[video.hash].progress || 0}%`, height: '100%', background: deleting[video.hash].status === 'error' ? '#dc3545' : '#dc3545', transition: 'width 0.25s' }} />
+                      <div className="flex flex-col gap-1.5">
+                        <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded overflow-hidden">
+                          <div className={`h-full ${deleting[video.hash].status === 'error' ? 'bg-red-500' : 'bg-red-500'} transition-all duration-250`} style={{ width: `${deleting[video.hash].progress || 0}%` }} />
                         </div>
-                        <div style={{ fontSize: 12, color: deleting[video.hash].status === 'error' ? '#b30000' : '#333', display: 'flex', justifyContent: 'space-between' }}>
+                        <div className={`text-xs flex justify-between ${deleting[video.hash].status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-300'}`}>
                           <span>{deleting[video.hash].status === 'pending' ? 'Deleting...' : deleting[video.hash].status === 'done' ? 'Deleted' : 'Error'}</span>
                           <span>{deleting[video.hash].progress || 0}%</span>
                         </div>
@@ -54,15 +46,7 @@ export default function VideoTable({ videos, transcodeStatus, qualities, deletin
                         onClick={() => handleDelete(video.hash)}
                         disabled={isTranscodingActive(video.hash)}
                         title={isTranscodingActive(video.hash) ? "Cannot delete while transcoding" : "Delete video"}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: isTranscodingActive(video.hash) ? 'not-allowed' : 'pointer',
-                          padding: 6,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          opacity: isTranscodingActive(video.hash) ? 0.5 : 1
-                        }}
+                        className="bg-transparent border-none cursor-pointer disabled:cursor-not-allowed p-1.5 inline-flex items-center disabled:opacity-50"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b30000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="3 6 5 6 21 6" />

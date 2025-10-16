@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '../../components/admin/Sidebar';
 import TopHeader from '../../components/admin/TopHeader';
 import VideoList from '../../components/admin/VideoList';
 import Pagination from '../../components/admin/Pagination';
 import VideoPlayerModal from '../../components/admin/VideoPlayerModal';
+import { getApiBaseUrl } from '../../lib/apiConfig';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -31,9 +31,9 @@ export default function AdminPage() {
 
   const fetchVideos = async () => {
     try {
-      // Prefer direct backend URL when available (fast local dev). Fall back to the frontend proxy if not set.
-      const base = process.env.NEXT_PUBLIC_API_URL || '';
-      const url = base ? `${base}/videos` : '/api/videos';
+      // Use getApiBaseUrl for automatic network switching
+      const base = getApiBaseUrl();
+      const url = `${base}/videos`;
       const response = await fetch(url, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
@@ -59,8 +59,8 @@ export default function AdminPage() {
 
   const fetchCategories = async () => {
     try {
-      const base = process.env.NEXT_PUBLIC_API_URL || '';
-      const url = base ? `${base}/categories` : '/api/categories';
+      const base = getApiBaseUrl();
+      const url = `${base}/categories`;
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -110,8 +110,8 @@ export default function AdminPage() {
       return;
     }
     try {
-      const base = process.env.NEXT_PUBLIC_API_URL || '';
-      const url = base ? `${base}/categories` : '/api/categories';
+      const base = getApiBaseUrl();
+      const url = `${base}/categories`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,8 +137,8 @@ export default function AdminPage() {
   const deleteCategory = async (categoryId) => {
     if (confirm('Are you sure you want to delete this category?')) {
       try {
-        const base = process.env.NEXT_PUBLIC_API_URL || '';
-        const url = base ? `${base}/categories/${categoryId}` : `/api/categories/${categoryId}`;
+        const base = getApiBaseUrl();
+        const url = `${base}/categories/${categoryId}`;
         const response = await fetch(url, {
           method: 'DELETE'
         });
@@ -287,72 +287,68 @@ export default function AdminPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-900/30">
+    <div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
       <TopHeader onSearchChange={setSearchTerm} searchTerm={searchTerm} />
 
-      <div className="flex">
-        <Sidebar />
-
-        <main className="flex-1 p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-6">Uploaded Videos</h1>
-            <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-              <div className="flex items-center space-x-4">
-                {['All', 'Published', 'Drafts', 'Scheduled'].map(f => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`px-4 py-2 rounded-lg transition-colors duration-200 ${
-                      filter === f
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-900 bg-opacity-30 text-gray-200 hover:bg-gray-900/60 border border-gray-800/30'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
+      <main className="p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white dark:text-white mb-6">Uploaded Videos</h1>
+          <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
+            <div className="flex items-center space-x-4">
+              {['All', 'Published', 'Drafts', 'Scheduled'].map(f => (
                 <button
-                  onClick={() => setSortBy('Date')}
+                  key={f}
+                  onClick={() => setFilter(f)}
                   className={`px-4 py-2 rounded-lg transition-colors duration-200 ${
-                    sortBy === 'Date'
+                    filter === f
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-900 bg-opacity-30 text-gray-200 hover:bg-gray-900/60 border border-gray-800/30'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'
                   }`}
                 >
-                  Sort by Date
+                  {f}
                 </button>
-              </div>
+              ))}
+              <button
+                onClick={() => setSortBy('Date')}
+                className={`px-4 py-2 rounded-lg transition-colors duration-200 ${
+                  sortBy === 'Date'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'
+                }`}
+              >
+                Sort by Date
+              </button>
+            </div>
 
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setShowCategoryModal(true)}
-                  className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors duration-200"
-                >
-                  Manage Categories
-                </button>
-                <button
-                  onClick={() => router.push('/admin/upload')}
-                  className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-500 transition-colors duration-200"
-                >
-                  Upload
-                </button>
-              </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-500 transition-colors duration-200"
+              >
+                Manage Categories
+              </button>
+              <button
+                onClick={() => router.push('/admin/upload')}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-500 transition-colors duration-200"
+              >
+                Upload
+              </button>
             </div>
           </div>
+        </div>
 
-          {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
-          <VideoList videos={paginatedVideos} onSelectVideo={(id) => console.log('selected', id)} onPublish={handlePublish} onDelete={handleDelete} onEdit={handleEdit} onPreview={handlePreview} onUnpublish={handleUnpublish} />
+        <VideoList videos={paginatedVideos} onSelectVideo={(id) => console.log('selected', id)} onPublish={handlePublish} onDelete={handleDelete} onEdit={handleEdit} onPreview={handlePreview} onUnpublish={handleUnpublish} />
 
-          {totalPages > 1 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          )}
-        </main>
-      </div>
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        )}
+      </main>
 
       {/* Video Player Modal */}
       {previewVideo && (
