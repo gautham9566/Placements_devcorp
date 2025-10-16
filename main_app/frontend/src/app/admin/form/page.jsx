@@ -19,7 +19,7 @@ export default function AdminFormsPage() {
   const [editingForm, setEditingForm] = useState(null);
   const [copiedFormId, setCopiedFormId] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedKeyId, setCopiedKeyId] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   
   // Pagination state
@@ -194,11 +194,11 @@ export default function AdminFormsPage() {
     setTimeout(() => setCopiedFormId(null), 2000);
   };
 
-  const handleCopyKey = (e, key) => {
+  const handleCopyKey = (e, formId, key) => {
     e.preventDefault();
     navigator.clipboard.writeText(key);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
+    setCopiedKeyId(formId);
+    setTimeout(() => setCopiedKeyId(null), 2000);
   };
 
   const handleCreateForm = async () => {
@@ -469,11 +469,11 @@ Please share this link and key with the company.`);
                                     {form.key}
                                   </code>
                                   <button
-                                    onClick={(e) => handleCopyKey(e, form.key)}
+                                    onClick={(e) => handleCopyKey(e, form.id, form.key)}
                                     className="p-1.5 rounded-md hover:bg-gray-200 transition-colors duration-150"
                                     title="Copy access key"
                                   >
-                                    {copiedKey ? (
+                                    {copiedKeyId === form.id ? (
                                       <IconCheck size={16} className="text-emerald-500" />
                                     ) : (
                                       <IconCopy size={16} className="text-gray-400 hover:text-gray-600" />
@@ -629,11 +629,11 @@ Please share this link and key with the company.`);
                                 {form.key}
                               </code>
                               <button
-                                onClick={(e) => handleCopyKey(e, form.key)}
+                                onClick={(e) => handleCopyKey(e, form.id, form.key)}
                                 className="p-1.5 rounded-md hover:bg-gray-200 transition-colors duration-150"
                                 title="Copy access key"
                               >
-                                {copiedKey ? (
+                                {copiedKeyId === form.id ? (
                                   <IconCheck size={16} className="text-emerald-500" />
                                 ) : (
                                   <IconCopy size={16} className="text-gray-400 hover:text-gray-600" />

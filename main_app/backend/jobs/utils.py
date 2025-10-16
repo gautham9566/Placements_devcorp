@@ -158,7 +158,7 @@ class ApplicationExportService:
         
         if format == 'csv':
             return self.generate_csv(queryset, columns)
-        elif format == 'excel':
+        elif format == 'xlsx':
             return self.generate_excel(queryset, columns, job_id)
         elif format == 'pdf':
             return self.generate_pdf(queryset, columns, job_id)
@@ -389,3 +389,157 @@ class ApplicationExportService:
             return str(value)
         
         return ''
+
+
+class PlacedStudentsExportService:
+    """Service for exporting placed students data"""
+    
+    def generate_export(self, queryset, format, columns=None):
+        """Generate export in specified format"""
+        # Default columns if none provided
+        if not columns:
+            columns = ['student_id', 'name', 'branch', 'passout_year', 'company_name', 'job_title', 'salary_min', 'salary_max', 'placed_at']
+        
+        if format == 'csv':
+            return self.generate_csv(queryset, columns)
+        elif format == 'xlsx':
+            return self.generate_excel(queryset, columns)
+        elif format == 'pdf':
+            return self.generate_pdf(queryset, columns)
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+    
+    def generate_csv(self, queryset, columns):
+        """Generate CSV export"""
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write headers
+        headers = [self.get_column_header(col) for col in columns]
+        writer.writerow(headers)
+        
+        # Write data
+        for student in queryset:
+            row = [self.get_column_value(student, col) for col in columns]
+            writer.writerow(row)
+        
+        return {
+            'content': output.getvalue().encode('utf-8'),
+            'content_type': 'text/csv',
+            'filename': f'placed_students_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        }
+    
+    def generate_excel(self, queryset, columns):
+        """Generate Excel export"""
+        data = []
+        
+        # Prepare data
+        for student in queryset:
+            row_data = {}
+            for col in columns:
+                row_data[self.get_column_header(col)] = self.get_column_value(student, col)
+            data.append(row_data)
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        # Create Excel file
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Placed Students', index=False)
+            
+            # Format the worksheet
+            worksheet = writer.sheets['Placed Students']
+            for column in worksheet.columns:
+                max_length = 0
+                column_name = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_name].width = adjusted_width
+        
+        output.seek(0)
+        
+        return {
+            'content': output.getvalue(),
+            'content_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'filename': f'placed_students_{timezone.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        }
+    
+    def generate_pdf(self, queryset, columns):
+        """Generate PDF export"""
+        output = io.BytesIO()
+        
+        # Create document
+        doc = SimpleDocTemplate(output, pagesize=A4)
+        elements = []
+        
+        # Add title
+        styles = getSampleStyleSheet()
+        title = Paragraph("Placed Students Report", styles['Title'])
+        elements.append(title)
+        elements.append(Paragraph("<br/><br/>", styles['Normal']))
+        
+        # Prepare table data
+        headers = [self.get_column_header(col) for col in columns]
+        data = [headers]
+        
+        for student in queryset:
+            row = [str(self.get_column_value(student, col)) for col in columns]
+            # Truncate long text for PDF
+            row = [text[:30] + '...' if len(text) > 30 else text for text in row]
+            data.append(row)
+        
+        # Create table
+        table = Table(data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+        
+        elements.append(table)
+        doc.build(elements)
+        
+        output.seek(0)
+        
+        return {
+            'content': output.getvalue(),
+            'content_type': 'application/pdf',
+            'filename': f'placed_students_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        }
+    
+    def get_column_header(self, column):
+        """Get human-readable header for column"""
+        header_map = {
+            'student_id': 'Roll Number',
+            'name': 'Name',
+            'branch': 'Branch',
+            'passout_year': 'Passout Year',
+            'company_name': 'Company',
+            'job_title': 'Job Title',
+            'salary_min': 'Min Salary',
+            'salary_max': 'Max Salary',
+            'placed_at': 'Placed Date',
+        }
+        return header_map.get(column, column.replace('_', ' ').title())
+    
+    def get_column_value(self, student, column):
+        """Get value for specific column"""
+        if column == 'placed_at':
+            return student.placed_at.strftime("%Y-%m-%d") if student.placed_at else 'N/A'
+        elif column in ['salary_min', 'salary_max']:
+            value = getattr(student, column, None)
+            return f"₹{value}" if value else 'N/A'
+        else:
+            return getattr(student, column, 'N/A') or 'N/A'

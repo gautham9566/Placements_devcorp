@@ -374,7 +374,7 @@ class DetailedJobApplicationSerializer(serializers.ModelSerializer):
 
 class ExportConfigSerializer(serializers.Serializer):
     """Configuration for application export"""
-    format = serializers.ChoiceField(choices=['csv', 'excel', 'pdf'])
+    format = serializers.ChoiceField(choices=['csv', 'xlsx', 'pdf'])
     columns = serializers.ListField(
         child=serializers.CharField(),
         help_text="List of column names to include"

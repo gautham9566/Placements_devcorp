@@ -5,6 +5,7 @@ from .models import CompanyForm, JobPosting
 from .serializers import CompanyFormSerializer, JobPostingCreateUpdateSerializer
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.http import HttpResponse
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -40,6 +41,8 @@ from .utils import StandardResultsSetPagination, get_paginated_response, get_cor
 from django.contrib.auth import get_user_model
 from datetime import datetime, timedelta
 from django.utils import timezone
+
+import csv
 
 User = get_user_model()
 
@@ -1505,7 +1508,6 @@ class ApplicationExportView(APIView):
             job_id=config.get('job_id')
         )
         
-        from django.http import HttpResponse
         response = HttpResponse(
             file_data['content'],
             content_type=file_data['content_type']
@@ -2221,71 +2223,20 @@ class PlacedStudentsExportView(generics.ListAPIView):
                         unique_students[i] = student
                         break
 
-        # Apply search filter
-        search_term = self.request.query_params.get('search', '').strip()
-        if search_term:
-            unique_students = [
-                student for student in unique_students
-                if (
-                    search_term.lower() in student['Name'].lower() or
-                    search_term.lower() in student['Student_ID'].lower() or
-                    search_term.lower() in student['Job_Title'].lower() or
-                    search_term.lower() in student['Company_Name'].lower()
-                )
-            ]
-
-        # Apply passout_year filter
-        passout_year = self.request.query_params.get('passout_year')
-        if passout_year and passout_year != 'all':
-            try:
-                year = int(passout_year)
-                unique_students = [
-                    student for student in unique_students
-                    if student['Passout_Year'] == year
-                ]
-            except (ValueError, TypeError):
-                pass
-
-        # Apply sorting
-        sort_by = self.request.query_params.get('sort_by', 'placed_at')
-        sort_order = self.request.query_params.get('sort_order', 'desc')
-
-        sort_functions = {
-            'name': lambda x: x['Name'].lower(),
-            'student_id': lambda x: x['Student_ID'].lower(),
-            'passout_year': lambda x: x['Passout_Year'] or 0,
-            'company_name': lambda x: x['Company_Name'].lower(),
-            'placed_at': lambda x: x['Placed_At'] or '',
-            'job_title': lambda x: x['Job_Title'].lower()
-        }
-
-        if sort_by in sort_functions:
-            reverse = sort_order == 'desc'
-            unique_students.sort(key=sort_functions[sort_by], reverse=reverse)
+        # Dynamically collect all unique fieldnames from the data
+        fieldnames = set()
+        for student in unique_students:
+            fieldnames.update(student.keys())
+        fieldnames = sorted(list(fieldnames))  # Sort for consistent order
 
         # Create CSV response
-        import csv
-        from django.http import HttpResponse
-
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="placed_students.csv"'
-
-        if not unique_students:
-            # Return empty CSV with headers
-            writer = csv.writer(response)
-            writer.writerow([
-                'Student_ID', 'Name', 'Email', 'Branch', 'Passout_Year', 'GPA',
-                'Job_Title', 'Company_Name', 'Job_Location', 'Salary_Min', 'Salary_Max',
-                'Placed_At', 'Job_ID'
-            ])
-            return response
-
-        # Write CSV data
-        fieldnames = [k for k in unique_students[0].keys() if k != 'source']  # Exclude source field
+        response['Content-Disposition'] = f'attachment; filename="placed_students_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(unique_students)
-
+        
         return response
 
 
