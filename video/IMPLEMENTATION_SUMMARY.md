@@ -117,7 +117,7 @@ cd ..
 sqlite3 videos.db
 SELECT * FROM videos WHERE course_id IS NULL;
 ```
-
+ 
 ## 🔍 API Endpoints Reference
 
 ### Course Videos (courses.db)
