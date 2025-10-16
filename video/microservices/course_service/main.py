@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from models import get_db, Course, Section, Lesson
+from models import get_db, Course, Section, Lesson, CourseVideo
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -84,6 +84,29 @@ class LessonUpdate(BaseModel):
     order: Optional[int] = None
     resources: Optional[List[dict]] = None
     downloadable: Optional[bool] = None
+
+class CourseVideoCreate(BaseModel):
+    hash: str
+    filename: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    thumbnail_filename: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    course_id: int
+
+class CourseVideoUpdate(BaseModel):
+    thumbnail_filename: Optional[str] = None
+    original_resolution: Optional[str] = None
+    original_quality_label: Optional[str] = None
+    stopped: Optional[int] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    transcoding_status: Optional[str] = None
 
 # API Endpoints
 
@@ -483,6 +506,153 @@ async def upload_course_thumbnail(course_id: int, file: UploadFile = File(...), 
     db.commit()
 
     return {"message": "Thumbnail uploaded successfully", "thumbnail_url": course.thumbnail_url}
+
+# Course Video Metadata Endpoints
+
+@app.post("/course-videos")
+async def create_course_video(video: CourseVideoCreate, db: Session = Depends(get_db)):
+    """Create a new video entry in the courses database."""
+
+    # Check if video already exists
+    existing = db.query(CourseVideo).filter(CourseVideo.hash == video.hash).first()
+    if existing:
+        # Update existing video
+        updated = False
+
+        if video.title is not None and video.title != existing.title:
+            existing.title = video.title or existing.filename
+            updated = True
+
+        if video.description is not None and video.description != existing.description:
+            existing.description = video.description or None
+            updated = True
+
+        if video.thumbnail_filename is not None and video.thumbnail_filename != existing.thumbnail_filename:
+            existing.thumbnail_filename = video.thumbnail_filename
+            updated = True
+
+        if video.status is not None and video.status != existing.status:
+            existing.status = video.status or existing.status
+            updated = True
+
+        if video.scheduled_at is not None and video.scheduled_at != existing.scheduled_at:
+            existing.scheduled_at = video.scheduled_at or None
+            if video.status is None:
+                existing.status = "Scheduled" if video.scheduled_at else (existing.status or "draft")
+            updated = True
+
+        if video.category is not None and video.category != existing.category:
+            existing.category = video.category
+            updated = True
+
+        if video.course_id is not None and video.course_id != existing.course_id:
+            existing.course_id = video.course_id
+            updated = True
+
+        if updated:
+            db.add(existing)
+            db.commit()
+            db.refresh(existing)
+
+        return {"id": existing.id, "hash": existing.hash}
+
+    # Create new video
+    db_video = CourseVideo(
+        hash=video.hash,
+        filename=video.filename,
+        title=video.title or video.filename,
+        description=video.description or None,
+        status=video.status or ("Scheduled" if video.scheduled_at else "draft"),
+        scheduled_at=video.scheduled_at or None,
+        category=video.category or "uncategorized",
+        thumbnail_filename=video.thumbnail_filename,
+        course_id=video.course_id
+    )
+    db.add(db_video)
+    db.commit()
+    db.refresh(db_video)
+
+    return {"id": db_video.id, "hash": db_video.hash}
+
+@app.get("/course-videos/course/{course_id}")
+async def get_course_videos(course_id: int, db: Session = Depends(get_db)):
+    """Get all videos for a specific course from the courses database."""
+    videos = db.query(CourseVideo).filter(CourseVideo.course_id == course_id).all()
+    return {
+        "videos": [
+            {
+                "id": v.id,
+                "hash": v.hash,
+                "filename": v.filename,
+                "title": v.title,
+                "description": v.description,
+                "category": v.category,
+                "status": v.status,
+                "thumbnail_filename": v.thumbnail_filename,
+                "original_resolution": v.original_resolution,
+                "original_quality_label": v.original_quality_label,
+                "stopped": v.stopped,
+                "transcoding_status": v.transcoding_status,
+                "created_at": v.created_at.isoformat() if v.created_at else None,
+                "scheduled_at": v.scheduled_at,
+                "course_id": v.course_id
+            }
+            for v in videos
+        ]
+    }
+
+@app.get("/course-videos/{hash}")
+async def get_course_video(hash: str, db: Session = Depends(get_db)):
+    """Get a specific video by hash from the courses database."""
+    video = db.query(CourseVideo).filter(CourseVideo.hash == hash).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    return {
+        "id": video.id,
+        "hash": video.hash,
+        "filename": video.filename,
+        "title": video.title,
+        "description": video.description,
+        "category": video.category,
+        "status": video.status,
+        "thumbnail_filename": video.thumbnail_filename,
+        "original_resolution": video.original_resolution,
+        "original_quality_label": video.original_quality_label,
+        "stopped": video.stopped,
+        "transcoding_status": video.transcoding_status,
+        "created_at": video.created_at.isoformat() if video.created_at else None,
+        "scheduled_at": video.scheduled_at,
+        "course_id": video.course_id
+    }
+
+@app.patch("/course-videos/{hash}")
+async def update_course_video(hash: str, video_update: CourseVideoUpdate, db: Session = Depends(get_db)):
+    """Update a video's metadata in the courses database."""
+    video = db.query(CourseVideo).filter(CourseVideo.hash == hash).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    update_data = video_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(video, key, value)
+
+    db.commit()
+    db.refresh(video)
+
+    return {"message": "Video updated successfully", "hash": video.hash}
+
+@app.delete("/course-videos/{hash}")
+async def delete_course_video(hash: str, db: Session = Depends(get_db)):
+    """Delete a video from the courses database."""
+    video = db.query(CourseVideo).filter(CourseVideo.hash == hash).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    db.delete(video)
+    db.commit()
+
+    return {"message": "Video deleted successfully"}
 
 if __name__ == "__main__":
     import uvicorn

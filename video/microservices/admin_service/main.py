@@ -1248,6 +1248,47 @@ async def get_course_thumbnail(path: str):
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
 
+# ============================================================================
+# COURSE VIDEO METADATA PROXY ROUTES
+# ============================================================================
+
+@app.get("/videos/course/{course_id}")
+def get_course_videos(course_id: int):
+    """Proxy to course service - Get all videos for a specific course from courses database."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/course/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/course-videos/{hash}")
+def get_course_video(hash: str):
+    """Proxy to course service - Get a specific video by hash from courses database."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{hash}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.patch("/course-videos/{hash}")
+async def update_course_video(hash: str, request: Request):
+    """Proxy to course service - Update a video's metadata in courses database."""
+    try:
+        body = await request.json()
+        response = requests.patch(f"{COURSE_SERVICE_URL}/course-videos/{hash}", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.delete("/course-videos/{hash}")
+def delete_course_video(hash: str):
+    """Proxy to course service - Delete a video from courses database."""
+    try:
+        response = requests.delete(f"{COURSE_SERVICE_URL}/course-videos/{hash}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "admin_service"}
