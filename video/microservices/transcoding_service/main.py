@@ -855,9 +855,49 @@ async def transcode_trigger(upload_id: str, request: Request):
 async def transcode_status_compat(upload_id: str):
     """Return current transcode status for upload_id (compat path)."""
     status = get_status_snapshot(upload_id)
-    if status is None or status == {}:
-        raise HTTPException(status_code=404, detail="Status not found")
-    return status
+    if status and status != {}:
+        return status
+    
+    # If status file doesn't exist, check metadata service for transcoding status
+    try:
+        response = requests.get(f"{METADATA_SERVICE_URL}/videos/{upload_id}", timeout=5)
+        if response.status_code == 200:
+            video_data = response.json()
+            transcoding_status = video_data.get('transcoding_status', 'pending')
+            if transcoding_status == 'transcoding':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "running",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": video_data.get('original_resolution', ''),
+                    "original_quality_label": video_data.get('original_quality_label', '')
+                }
+            elif transcoding_status == 'completed':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "ok",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": video_data.get('original_resolution', ''),
+                    "original_quality_label": video_data.get('original_quality_label', '')
+                }
+            elif transcoding_status == 'failed':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "error",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": video_data.get('original_resolution', ''),
+                    "original_quality_label": video_data.get('original_quality_label', '')
+                }
+    except Exception as e:
+        print(f"Failed to get status from metadata service: {e}")
+    
+    raise HTTPException(status_code=404, detail="Status not found")
 
 
 @app.get("/transcode/{upload_id}/qualities")
@@ -887,9 +927,49 @@ async def transcode_qualities(upload_id: str):
 async def transcode_status(upload_id: str):
     """Get transcoding status for a video."""
     status = get_status_snapshot(upload_id)
-    if not status:
-        raise HTTPException(status_code=404, detail="Status not found")
-    return status
+    if status:
+        return status
+    
+    # If status file doesn't exist, check metadata service for transcoding status
+    try:
+        response = requests.get(f"{METADATA_SERVICE_URL}/videos/{upload_id}", timeout=5)
+        if response.status_code == 200:
+            video_data = response.json()
+            transcoding_status = video_data.get('transcoding_status', 'pending')
+            if transcoding_status == 'transcoding':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "running",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": video_data.get('original_resolution', ''),
+                    "original_quality_label": video_data.get('original_quality_label', '')
+                }
+            elif transcoding_status == 'completed':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "ok",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": video_data.get('original_resolution', ''),
+                    "original_quality_label": video_data.get('original_quality_label', '')
+                }
+            elif transcoding_status == 'failed':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "error",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": video_data.get('original_resolution', ''),
+                    "original_quality_label": video_data.get('original_quality_label', '')
+                }
+    except Exception as e:
+        print(f"Failed to get status from metadata service: {e}")
+    
+    raise HTTPException(status_code=404, detail="Status not found")
 
 @app.post("/transcode/resume")
 async def transcode_resume():

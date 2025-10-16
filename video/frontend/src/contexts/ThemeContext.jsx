@@ -42,11 +42,14 @@ export const ThemeProvider = ({ children }) => {
     if (isDark === null) return;
 
     try {
+      const root = document.documentElement;
       if (isDark) {
-        document.documentElement.classList.add('dark');
+        root.classList.remove('light');
+        root.classList.add('dark');
         localStorage.setItem('theme', 'dark');
       } else {
-        document.documentElement.classList.remove('dark');
+        root.classList.remove('dark');
+        root.classList.add('light');
         localStorage.setItem('theme', 'light');
       }
     } catch (e) {

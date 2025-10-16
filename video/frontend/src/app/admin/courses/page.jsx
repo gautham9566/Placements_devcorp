@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import TopHeader from '../../../components/admin/TopHeader';
 
-export default function CoursesPage() {
+export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchTerm: injectedSetSearchTerm }) {
   const router = useRouter();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
-  const [searchTerm, setSearchTerm] = useState('');
+  // Use searchTerm from layout when provided, otherwise local state
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
+  const searchTerm = injectedSearchTerm !== undefined ? injectedSearchTerm : localSearchTerm;
+  const setSearchTerm = injectedSetSearchTerm !== undefined ? injectedSetSearchTerm : setLocalSearchTerm;
   const [viewMode, setViewMode] = useState('grid'); // grid or list
 
   // Add state to track images that failed to load
@@ -59,7 +61,6 @@ export default function CoursesPage() {
 
   return (
     <div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
-      <TopHeader onSearchChange={setSearchTerm} searchTerm={searchTerm} />
       <div className="p-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">

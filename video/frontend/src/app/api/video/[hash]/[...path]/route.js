@@ -17,6 +17,13 @@ export async function GET(request, { params }) {
 		});
 
 		const headers = new Headers(upstreamResponse.headers);
+		// Ensure playlists and TS segments have the correct Content-Type for HLS
+		const lcPath = encodedPath.toLowerCase();
+		if (lcPath.endsWith('.m3u8')) {
+			headers.set('content-type', 'application/vnd.apple.mpegurl');
+		} else if (lcPath.endsWith('.ts')) {
+			headers.set('content-type', 'video/mp2t');
+		}
 		if (!headers.has('cache-control')) {
 			headers.set('cache-control', 'no-store');
 		}

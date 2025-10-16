@@ -2,19 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import TopHeader from '../../components/admin/TopHeader';
 import VideoList from '../../components/admin/VideoList';
 import Pagination from '../../components/admin/Pagination';
 import VideoPlayerModal from '../../components/admin/VideoPlayerModal';
 import { getApiBaseUrl } from '../../lib/apiConfig';
 
-export default function AdminPage() {
+export default function AdminPage({ searchTerm }) {
   const router = useRouter();
   const [videos, setVideos] = useState([]);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('All');
   const [sortBy, setSortBy] = useState('Date');
-  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [previewVideo, setPreviewVideo] = useState(null);
   const [editModal, setEditModal] = useState(false);
@@ -164,7 +162,10 @@ export default function AdminPage() {
     if (filter === 'Drafts') return !video.status || video.status.toLowerCase() === 'draft';
     return video.status === filter;
   }).filter(video => {
-    return video.title.toLowerCase().includes(searchTerm.toLowerCase());
+    // Safely handle missing title or undefined searchTerm
+    const title = (video.title || '').toString();
+    const q = (searchTerm || '').toString();
+    return title.toLowerCase().includes(q.toLowerCase());
   }).sort((a, b) => {
     if (sortBy === 'Date') {
       return new Date(b.created_at) - new Date(a.created_at);
@@ -288,8 +289,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
-      <TopHeader onSearchChange={setSearchTerm} searchTerm={searchTerm} />
-
       <main className="p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white dark:text-white mb-6">Uploaded Videos</h1>

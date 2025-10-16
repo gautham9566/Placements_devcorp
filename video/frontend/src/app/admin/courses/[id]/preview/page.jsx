@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import TopHeader from '../../../../../components/admin/TopHeader';
+// TopHeader provided by admin layout
 import CustomVideoPlayer from '../../../../../components/admin/CustomVideoPlayer';
 import {
   DndContext,
@@ -30,7 +30,7 @@ function SortableSection({ section, sectionIndex, children, activeSection, setAc
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: `section-${sectionIndex}` });
+  } = useSortable({ id: section.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -44,23 +44,31 @@ function SortableSection({ section, sectionIndex, children, activeSection, setAc
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3 flex-1">
             {isReordering && (
-              <div className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white">
+              <div {...listeners} className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white cursor-move">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                 </svg>
               </div>
             )}
             <button
-              onClick={() => setActiveSection(sectionIndex === activeSection ? null : sectionIndex)}
+              onClick={() => setActiveSection(section.id === activeSection ? null : section.id)}
               className="flex items-center gap-3 flex-1 text-left"
             >
+              <svg
+                className={`w-4 h-4 transition-transform duration-200 ${section.id === activeSection ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
               <div className="text-black dark:text-white font-medium">{section.title}</div>
             </button>
           </div>
           <div className="flex items-center gap-2">
             {isEditing && (
               <button
-                onClick={() => setEditingSectionTitle(editingSectionTitle === sectionIndex ? null : sectionIndex)}
+                onClick={() => setEditingSectionTitle(editingSectionTitle === section.id ? null : section.id)}
                 className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white p-1"
                 title="Edit Section Title"
               >
@@ -71,7 +79,7 @@ function SortableSection({ section, sectionIndex, children, activeSection, setAc
             )}
             {isEditing && (
               <button
-                onClick={() => onDeleteSection(sectionIndex)}
+                onClick={() => onDeleteSection(section.id)}
                 className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition-colors"
                 title="Delete Section"
               >
@@ -81,7 +89,7 @@ function SortableSection({ section, sectionIndex, children, activeSection, setAc
               </button>
             )}
             <button
-              onClick={() => setAddingLesson(sectionIndex)}
+              onClick={() => setAddingLesson(section.id)}
               className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition-colors"
             >
               Add Lesson
@@ -102,7 +110,7 @@ function SortableLesson({ lesson, lessonIndex, sectionIndex, children, setSelect
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: `lesson-${sectionIndex}-${lessonIndex}` });
+  } = useSortable({ id: lesson.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -136,16 +144,16 @@ export default function PreviewCoursePage() {
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState(0);
+  const [activeSection, setActiveSection] = useState(null); // section id
   const [transcodeStatus, setTranscodeStatus] = useState({});
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedCourse, setEditedCourse] = useState(null);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState('');
-  const [addingLesson, setAddingLesson] = useState(null); // section index
-  const [editingSectionTitle, setEditingSectionTitle] = useState(null); // section index being edited
-  const [changingLessonVideo, setChangingLessonVideo] = useState(null); // {sectionIndex, lessonIndex}
+  const [addingLesson, setAddingLesson] = useState(null); // section id
+  const [editingSectionTitle, setEditingSectionTitle] = useState(null); // section id being edited
+  const [changingLessonVideo, setChangingLessonVideo] = useState(null); // {sectionId, lessonIndex}
   const [newLesson, setNewLesson] = useState({
     title: '',
     description: '',
@@ -330,7 +338,7 @@ export default function PreviewCoursePage() {
     }
   };
 
-  const handleDeleteSection = async (sectionIndex) => {
+  const handleDeleteSection = async (sectionId) => {
     if (!confirm('Are you sure you want to delete this section? This will also delete all lessons in this section.')) {
       return;
     }
@@ -338,8 +346,9 @@ export default function PreviewCoursePage() {
     const sourceCourse = editedCourse || course;
     if (!sourceCourse || !sourceCourse.sections) return;
 
+    const sectionToDelete = sourceCourse.sections.find(s => s.id === sectionId);
     const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-    const sectionToDelete = sortedSections[sectionIndex];
+    const sectionIndex = sortedSections.findIndex(s => s.id === sectionId);
 
     // OPTIMISTIC UI UPDATE - Remove section immediately
     const updatedSections = [...sortedSections];
@@ -392,12 +401,11 @@ export default function PreviewCoursePage() {
     })();
   };
 
-  const handleEditSectionTitle = async (sectionIndex, newTitle) => {
+  const handleEditSectionTitle = async (sectionId, newTitle) => {
     const sourceCourse = editedCourse || course;
     if (!sourceCourse || !sourceCourse.sections) return;
 
-    const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-    const sectionToUpdate = sortedSections[sectionIndex];
+    const sectionToUpdate = sourceCourse.sections.find(s => s.id === sectionId);
     const oldTitle = sectionToUpdate.title;
 
     // OPTIMISTIC UI UPDATE - Update title immediately
@@ -449,12 +457,11 @@ export default function PreviewCoursePage() {
     })();
   };
 
-  const handleChangeLessonVideo = async (sectionIndex, lessonIndex, newVideoId) => {
+  const handleChangeLessonVideo = async (sectionId, lessonIndex, newVideoId) => {
     const sourceCourse = editedCourse || course;
     if (!sourceCourse || !sourceCourse.sections) return;
 
-    const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-    const sectionToUpdate = sortedSections[sectionIndex];
+    const sectionToUpdate = sourceCourse.sections.find(s => s.id === sectionId);
     const lessonToUpdate = sectionToUpdate.lessons[lessonIndex];
     const oldVideoId = lessonToUpdate.video_id;
 
@@ -993,12 +1000,11 @@ export default function PreviewCoursePage() {
     }
   };
 
-  const handleAddLesson = async (sectionIndex) => {
+  const handleAddLesson = async (sectionId) => {
     if (!newLesson.title.trim()) return;
 
     const sourceCourse = isEditing && editedCourse ? editedCourse : course;
-    const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-    const section = sortedSections[sectionIndex];
+    const section = sourceCourse.sections.find(s => s.id === sectionId);
 
     try {
       const response = await fetch(`/api/courses/${courseId}/lessons`, {
@@ -1063,12 +1069,15 @@ export default function PreviewCoursePage() {
     const sourceCourse = isEditing && editedCourse ? editedCourse : course;
 
     // Check if we're reordering sections
-    if (activeId.startsWith('section-') && overId.startsWith('section-')) {
-      const activeIndex = parseInt(activeId.replace('section-', ''));
-      const overIndex = parseInt(overId.replace('section-', ''));
+    const activeSection = sourceCourse.sections.find(s => s.id === activeId);
+    const overSection = sourceCourse.sections.find(s => s.id === overId);
 
+    if (activeSection && overSection) {
       // Sort sections by order for drag operations
       const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+      const activeIndex = sortedSections.findIndex(s => s.id === activeId);
+      const overIndex = sortedSections.findIndex(s => s.id === overId);
+
       const reorderedSections = arrayMove(sortedSections, activeIndex, overIndex);
 
       // Update the order property for each section
@@ -1106,17 +1115,31 @@ export default function PreviewCoursePage() {
       });
     }
     // Check if we're reordering lessons within a section
-    else if (activeId.startsWith('lesson-') && overId.startsWith('lesson-')) {
-      const activeSectionIndex = parseInt(activeId.split('-')[1]);
-      const activeLessonIndex = parseInt(activeId.split('-')[2]);
-      const overSectionIndex = parseInt(overId.split('-')[1]);
-      const overLessonIndex = parseInt(overId.split('-')[2]);
+    else {
+      // Find the section and lesson for active and over
+      let activeSection, activeLesson, overSection, overLesson;
 
-      if (activeSectionIndex === overSectionIndex) {
-        // Sort sections by order to get the correct section
-        const sortedSections = [...sourceCourse.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-        const section = sortedSections[activeSectionIndex];
-        const reorderedLessons = arrayMove(section.lessons, activeLessonIndex, overLessonIndex);
+      for (const section of sourceCourse.sections) {
+        if (section.lessons) {
+          const activeLessonInSection = section.lessons.find(l => l.id === activeId);
+          const overLessonInSection = section.lessons.find(l => l.id === overId);
+
+          if (activeLessonInSection) {
+            activeSection = section;
+            activeLesson = activeLessonInSection;
+          }
+          if (overLessonInSection) {
+            overSection = section;
+            overLesson = overLessonInSection;
+          }
+        }
+      }
+
+      if (activeSection && overSection && activeSection.id === overSection.id) {
+        const activeLessonIndex = activeSection.lessons.findIndex(l => l.id === activeId);
+        const overLessonIndex = overSection.lessons.findIndex(l => l.id === overId);
+
+        const reorderedLessons = arrayMove(activeSection.lessons, activeLessonIndex, overLessonIndex);
 
         // Update the order property for each lesson
         const updatedLessons = reorderedLessons.map((lesson, index) => ({
@@ -1126,7 +1149,7 @@ export default function PreviewCoursePage() {
 
         // Update the section in the original course.sections array
         const updatedSections = sourceCourse.sections.map(s => {
-          if (s.id === section.id) {
+          if (s.id === activeSection.id) {
             return {
               ...s,
               lessons: updatedLessons
@@ -1266,7 +1289,6 @@ export default function PreviewCoursePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-900">
-        <TopHeader />
         <div className="flex justify-center items-center h-screen p-6">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
@@ -1277,7 +1299,6 @@ export default function PreviewCoursePage() {
   if (!course) {
     return (
       <div className="min-h-screen bg-white dark:bg-gray-900">
-        <TopHeader />
         <div className="flex justify-center items-center h-screen p-6">
           <p className="text-black dark:text-white">Course not found</p>
         </div>
@@ -1287,7 +1308,6 @@ export default function PreviewCoursePage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      <TopHeader />
       <div className="p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
@@ -1526,7 +1546,7 @@ export default function PreviewCoursePage() {
                   {sortedSections.length === 0 ? (
                     <p className="text-gray-400">No course content available yet.</p>
                   ) : (
-                    <SortableContext items={sortedSections.map((_, index) => `section-${index}`)} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={sortedSections.map(section => section.id)} strategy={verticalListSortingStrategy}>
                       <div className="space-y-4">
                         {sortedSections.map((section, sectionIndex) => (
                           <SortableSection
@@ -1543,7 +1563,7 @@ export default function PreviewCoursePage() {
                             setEditingSectionTitle={setEditingSectionTitle}
                             onEditSectionTitle={handleEditSectionTitle}
                           >
-                              {addingLesson === sectionIndex && (
+                              {addingLesson === section.id && (
                                 <div className="px-4 pb-4">
                                   <div className="bg-gray-700 rounded-lg p-4 space-y-3">
                                     <div>
@@ -1646,7 +1666,7 @@ export default function PreviewCoursePage() {
                                     )}
                                     <div className="flex gap-2">
                                       <button
-                                        onClick={() => handleAddLesson(sectionIndex)}
+                                        onClick={() => handleAddLesson(addingLesson)}
                                         className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded transition-colors"
                                       >
                                         Add Lesson
@@ -1671,8 +1691,8 @@ export default function PreviewCoursePage() {
                                 </div>
                               )}
 
-                              {activeSection === sectionIndex && (
-                                <SortableContext items={section.lessons ? section.lessons.map((_, index) => `lesson-${sectionIndex}-${index}`) : []} strategy={verticalListSortingStrategy}>
+                              {activeSection === section.id && (
+                                <SortableContext items={section.lessons ? section.lessons.map(lesson => lesson.id) : []} strategy={verticalListSortingStrategy}>
                                   <div className="px-4 pb-4 space-y-2">
                                     {section.lessons && section.lessons.map((lesson, lessonIndex) => (
                                       <SortableLesson
@@ -1717,18 +1737,34 @@ export default function PreviewCoursePage() {
                                             </span>
                                           )}
                                           {isEditing && lesson.type === 'video' && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setChangingLessonVideo({ sectionIndex, lessonIndex });
-                                              }}
-                                              className="text-gray-400 hover:text-white p-1"
-                                              title="Change Video"
-                                            >
-                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                              </svg>
-                                            </button>
+                                            <>
+                                              {lesson.video_id && (
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleChangeLessonVideo(section.id, lessonIndex, null);
+                                                  }}
+                                                  className="text-red-400 hover:text-red-300 p-1"
+                                                  title="Remove Video"
+                                                >
+                                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                  </svg>
+                                                </button>
+                                              )}
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setChangingLessonVideo({ sectionId: section.id, lessonIndex });
+                                                }}
+                                                className="text-gray-400 hover:text-white p-1"
+                                                title="Change Video"
+                                              >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                              </button>
+                                            </>
                                           )}
                                         </div>
                                       </SortableLesson>
@@ -1737,7 +1773,7 @@ export default function PreviewCoursePage() {
                                 </SortableContext>
                               )}
 
-                              {changingLessonVideo && changingLessonVideo.sectionIndex === sectionIndex && (
+                              {changingLessonVideo && changingLessonVideo.sectionId === section.id && (
                                 <div className="px-4 pb-4">
                                   <div className="bg-gray-700 rounded-lg p-4 space-y-3">
                                     <h4 className="text-white font-medium">Change Video for Lesson</h4>
@@ -1745,7 +1781,7 @@ export default function PreviewCoursePage() {
                                       {availableVideos.map((video) => (
                                         <div
                                           key={video.hash}
-                                          onClick={() => handleChangeLessonVideo(changingLessonVideo.sectionIndex, changingLessonVideo.lessonIndex, video.hash)}
+                                          onClick={() => handleChangeLessonVideo(changingLessonVideo.sectionId, changingLessonVideo.lessonIndex, video.hash)}
                                           className="flex items-center gap-3 p-2 bg-gray-600 rounded hover:bg-gray-500 cursor-pointer transition-colors"
                                         >
                                           <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
