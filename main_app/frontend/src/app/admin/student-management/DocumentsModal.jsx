@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { FaTrash, FaFileAlt, FaTimesCircle, FaUpload, FaExternalLinkAlt, FaSpinner } from 'react-icons/fa';
+import { getApiBaseUrl } from '../../../utils/apiConfig';
 
 export default function DocumentsModal({
   isOpen,
@@ -31,7 +32,7 @@ export default function DocumentsModal({
     // Check if URL is relative (doesn't start with http)
     if (url && !url.startsWith('http')) {
       // Prepend the base URL for local development
-      return `http://localhost:8000${url}`;
+      return `${getApiBaseUrl()}${url}`;
     }
     return url;
   };

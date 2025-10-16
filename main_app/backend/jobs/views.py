@@ -5,6 +5,7 @@ from .models import CompanyForm, JobPosting
 from .serializers import CompanyFormSerializer, JobPostingCreateUpdateSerializer
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.http import HttpResponse
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -40,6 +41,8 @@ from .utils import StandardResultsSetPagination, get_paginated_response, get_cor
 from django.contrib.auth import get_user_model
 from datetime import datetime, timedelta
 from django.utils import timezone
+
+import csv
 
 User = get_user_model()
 
@@ -949,7 +952,9 @@ class CompanyFormViewSet(viewsets.ModelViewSet):
     queryset = CompanyForm.objects.all()
     serializer_class = CompanyFormSerializer
     permission_classes = [permissions.IsAuthenticated]  # TODO: Consider IsAdminUser for production
-    
+    # Use custom pagination that respects 'page_size' query param and defaults to 10
+    from .utils import StandardResultsSetPagination
+    pagination_class = StandardResultsSetPagination
     def get_queryset(self):
         # All authenticated users can see all forms (admin interface)
         # TODO: Add creator field to CompanyForm model to filter by ownership
@@ -1109,9 +1114,9 @@ class CompanyFormViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-class CompanyFormDetailView(generics.RetrieveUpdateAPIView):
+class CompanyFormDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    API endpoint to retrieve or update a specific form by ID
+    API endpoint to retrieve, update or delete a specific form by ID
     """
     queryset = CompanyForm.objects.all()
     serializer_class = CompanyFormSerializer
@@ -1129,6 +1134,13 @@ class CompanyFormDetailView(generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a CompanyForm. Only allowed for admin users per get_permissions."""
+        instance = self.get_object()
+        # Perform delete
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class AdminJobPostingCreateView(generics.CreateAPIView):
     """
@@ -1496,7 +1508,6 @@ class ApplicationExportView(APIView):
             job_id=config.get('job_id')
         )
         
-        from django.http import HttpResponse
         response = HttpResponse(
             file_data['content'],
             content_type=file_data['content_type']
@@ -2103,7 +2114,6 @@ class PlacedStudentsExportView(generics.ListAPIView):
             'student_id': 'applicant__student_profile__student_id',
             'passout_year': 'applicant__student_profile__passout_year',
             'company_name': 'job__company__name',
-            'placed_at': 'applied_at',
             'job_title': 'job__title'
         }
 
@@ -2213,71 +2223,20 @@ class PlacedStudentsExportView(generics.ListAPIView):
                         unique_students[i] = student
                         break
 
-        # Apply search filter
-        search_term = self.request.query_params.get('search', '').strip()
-        if search_term:
-            unique_students = [
-                student for student in unique_students
-                if (
-                    search_term.lower() in student['Name'].lower() or
-                    search_term.lower() in student['Student_ID'].lower() or
-                    search_term.lower() in student['Job_Title'].lower() or
-                    search_term.lower() in student['Company_Name'].lower()
-                )
-            ]
-
-        # Apply passout_year filter
-        passout_year = self.request.query_params.get('passout_year')
-        if passout_year and passout_year != 'all':
-            try:
-                year = int(passout_year)
-                unique_students = [
-                    student for student in unique_students
-                    if student['Passout_Year'] == year
-                ]
-            except (ValueError, TypeError):
-                pass
-
-        # Apply sorting
-        sort_by = self.request.query_params.get('sort_by', 'placed_at')
-        sort_order = self.request.query_params.get('sort_order', 'desc')
-
-        sort_functions = {
-            'name': lambda x: x['Name'].lower(),
-            'student_id': lambda x: x['Student_ID'].lower(),
-            'passout_year': lambda x: x['Passout_Year'] or 0,
-            'company_name': lambda x: x['Company_Name'].lower(),
-            'placed_at': lambda x: x['Placed_At'] or '',
-            'job_title': lambda x: x['Job_Title'].lower()
-        }
-
-        if sort_by in sort_functions:
-            reverse = sort_order == 'desc'
-            unique_students.sort(key=sort_functions[sort_by], reverse=reverse)
+        # Dynamically collect all unique fieldnames from the data
+        fieldnames = set()
+        for student in unique_students:
+            fieldnames.update(student.keys())
+        fieldnames = sorted(list(fieldnames))  # Sort for consistent order
 
         # Create CSV response
-        import csv
-        from django.http import HttpResponse
-
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="placed_students.csv"'
-
-        if not unique_students:
-            # Return empty CSV with headers
-            writer = csv.writer(response)
-            writer.writerow([
-                'Student_ID', 'Name', 'Email', 'Branch', 'Passout_Year', 'GPA',
-                'Job_Title', 'Company_Name', 'Job_Location', 'Salary_Min', 'Salary_Max',
-                'Placed_At', 'Job_ID'
-            ])
-            return response
-
-        # Write CSV data
-        fieldnames = [k for k in unique_students[0].keys() if k != 'source']  # Exclude source field
+        response['Content-Disposition'] = f'attachment; filename="placed_students_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(unique_students)
-
+        
         return response
 
 

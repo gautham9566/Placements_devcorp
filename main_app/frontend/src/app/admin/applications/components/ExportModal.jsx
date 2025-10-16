@@ -132,7 +132,7 @@ export default function ExportModal({ onClose, filters }) {
           showSuccess('Export Successful', `Your ${exportFormat.toUpperCase()} file has been downloaded.`);
         }
       } else {
-        showSuccess('Export Successful', `Your ${exportFormat.toUpperCase()} file has been downloaded.`);
+        showSuccess('Export Successful', `Your ${exportFormat === 'xlsx' ? 'Excel' : exportFormat.toUpperCase()} file has been downloaded.`);
       }
 
       // Create download link
@@ -183,7 +183,7 @@ export default function ExportModal({ onClose, filters }) {
             <div className="flex items-start">
               <div className="flex-shrink-0">
                 <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-4 4a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
@@ -202,7 +202,7 @@ export default function ExportModal({ onClose, filters }) {
               Export Format
             </label>
             <div className="flex gap-3">
-              {['csv', 'excel', 'pdf'].map(format => (
+              {['csv', 'xlsx', 'pdf'].map(format => (
                 <label key={format} className="flex items-center">
                   <input
                     type="radio"
@@ -325,4 +325,4 @@ export default function ExportModal({ onClose, filters }) {
       </div>
     </div>
   );
-} 
+}

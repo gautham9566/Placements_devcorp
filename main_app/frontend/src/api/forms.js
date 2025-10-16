@@ -12,6 +12,7 @@ const buildFormsQuery = (params = {}) => {
     ordering,
     limit,
     page,
+    page_size,
   } = params;
 
   if (status) {
@@ -40,6 +41,10 @@ const buildFormsQuery = (params = {}) => {
 
   if (limit) {
     queryParams.set('page_size', limit);
+  }
+
+  if (page_size) {
+    queryParams.set('page_size', page_size);
   }
 
   if (page) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   CheckCircle,
   Clock,
@@ -30,6 +31,9 @@ const MyJobs = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
+
+  const searchParams = useSearchParams();
+  const selectedId = searchParams.get('selected');
 
   const fetchApplications = async (page = 1, status = 'ALL', search = '', sort = 'recent') => {
     setLoading(true);
@@ -83,7 +87,13 @@ const MyJobs = () => {
       
       // Set selected application if not set or if current page changed
       if (!selectedApplication || page !== currentPage) {
-        setSelectedApplication(applicationsWithJobDetails[0] || null);
+        if (selectedId) {
+          // Find the application with the matching ID
+          const selectedApp = applicationsWithJobDetails.find(app => app.id.toString() === selectedId);
+          setSelectedApplication(selectedApp || applicationsWithJobDetails[0] || null);
+        } else {
+          setSelectedApplication(applicationsWithJobDetails[0] || null);
+        }
       }
     } catch (err) {
       console.error('Failed to load applied jobs:', err);
@@ -531,6 +541,38 @@ const MyJobs = () => {
                               <div>
                                 <p className="font-medium text-gray-900">Interview Scheduled</p>
                                 <p className="text-sm text-gray-500">You have been invited for an interview</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Submitted Application Details */}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Submitted Application Details</h3>
+                        <div className="space-y-4">
+                          {/* Cover Letter */}
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Cover Letter</h4>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                              <p className="text-gray-700 whitespace-pre-wrap">{selectedApplication.cover_letter || "No cover letter provided"}</p>
+                            </div>
+                          </div>
+                          
+                          {/* Additional Fields */}
+                          {selectedApplication.additional_field_responses && Object.keys(selectedApplication.additional_field_responses).length > 0 && (
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2">Additional Information</h4>
+                              <div className="space-y-3">
+                                {Object.entries(selectedApplication.additional_field_responses).map(([key, value]) => (
+                                  <div key={key} className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="font-medium text-gray-900 mb-1">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                                    {value instanceof File ? (
+                                      <p className="text-gray-700">File: {value.name}</p>
+                                    ) : (
+                                      <p className="text-gray-700">{value || "Not provided"}</p>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           )}

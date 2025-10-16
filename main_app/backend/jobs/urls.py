@@ -75,7 +75,6 @@ urlpatterns = [
     path('admin/all-applications/', AllApplicationsView.as_view(), name='all-job-applications'),
     path('job-stats/', JobStatsListView.as_view(), name='job-stats'),
     path('applications/<int:pk>/update-status/', JobApplicationStatusUpdateView.as_view(), name='application-status-update'),
-    path('forms/', CompanyFormViewSet.as_view({'get': 'list', 'post': 'create'}), name='company-forms'),
     path('forms/<uuid:pk>/', CompanyFormDetailView.as_view(), name='company-form-detail'),
     
     # Company job management

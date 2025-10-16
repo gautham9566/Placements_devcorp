@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getFormById, updateForm } from '../../../api/forms';
 import JobPostingForm from '../../../components/JobPostingForm';
+import { studentsAPI } from '../../../api/optimized';
 
 export default function CompanyFormPage() {
   const { id } = useParams();
@@ -12,6 +13,10 @@ export default function CompanyFormPage() {
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [passoutYears, setPassoutYears] = useState([]);
+  const [selectedPassoutYears, setSelectedPassoutYears] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -34,8 +39,25 @@ export default function CompanyFormPage() {
         setLoading(false);
       }
     };
+
+    const fetchMetadata = async () => {
+      try {
+        // Fetch passout years and departments from student metadata API
+        const studentsResponse = await studentsAPI.getStudents({ page_size: 1 });
+        if (studentsResponse.metadata && studentsResponse.metadata.available_years) {
+          setPassoutYears(studentsResponse.metadata.available_years);
+        }
+        if (studentsResponse.metadata && studentsResponse.metadata.available_departments) {
+          setDepartments(studentsResponse.metadata.available_departments);
+        }
+      } catch (error) {
+        console.error('Error fetching metadata:', error);
+        // Don't set error state for metadata fetch failure, just log it
+      }
+    };
     
     fetchForm();
+    fetchMetadata();
   }, [id]);
 
   const handleAccess = () => {
@@ -64,7 +86,9 @@ export default function CompanyFormPage() {
         additional_fields: jobData.additional_fields || [],
         requirements: jobData.requirements || [],
         benefits: jobData.benefits || [],
-        duration: jobData.duration || ''
+        duration: jobData.duration || '',
+        allowed_passout_years: selectedPassoutYears,
+        allowed_departments: selectedDepartments
       };
 
       await updateForm(id, {
@@ -217,6 +241,12 @@ export default function CompanyFormPage() {
               onCancel={handleCancel}
               initialData={initialData}
               companyDisabled={true}
+              passoutYears={passoutYears}
+              selectedPassoutYears={selectedPassoutYears}
+              onPassoutYearsChange={setSelectedPassoutYears}
+              departments={departments}
+              selectedDepartments={selectedDepartments}
+              onDepartmentsChange={setSelectedDepartments}
             />
           </div>
         </div>

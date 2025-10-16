@@ -18,7 +18,8 @@ import {
   Megaphone,
   BarChart3,
   Calendar,
-  Trophy
+  Trophy,
+ BookOpen 
 } from "lucide-react";
 
 export default function AdminLayout({ children }) {
@@ -33,6 +34,7 @@ export default function AdminLayout({ children }) {
         { title: 'Applications', href: '/admin/applications', icon: <IconClipboardList /> },
         { title: 'Placed Students', href: '/admin/placed-students', icon: <Trophy className="w-5 h-5" /> },
         { title: 'Student Management', href: '/admin/student-management', icon: <User className="w-5 h-5" /> },
+        { title: 'LMS', href: '/admin/lms', icon: <BookOpen className="w-5 h-5" /> },
         { title: 'Company Management', href: '/admin/companymanagement', icon: <IconMail /> },
         { title: 'Forms', href: '/admin/form', icon: <IconForms /> }
       ]

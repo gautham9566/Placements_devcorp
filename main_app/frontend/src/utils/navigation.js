@@ -10,6 +10,10 @@ import {
   IconUser
 } from '@tabler/icons-react';
 
+import {
+BookOpen 
+} from "lucide-react";
+
 // Shared navigation configuration for all student pages
 export const navigationLinks = [
   {
@@ -19,6 +23,7 @@ export const navigationLinks = [
       { title: 'Job Postings', href: '/jobpostings', icon: <IconBuilding /> },
       { title: 'Companies', href: '/companies', icon: <IconUsers /> },
       { title: 'Calendar', href: '/calendar', icon: <IconCalendarEvent /> },
+      { title: 'LMS', href: '/lms', icon: <BookOpen className="w-5 h-5" /> },
       { title: 'My Profile', href: '/profile', icon: <IconUser /> },
       { title: 'Settings', href: '/settings', icon: <IconSettings /> }
     ]
