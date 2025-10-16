@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { getApiBaseUrl } from '../../utils/apiConfig';
 
 const colleges = [
   "Amrita Vishwa Vidyapeetham",
@@ -75,7 +76,7 @@ const handleSubmit = async (e) => {
   const role = 'STUDENT';
 
   try {
-    const res = await axios.post('http://127.0.0.1:8000/api/auth/register/student/', {
+    const res = await axios.post(`${getApiBaseUrl()}/api/auth/register/student/`, {
       email,
       password,
       first_name: email.split('@')[0],

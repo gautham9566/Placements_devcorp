@@ -508,7 +508,7 @@ export default function StudentDashboard() {
                       <div
                         key={index}
                         className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
-                        onClick={() => router.push(`/applications/${application.id}`)}
+                        onClick={() => router.push(`/myjobs?selected=${application.id}`)}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
