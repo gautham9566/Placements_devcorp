@@ -84,7 +84,7 @@ class CourseVideo(Base):
     transcoding_status = Column(String, default='pending', nullable=True)  # pending, transcoding, completed, failed
     created_at = Column(DateTime, default=datetime.utcnow)
     scheduled_at = Column(String, nullable=True)
-    course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)  # Required for course videos
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)  # Required for course videos
 
     # Relationships
     course = relationship("Course")

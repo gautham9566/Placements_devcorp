@@ -6,15 +6,16 @@ export async function GET(request, { params }) {
   try {
     const { id } = await params;
 
-    // Fetch videos for this specific course from admin service
-    const response = await fetch(`${API_URL}/videos/course/${id}`);
+    // Fetch videos for this specific course from course service via admin service
+    const response = await fetch(`${API_URL}/api/courses/${id}/videos`);
 
     if (!response.ok) {
       return NextResponse.json({ error: 'Failed to fetch course videos' }, { status: response.status });
     }
 
     const data = await response.json();
-    return NextResponse.json(data.videos || []);
+    // The admin service already unwraps the videos array, so just return it
+    return NextResponse.json(Array.isArray(data) ? data : (data.videos || []));
   } catch (error) {
     console.error('Error fetching course videos:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

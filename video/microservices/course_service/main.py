@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from models import get_db, Course, Section, Lesson, CourseVideo
 from pydantic import BaseModel
@@ -9,6 +10,8 @@ from datetime import datetime
 import os
 import shutil
 import uuid
+import requests
+import logging
 
 app = FastAPI(title="Course Service", version="1.0.0")
 
@@ -19,6 +22,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Service URLs
+TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 
 # Mount static files for thumbnails from shared storage
 thumbnails_dir = os.path.abspath("../shared_storage/thumbnails")
@@ -458,7 +464,7 @@ async def update_lesson(course_id: int, lesson_id: int, lesson_update: LessonUpd
 
 @app.post("/api/courses/{course_id}/publish", response_model=dict)
 async def publish_course(course_id: int, db: Session = Depends(get_db)):
-    """Publish course"""
+    """Publish course and trigger transcoding for all course videos"""
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -466,7 +472,68 @@ async def publish_course(course_id: int, db: Session = Depends(get_db)):
     course.status = "published"
     course.updated_at = datetime.utcnow()
     db.commit()
-    return {"message": "Course published successfully"}
+
+    # Get all videos associated with this course
+    course_videos = db.query(CourseVideo).filter(CourseVideo.course_id == course_id).all()
+
+    # Trigger transcoding for each video
+    transcoding_results = []
+    for video in course_videos:
+        try:
+            # Check if video is already transcoded
+            status_response = requests.get(
+                f"{TRANSCODING_SERVICE_URL}/transcode/{video.hash}/status",
+                timeout=5
+            )
+
+            # Only trigger transcoding if video hasn't been transcoded yet
+            if status_response.status_code == 404 or (
+                status_response.status_code == 200 and
+                status_response.json().get('overall') not in ['ok', 'completed', 'finished']
+            ):
+                transcode_response = requests.post(
+                    f"{TRANSCODING_SERVICE_URL}/transcode/{video.hash}",
+                    json={"networkSpeed": 10.0},
+                    timeout=5
+                )
+
+                if transcode_response.status_code == 200:
+                    transcoding_results.append({
+                        "video_hash": video.hash,
+                        "status": "started"
+                    })
+                    print(f"[PUBLISH] Transcoding started for video {video.hash}")
+                else:
+                    error_detail = transcode_response.text
+                    try:
+                        error_json = transcode_response.json()
+                        error_detail = error_json.get('detail', transcode_response.text)
+                    except:
+                        pass
+                    transcoding_results.append({
+                        "video_hash": video.hash,
+                        "status": "failed",
+                        "error": error_detail,
+                        "status_code": transcode_response.status_code
+                    })
+                    print(f"[PUBLISH] Failed to start transcoding for video {video.hash}: {error_detail} (status: {transcode_response.status_code})")
+            else:
+                transcoding_results.append({
+                    "video_hash": video.hash,
+                    "status": "already_transcoded"
+                })
+        except requests.RequestException as e:
+            transcoding_results.append({
+                "video_hash": video.hash,
+                "status": "error",
+                "error": str(e)
+            })
+            logging.error(f"Error triggering transcoding for video {video.hash}: {e}")
+
+    return {
+        "message": "Course published successfully",
+        "transcoding_results": transcoding_results
+    }
 
 @app.post("/api/courses/{course_id}/unpublish", response_model=dict)
 async def unpublish_course(course_id: int, db: Session = Depends(get_db)):
@@ -506,6 +573,22 @@ async def upload_course_thumbnail(course_id: int, file: UploadFile = File(...), 
     db.commit()
 
     return {"message": "Thumbnail uploaded successfully", "thumbnail_url": course.thumbnail_url}
+
+@app.get("/api/courses/{course_id}/thumbnail")
+async def get_course_thumbnail(course_id: int, db: Session = Depends(get_db)):
+    """Get thumbnail for course"""
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course or not course.thumbnail_url:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    # Extract filename from URL
+    filename = course.thumbnail_url.split('/')[-1]
+    thumbnail_path = os.path.join(thumbnails_dir, filename)
+
+    if not os.path.exists(thumbnail_path):
+        raise HTTPException(status_code=404, detail="Thumbnail file not found")
+
+    return FileResponse(thumbnail_path, media_type="image/jpeg")
 
 # Course Video Metadata Endpoints
 

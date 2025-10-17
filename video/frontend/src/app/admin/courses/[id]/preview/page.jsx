@@ -39,12 +39,12 @@ function SortableSection({ section, sectionIndex, children, activeSection, setAc
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style} {...attributes} {...(isReordering ? listeners : {})}>
       <div className="border border-gray-300 dark:border-gray-700 rounded-lg">
-        <div className="flex items-center justify-between p-4">
+        <div className={`flex items-center justify-between p-4 ${isReordering ? 'cursor-move' : ''}`}>
           <div className="flex items-center gap-3 flex-1">
             {isReordering && (
-              <div {...listeners} className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white cursor-move">
+              <div className="text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                 </svg>
@@ -119,9 +119,9 @@ function SortableLesson({ lesson, lessonIndex, sectionIndex, children, setSelect
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...(isReordering ? listeners : {})}>
+    <div ref={setNodeRef} style={style} {...attributes} {...(isReordering ? listeners : {})} className={`${isReordering ? 'cursor-move' : ''}`}>
       <div
-        className={`flex items-center gap-3 p-3 bg-gray-200 dark:bg-gray-700 rounded-lg ${isReordering ? 'cursor-move' : ''} ${lesson.type === 'video' ? 'hover:bg-gray-300 dark:hover:bg-gray-600' : ''}`}
+        className={`flex items-center gap-3 p-3 bg-gray-200 dark:bg-gray-700 rounded-lg ${lesson.type === 'video' ? 'hover:bg-gray-300 dark:hover:bg-gray-600' : ''}`}
         onClick={() => lesson.type === 'video' && lesson.video_id && setSelectedVideo(lesson.video_id)}
       >
         {isReordering && (
@@ -259,19 +259,32 @@ export default function PreviewCoursePage() {
     // Calculate progress if available
     let progressBar = null;
     if (overall === 'running' && status.qualities) {
-      const qualities = Object.values(status.qualities).filter(q => q && typeof q === 'object');
+      const qualities = Object.entries(status.qualities).filter(([_, q]) => q && typeof q === 'object');
       if (qualities.length > 0) {
-        const totalProgress = qualities.reduce((sum, q) => sum + (q.progress || 0), 0);
-        const avgProgress = Math.round(totalProgress / qualities.length);
+        // Show individual quality progress bars
         progressBar = (
-          <div className="mt-1">
-            <div className="w-full bg-gray-700 rounded-full h-1.5">
-              <div
-                className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${avgProgress}%` }}
-              ></div>
-            </div>
-            <div className="text-xs text-gray-400 mt-0.5">{avgProgress}%</div>
+          <div className="mt-2 space-y-1">
+            {qualities.map(([quality, qData]) => {
+              const progress = qData.progress || 0;
+              const status = qData.status || 'pending';
+              let qualityColor = 'bg-gray-600';
+              if (status === 'completed') qualityColor = 'bg-green-500';
+              else if (status === 'running') qualityColor = 'bg-blue-500';
+              else if (status === 'error') qualityColor = 'bg-red-500';
+
+              return (
+                <div key={quality} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-12">{quality}:</span>
+                  <div className="flex-1 bg-gray-700 rounded-full h-1">
+                    <div
+                      className={`h-1 rounded-full transition-all duration-500 ${qualityColor}`}
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-gray-400 w-8">{progress}%</span>
+                </div>
+              );
+            })}
           </div>
         );
       }
@@ -574,8 +587,8 @@ export default function PreviewCoursePage() {
               console.log(`Starting transcoding for video: ${videoId}`);
 
               // Update video transcoding status to 'transcoding'
-              const updateResponse = await fetch(`/api/videos/${videoId}`, {
-                method: 'PUT',
+              const updateResponse = await fetch(`/api/course-videos/${videoId}`, {
+                method: 'PATCH',
                 headers: {
                   'Content-Type': 'application/json',
                 },
@@ -680,7 +693,7 @@ export default function PreviewCoursePage() {
             } catch (error) {
               console.error('Error polling transcoding status:', error);
             }
-          }, 3000); // Poll every 3 seconds
+          }, 1000); // Poll every 1 second for smoother progress updates
 
           // Stop polling after 30 minutes
           setTimeout(() => {

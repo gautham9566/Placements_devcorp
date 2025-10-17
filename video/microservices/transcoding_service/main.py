@@ -27,6 +27,7 @@ ORIGINALS_PATH = os.path.join(SHARED_STORAGE, "originals")
 HLS_PATH = os.path.join(SHARED_STORAGE, "hls")
 
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
+COURSE_SERVICE_URL = "http://127.0.0.1:8006"
 
 os.makedirs(HLS_PATH, exist_ok=True)
 os.makedirs(ORIGINALS_PATH, exist_ok=True)
@@ -807,12 +808,50 @@ async def transcode_trigger(upload_id: str, request: Request):
 
     network_speed = float(body.get('networkSpeed') or body.get('network_speed') or 10.0)
 
+    # First check if the video exists in metadata or course service
+    video_exists = False
+    print(f"[TRANSCODE] Checking if video {upload_id} exists...")
+    try:
+        response = requests.get(f"{METADATA_SERVICE_URL}/videos/{upload_id}", timeout=5)
+        print(f"[TRANSCODE] Metadata service response: {response.status_code}")
+        if response.status_code == 200:
+            video_exists = True
+            print(f"[TRANSCODE] Video found in metadata service")
+    except Exception as e:
+        print(f"[TRANSCODE] Error checking metadata service: {e}")
+
+    if not video_exists:
+        try:
+            response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{upload_id}", timeout=5)
+            print(f"[TRANSCODE] Course service response: {response.status_code}")
+            if response.status_code == 200:
+                video_exists = True
+                print(f"[TRANSCODE] Video found in course service")
+            else:
+                print(f"[TRANSCODE] Course service response body: {response.text}")
+        except Exception as e:
+            print(f"[TRANSCODE] Error checking course service: {e}")
+
+    if not video_exists:
+        print(f"[TRANSCODE] Video {upload_id} not found in either service")
+        raise HTTPException(status_code=404, detail="Video not found")
+
     # Determine filename: prefer existing status filename, otherwise inspect originals folder
     status = _read_status(upload_id)
     filename = None
     if status and status.get('filename'):
         filename = status.get('filename')
     else:
+        # First check if this is a course video to get the course_id
+        course_id = None
+        try:
+            course_video_response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{upload_id}", timeout=5)
+            if course_video_response.status_code == 200:
+                course_video_data = course_video_response.json()
+                course_id = course_video_data.get('course_id')
+        except Exception:
+            pass
+
         # Try legacy path first
         folder = os.path.join(ORIGINALS_PATH, upload_id)
         if os.path.exists(folder) and os.path.isdir(folder):
@@ -825,11 +864,23 @@ async def transcode_trigger(upload_id: str, request: Request):
                     filename = name
                     break
 
-        # If not found, search in course-specific folders
+        # If not found and we have course_id, check course-specific folder
+        if not filename and course_id:
+            course_folder = os.path.join(ORIGINALS_PATH, str(course_id), upload_id)
+            if os.path.exists(course_folder) and os.path.isdir(course_folder):
+                for name in os.listdir(course_folder):
+                    if name.startswith('.'):
+                        continue
+                    file_path = os.path.join(course_folder, name)
+                    if os.path.isfile(file_path):
+                        filename = name
+                        break
+
+        # If still not found, search in all course-specific folders
         if not filename:
             for item in os.listdir(ORIGINALS_PATH):
                 item_path = os.path.join(ORIGINALS_PATH, item)
-                if os.path.isdir(item_path):
+                if os.path.isdir(item_path) and item != upload_id:  # Avoid checking the legacy path again
                     course_folder = os.path.join(item_path, upload_id)
                     if os.path.exists(course_folder) and os.path.isdir(course_folder):
                         for name in os.listdir(course_folder):
@@ -843,11 +894,12 @@ async def transcode_trigger(upload_id: str, request: Request):
                         break
 
     if not filename:
-        raise HTTPException(status_code=404, detail="Source file not found")
+        raise HTTPException(status_code=404, detail="Video file not found")
 
     # Start background transcode using existing task
     thread = threading.Thread(target=transcode_video_task, args=(upload_id, filename, network_speed), daemon=True)
     thread.start()
+
     return {"status": "started", "upload_id": upload_id}
 
 
@@ -896,6 +948,45 @@ async def transcode_status_compat(upload_id: str):
                 }
     except Exception as e:
         print(f"Failed to get status from metadata service: {e}")
+    
+    # Also check course service for course videos
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{upload_id}", timeout=5)
+        if response.status_code == 200:
+            video_data = response.json()
+            transcoding_status = video_data.get('status', 'pending')
+            if transcoding_status == 'processing':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "running",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": '',
+                    "original_quality_label": ''
+                }
+            elif transcoding_status == 'completed':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "ok",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": '',
+                    "original_quality_label": ''
+                }
+            elif transcoding_status == 'failed':
+                return {
+                    "upload_id": upload_id,
+                    "filename": video_data.get('filename', ''),
+                    "overall": "error",
+                    "qualities": {},
+                    "started_at": time.time(),
+                    "original_resolution": '',
+                    "original_quality_label": ''
+                }
+    except Exception as e:
+        print(f"Failed to get status from course service: {e}")
     
     raise HTTPException(status_code=404, detail="Status not found")
 

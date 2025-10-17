@@ -25,7 +25,14 @@ const CourseCard = ({ course }) => {
   };
 
   const getThumbnailUrl = () => {
-    if (course.thumbnail_url) return course.thumbnail_url;
+    if (course.thumbnail_url) {
+      // If backend gives a /thumbnails/... path, route it through the frontend proxy at /api/thumbnails/...
+      if (course.thumbnail_url.startsWith('/thumbnails/')) {
+        return `/api${course.thumbnail_url}`;
+      }
+      // If it's an absolute URL use it directly, otherwise also prefix with /api so Next proxies it
+      return course.thumbnail_url.startsWith('http') ? course.thumbnail_url : `/api${course.thumbnail_url}`;
+    }
     if (course.thumbnail_filename) return `/api/courses/${course.id}/thumbnail`;
     return null;
   };

@@ -21,8 +21,13 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
   const getThumbnail = (url) => {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
-    if (url.startsWith('/api/') || url.startsWith('/images/') || url.startsWith('/_next/')) return url;
-    if (url.startsWith('/thumbnails')) return `/api${url}`;
+    if (url.startsWith('/api/')) return url;
+    if (url.startsWith('/images/') || url.startsWith('/_next/')) return url;
+    // Convert /thumbnails/filename to /api/thumbnails/filename
+    if (url.startsWith('/thumbnails/')) {
+      const filename = url.substring('/thumbnails/'.length);
+      return `/api/thumbnails/${filename}`;
+    }
     return url;
   };
 
@@ -136,13 +141,13 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
               </div>
             </div>
           ) : (
-            <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+            <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'space-y-4'}>
               {filteredCourses.map((course) => {
                 const thumbnailSrc = getThumbnail(course.thumbnail_url);
                 const imageBroken = brokenImages.has(course.id);
 
                 return (
-                  <div key={course.id} className={`bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700 ${viewMode === 'list' ? 'flex' : ''}`}>
+                  <div key={course.id} className={`bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700 hover:shadow-lg transition-shadow ${viewMode === 'list' ? 'flex' : ''}`}>
                     {/* Course Thumbnail */}
                     <div className={`${viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-video'} bg-gray-700 relative cursor-pointer`} onClick={() => router.push(`/admin/courses/${course.id}/preview`)}>
                       {thumbnailSrc && !imageBroken ? (
@@ -161,23 +166,23 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <svg className="w-12 h-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
                         </div>
                       )}
-                      <div className={`absolute top-2 right-2 ${getStatusBadge(course.status)} text-white text-xs px-2 py-1 rounded`}>
+                      <div className={`absolute top-1.5 right-1.5 ${getStatusBadge(course.status)} text-white text-xs px-1.5 py-0.5 rounded`}>
                         {course.status}
                       </div>
                     </div>
 
                     {/* Course Info */}
-                    <div className="p-4 flex-1 cursor-pointer" onClick={() => router.push(`/admin/courses/${course.id}/preview`)}>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{course.title}</h3>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">{course.category}</p>
-                      <div className="flex items-center justify-between text-sm text-gray-400 dark:text-gray-500">
+                    <div className="p-3 flex-1 cursor-pointer" onClick={() => router.push(`/admin/courses/${course.id}/preview`)}>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1 line-clamp-2">{course.title}</h3>
+                      <p className="text-gray-600 dark:text-gray-400 text-xs mb-1.5 truncate">{course.category}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
                         <span>{new Date(course.created_at).toLocaleDateString()}</span>
-                        <span>{course.price > 0 ? `$${course.price}` : 'Free'}</span>
+                        <span className="font-medium">{course.price > 0 ? `$${course.price}` : 'Free'}</span>
                       </div>
                     </div>
                   </div>

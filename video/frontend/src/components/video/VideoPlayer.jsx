@@ -19,7 +19,7 @@ import {
  * @param {string} props.youtubeUrl - YouTube URL for the video
  * @param {string} props.poster - Poster image URL
  * @param {string} props.className - Additional CSS classes
- * @param {string} props.height - Height of the player (default: "200px")
+ * @param {string} props.height - Height of the player (default: "100%")
  * @param {boolean} props.autoplay - Whether to autoplay the video
  * @param {string} props.videoTitle - Title of the video for accessibility
  * @param {boolean} props.showStatsButton - Whether to show the stats button
@@ -29,7 +29,7 @@ const VideoPlayer = ({
   youtubeUrl,
   poster,
   className = '',
-  height = '200px',
+  height = '100%',
   autoplay = false,
   videoTitle = 'Video',
   showStatsButton = true,
@@ -270,7 +270,7 @@ const VideoPlayer = ({
       style={{
         position: 'relative',
         width: fullscreen ? '100vw' : '100%',
-        height: fullscreen ? '100vh' : height,
+  height: fullscreen ? '100vh' : height,
         backgroundColor: '#000',
       }}
       className={className}
@@ -310,7 +310,8 @@ const VideoPlayer = ({
             style={{
               width: '100%',
               height: '100%',
-              objectFit: fullscreen ? 'contain' : 'cover',
+              /* Use contain to preserve the video's native aspect ratio inside the container */
+              objectFit: 'contain',
               borderRadius: fullscreen ? '0' : '4px',
               backgroundColor: '#000',
             }}

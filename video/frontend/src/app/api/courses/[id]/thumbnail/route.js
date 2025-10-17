@@ -1,3 +1,27 @@
+export async function GET(request, { params }) {
+  try {
+    const { id } = await params;
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/courses/${id}/thumbnail`);
+
+    if (!response.ok) {
+      return new Response('Thumbnail not found', { status: 404 });
+    }
+
+    const blob = await response.blob();
+
+    return new Response(blob, {
+      headers: {
+        'Content-Type': response.headers.get('content-type') || 'image/jpeg',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching course thumbnail:', error);
+    return new Response('Internal server error', { status: 500 });
+  }
+}
+
 export async function POST(request, { params }) {
   try {
     const { id } = await params;

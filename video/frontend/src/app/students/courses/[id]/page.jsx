@@ -207,26 +207,28 @@ export default function CourseViewPage() {
         </div>
       </div>
 
-      {/* Split Screen Layout */}
-      <div className="flex h-[calc(100vh-80px)]">
+  {/* Split Screen Layout */}
+  <div className="flex h-[calc(100vh-80px)] min-h-0 mt-6">
         {/* Left Side - Video Player (60-70%) */}
-        <div className="flex-1 lg:w-[65%] bg-black flex flex-col">
-          {currentLesson && currentLesson.video_hash ? (
+        <div className="flex-[0_0_65%] bg-black flex flex-col min-h-0">
+          {currentLesson && currentLesson.video_id ? (
             <>
-              <div className="flex-1 flex items-center justify-center">
-                <VideoPlayer
-                  videoHash={currentLesson.video_hash}
-                  youtubeUrl={currentLesson.youtube_url}
-                  poster={currentLesson.thumbnail ? `/api/thumbnail/${currentLesson.video_hash}` : undefined}
-                  height="100%"
-                  videoTitle={currentLesson.title}
-                  showStatsButton={true}
-                  autoplay={true}
-                />
+              {/* Video Player Container - takes 70% of left side height */}
+              <div className="w-full flex-shrink-0 bg-black flex items-center justify-center" style={{ height: '72.5%' }}>
+                <div className="w-full h-full max-w-6xl aspect-video" style={{ marginTop: '0' }}>
+                  <VideoPlayer
+                    videoHash={currentLesson.video_id}
+                    youtubeUrl={currentLesson.youtube_url}
+                    poster={currentLesson.thumbnail ? `/api/thumbnail/${currentLesson.video_id}` : undefined}
+                    videoTitle={currentLesson.title}
+                    showStatsButton={true}
+                    autoplay={true}
+                  />
+                </div>
               </div>
               
               {/* Video Controls */}
-              <div className="bg-gray-900 px-6 py-4 flex items-center justify-between">
+              {/* <div className="bg-gray-900 px-6 py-4 flex items-center justify-between">
                 <button
                   onClick={goToPreviousLesson}
                   className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
@@ -257,6 +259,59 @@ export default function CourseViewPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
+              </div> */}
+
+              {/* Lesson Details Section */}
+              <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700 overflow-auto" style={{ height: '30%' }}>
+                <div className="space-y-3">
+                  {/* Lesson Title */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {currentLesson.title}
+                    </h3>
+                    {currentLesson.duration && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Duration: {currentLesson.duration} minutes
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Lesson Description */}
+                  {currentLesson.description && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Description
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {currentLesson.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Lesson Resources */}
+                  {currentLesson.resources && currentLesson.resources.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Resources
+                      </h4>
+                      <div className="space-y-2">
+                        {currentLesson.resources.map((resource, index) => (
+                          <div key={index} className="flex items-center space-x-2 text-sm">
+                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span className="text-blue-600 hover:text-blue-700 cursor-pointer">
+                              {resource.title || resource.name || `Resource ${index + 1}`}
+                            </span>
+                            <span className="text-gray-500">
+                              ({resource.type || 'file'})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           ) : (
@@ -269,10 +324,10 @@ export default function CourseViewPage() {
               </div>
             </div>
           )}
-        </div>
+  </div>
 
         {/* Right Side - Course Content Panel (30-40%) */}
-        <div className="w-full lg:w-[35%] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
+  <div className="flex-[0_0_35%] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto min-h-0">
           {/* Tabs */}
           <div className="border-b border-gray-200 dark:border-gray-700">
             <div className="flex">

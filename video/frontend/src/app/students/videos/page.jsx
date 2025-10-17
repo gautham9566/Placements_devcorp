@@ -18,7 +18,7 @@ export default function VideosPage() {
       }
       const data = await response.json();
       const videosArray = Array.isArray(data) ? data : (data.videos || []);
-      const publishedVideos = videosArray.filter(v => v.status === 'published');
+      const publishedVideos = videosArray.filter(v => v.status?.toLowerCase() === 'published');
 
       setVideos(publishedVideos);
     } catch (err) {

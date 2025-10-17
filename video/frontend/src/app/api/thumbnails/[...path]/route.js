@@ -4,15 +4,16 @@ export async function GET(request, { params }) {
   try {
     const { path } = await params;
     const thumbnailPath = Array.isArray(path) ? path.join('/') : path;
-    
+
+    // Use /thumbnails (plural) to match the admin service endpoint
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/thumbnails/${thumbnailPath}`);
-    
+
     if (!response.ok) {
       return new NextResponse('Thumbnail not found', { status: 404 });
     }
 
     const blob = await response.blob();
-    
+
     return new NextResponse(blob, {
       headers: {
         'Content-Type': response.headers.get('content-type') || 'image/jpeg',
