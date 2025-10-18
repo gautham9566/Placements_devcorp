@@ -1,44 +1,148 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import VideoCard from '@/components/students/VideoCard';
+import SearchBar from '@/components/SearchBar';
 
 export default function VideosPage() {
+  const router = useRouter();
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
+  const observerRef = useRef(null);
+  const itemsPerPage = 12; // Number of videos to load per page
 
-  const fetchContent = async () => {
+  // Track if user has scrolled
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!hasScrolled && window.scrollY > 100) {
+        setHasScrolled(true);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasScrolled]);
+
+  const fetchContent = async (page = 1, append = false) => {
     try {
-      // Fetch videos from API
-      const response = await fetch('/api/videos');
+      if (!append) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+      
+      // Fetch videos from API with pagination and status filter
+      const response = await fetch(`/api/videos?page=${page}&limit=${itemsPerPage}&status=Published`);
       if (!response.ok) {
         throw new Error('Failed to fetch videos');
       }
       const data = await response.json();
-      const videosArray = Array.isArray(data) ? data : (data.videos || []);
-      const publishedVideos = videosArray.filter(v => v.status?.toLowerCase() === 'published');
-
-      setVideos(publishedVideos);
+      
+      let videosArray = [];
+      if (Array.isArray(data)) {
+        videosArray = data;
+        // For array response, we don't have pagination metadata
+        setHasMore(videosArray.length === itemsPerPage);
+        console.log('Array response, videos length:', videosArray.length, 'hasMore:', videosArray.length === itemsPerPage);
+      } else if (Array.isArray(data.videos)) {
+        videosArray = data.videos;
+        // Check if we have more pages
+        const totalPages = data.total_pages || 1;
+        setHasMore(page < totalPages);
+        console.log('Object response, page:', page, 'total_pages:', totalPages, 'hasMore:', page < totalPages, 'videos length:', videosArray.length);
+      }
+      
+      if (append) {
+        setVideos(prev => [...prev, ...videosArray]);
+      } else {
+        setVideos(videosArray);
+      }
     } catch (err) {
       setError('Failed to load videos from server.');
       console.error(err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  };
+
+  const loadMoreVideos = () => {
+    if (!loadingMore && hasMore) {
+      console.log('Loading more videos, current page:', currentPage);
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      fetchContent(nextPage, true);
+    } else {
+      console.log('Not loading more videos - loadingMore:', loadingMore, 'hasMore:', hasMore);
+    }
+  };
+
+  const resetInfiniteScroll = () => {
+    setVideos([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    setLoadingMore(false);
   };
 
   // Load content on mount
   useEffect(() => {
-    fetchContent();
+    resetInfiniteScroll();
+    fetchContent(1, false);
   }, []);
 
-  // Filter videos based on search
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    // Only set up observer if we have content, more to load, and user has scrolled
+    if (!hasMore || videos.length === 0 || !hasScrolled) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        // Only trigger if element is actually intersecting and we're not already loading
+        if (entry.isIntersecting && hasMore && !loadingMore && entry.intersectionRatio > 0) {
+          console.log('Intersection observer triggered, loading more videos');
+          loadMoreVideos();
+        }
+      },
+      { 
+        threshold: 0.1,
+        rootMargin: '200px' // Trigger 200px before the element comes into view
+      }
+    );
+
+    const currentRef = observerRef.current;
+    if (currentRef) {
+      console.log('Attaching observer to element');
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        console.log('Cleaning up observer');
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasMore, loadingMore, videos.length, hasScrolled]);
+
+  // Filter videos based on search (client-side for current loaded videos only)
   const filteredVideos = videos.filter(video =>
     video.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     video.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleSearchSubmit = (term) => {
+    const q = (term || searchTerm || '').trim();
+    if (!q) return;
+    // Always redirect to the search results page to show all matches for the keyword
+    router.push(`/students/search?q=${encodeURIComponent(q)}`);
+  };
 
   if (loading) {
     return (
@@ -52,31 +156,43 @@ export default function VideosPage() {
   }
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
+    <div className="min-h-screen p-6 w-full">
+      <div className="w-full max-w-full mx-0">
+        {/* Header with centered search using grid */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            Explore Videos
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Discover and watch our video collection
-          </p>
-        </div>
+          <div className="grid grid-cols-12 items-center gap-4">
+            {/* left: back + title */}
+            <div className="col-span-4 md:col-span-4 lg:col-span-4 flex items-center">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                aria-label="Go back"
+                className="mr-4 p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-1">Explore Videos</h1>
+                <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base">Discover and watch our video collection</p>
+              </div>
+            </div>
 
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative max-w-2xl">
-            <input
-              type="text"
-              placeholder="Search videos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 pl-12 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <svg className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            {/* center: search (centered) */}
+            <div className="col-span-12 md:col-span-4 lg:col-span-4 flex justify-center">
+              <SearchBar
+                placeholder="Search videos..."
+                value={searchTerm}
+                onChange={setSearchTerm}
+                onSubmit={handleSearchSubmit}
+                showSubmitButton={true}
+                variant="centered"
+              />
+            </div>
+
+            {/* right: empty for balance */}
+            <div className="col-span-4 md:col-span-4 lg:col-span-4"></div>
           </div>
         </div>
 
@@ -90,7 +206,7 @@ export default function VideosPage() {
               All Videos
             </h2>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {filteredVideos.length} {filteredVideos.length === 1 ? 'video' : 'videos'}
+              {videos.length} {videos.length === 1 ? 'video' : 'videos'} loaded
             </span>
           </div>
 
@@ -100,7 +216,7 @@ export default function VideosPage() {
             </div>
           )}
 
-          {filteredVideos.length === 0 ? (
+          {videos.length === 0 ? (
             <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg shadow">
               <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -110,11 +226,35 @@ export default function VideosPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredVideos.map((video) => (
-                <VideoCard key={video.id} video={video} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {videos.map((video) => (
+                  <VideoCard key={video.id} video={video} />
+                ))}
+              </div>
+              
+              {/* Infinite scroll trigger */}
+              {hasMore && (
+                <div ref={observerRef} className="flex justify-center py-8">
+                  {loadingMore ? (
+                    <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
+                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Loading more videos...</span>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 dark:text-gray-400 text-sm">
+                      Scroll down to load more videos
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {!hasMore && videos.length > 0 && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  You've reached the end of the video collection
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

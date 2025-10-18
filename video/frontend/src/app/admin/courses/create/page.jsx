@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-// TopHeader is provided by admin layout; received via layout props when needed
-
 const STEPS = [
 	{
 		id: 1,
@@ -449,7 +447,6 @@ export default function CreateCoursePage() {
 
 	return (
 		<div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
-				{/* TopHeader rendered by admin layout */}
 			<div className="p-6">
 				{/* Header */}
 				<div className="flex justify-between items-center mb-8">

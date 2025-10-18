@@ -37,30 +37,33 @@ HLS_PATH = os.path.join(SHARED_STORAGE, "hls")
 # ============================================================================
 
 @app.get("/videos")
-def get_videos():
-    """Proxy to metadata service - Get all videos."""
+def get_videos(page: int = 1, limit: int = 10, status: str = None):
+    """Proxy to metadata service - Get videos with pagination and optional status filter."""
     global _admin_videos_cache, _admin_cache_timestamp
 
-    # Check cache
-    current_time = time.time()
-    if _admin_videos_cache is not None and (current_time - _admin_cache_timestamp) < ADMIN_CACHE_TTL:
-        return _admin_videos_cache
-
+    # Always get pagination data from metadata service
     try:
-        response = requests.get(f"{METADATA_SERVICE_URL}/videos", timeout=10)
+        url = f"{METADATA_SERVICE_URL}/videos?page={page}&limit={limit}"
+        if status:
+            url += f"&status={status}"
+            
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            # Unwrap the videos array for frontend compatibility
-            if "videos" in data:
-                result = data["videos"]
-            else:
-                result = data
-
-            # Update cache
-            _admin_videos_cache = result
-            _admin_cache_timestamp = current_time
-
-            return result
+            
+            # For backward compatibility with existing frontend code that expects unwrapped array
+            # Only unwrap for the exact default case when no pagination params are expected
+            if page == 1 and limit == 10 and not status and "videos" in data and len(data["videos"]) <= 10:
+                # Check if this is truly a single page by seeing if total_pages > 1
+                if data.get("total_pages", 1) == 1:
+                    result = data["videos"]
+                    # Update cache for single page
+                    _admin_videos_cache = result
+                    _admin_cache_timestamp = time.time()
+                    return result
+            
+            # Return full pagination response for all other cases
+            return data
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")

@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Pagination from '../../../components/admin/Pagination';
 
 export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchTerm: injectedSetSearchTerm }) {
   const router = useRouter();
+  // Only store courses for the current page (max 25 courses)
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
@@ -13,6 +15,11 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
   const searchTerm = injectedSearchTerm !== undefined ? injectedSearchTerm : localSearchTerm;
   const setSearchTerm = injectedSetSearchTerm !== undefined ? injectedSetSearchTerm : setLocalSearchTerm;
   const [viewMode, setViewMode] = useState('grid'); // grid or list
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Add state to track images that failed to load
   const [brokenImages, setBrokenImages] = useState(new Set());
@@ -31,29 +38,56 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
     return url;
   };
 
+  // Reset to page 1 when filters change
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    setCurrentPage(1);
+  }, [filter, searchTerm]);
 
-  const fetchCourses = async () => {
+  const fetchCourses = async (page = 1) => {
     try {
-      const response = await fetch('/api/courses');
+      setLoading(true);
+      // Clear current courses to ensure only new page data is shown
+      setCourses([]);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '25'
+      });
+
+      if (filter !== 'All') {
+        params.set('status', filter);
+      }
+
+      if (searchTerm.trim()) {
+        params.set('search', searchTerm.trim());
+      }
+
+      const response = await fetch(`/api/courses?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        setCourses(data);
+        // Ensure we only set the courses for the current page
+        const pageCourses = data.courses || [];
+        console.log(`Loaded ${pageCourses.length} courses for page ${page}`);
+        setCourses(pageCourses);
+        setTotalPages(data.pagination?.total_pages || 1);
+        setTotalCount(data.pagination?.total_count || 0);
+      } else {
+        console.error('Failed to fetch courses:', response.status);
+        setCourses([]); // Clear courses on error
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
+      setCourses([]); // Clear courses on error
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredCourses = courses.filter(course => {
-    const matchesFilter = filter === 'All' || course.status === filter.toLowerCase();
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  const filteredCourses = courses;
+
+  useEffect(() => {
+    fetchCourses(currentPage);
+  }, [currentPage, filter, searchTerm]);
 
   const getStatusBadge = (status) => {
     const statusColors = {
@@ -69,7 +103,18 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
       <div className="p-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-white dark:text-white">Courses</h1>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => router.push('/admin')}
+              className="p-2 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+              aria-label="Go back to admin dashboard"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h1 className="text-3xl font-bold text-white dark:text-white">Courses</h1>
+          </div>
           <button
             onClick={() => router.push('/admin/courses/create')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -189,6 +234,15 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
                 );
               })}
             </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(page) => setCurrentPage(page)}
+            />
           )}
         </div>
       

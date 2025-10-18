@@ -205,10 +205,22 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
     return {"id": db_video.id, "hash": db_video.hash}
 
 @app.get("/videos")
-async def get_videos(db: Session = Depends(get_db)):
-    """Get all videos."""
-    # Fetch from database
-    videos = db.query(Video).all()
+async def get_videos(page: int = 1, limit: int = 10, status: str = None, db: Session = Depends(get_db)):
+    """Get videos with pagination and optional status filter."""
+    # Calculate offset
+    offset = (page - 1) * limit
+    
+    # Build query with optional status filter
+    query = db.query(Video)
+    if status:
+        query = query.filter(Video.status == status)
+    
+    # Get total count with filter
+    total_count = query.count()
+    
+    # Fetch videos with pagination and filter
+    videos = query.offset(offset).limit(limit).all()
+    
     result = {
         "videos": [
             {
@@ -229,7 +241,11 @@ async def get_videos(db: Session = Depends(get_db)):
                 "course_id": v.course_id
             }
             for v in videos
-        ]
+        ],
+        "total": total_count,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total_count + limit - 1) // limit  # Ceiling division
     }
 
     return result

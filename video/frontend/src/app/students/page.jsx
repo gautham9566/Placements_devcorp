@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import SearchBar from '@/components/SearchBar';
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -15,13 +16,15 @@ export default function StudentDashboard() {
     recentActivity: []
   });
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState('');
 
   const fetchStats = async () => {
     try {
       // Fetch courses from API
       const coursesResponse = await fetch('/api/courses');
-      const courses = coursesResponse.ok ? await coursesResponse.json() : [];
-      const publishedCourses = Array.isArray(courses) ? courses.filter(c => c.status === 'published') : [];
+      const coursesData = coursesResponse.ok ? await coursesResponse.json() : { courses: [] };
+      const courses = coursesData.courses || [];
+      const publishedCourses = courses.filter(c => c.status === 'published');
 
       // Fetch videos from API
       const videosResponse = await fetch('/api/videos');
@@ -72,6 +75,12 @@ export default function StudentDashboard() {
     return `${mins}m`;
   };
 
+  const handleSearchSubmit = (term) => {
+    const q = (term || searchInput || '').trim();
+    if (!q) return;
+    router.push(`/students/search?q=${encodeURIComponent(q)}`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -88,12 +97,25 @@ export default function StudentDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, Student!
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Track your learning progress and continue your journey
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+                Welcome back, Student!
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Track your learning progress and continue your journey
+              </p>
+            </div>
+            <div className="w-full max-w-md">
+              <SearchBar
+                placeholder="Search courses and videos..."
+                value={searchInput}
+                onChange={setSearchInput}
+                onSubmit={handleSearchSubmit}
+                showSubmitButton={true}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Stats Cards */}

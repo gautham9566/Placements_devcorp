@@ -2,9 +2,19 @@ import { NextResponse } from 'next/server';
 
 const COURSE_SERVICE_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export async function GET() {
+export async function GET(request) {
   try {
-  const response = await fetch(`${COURSE_SERVICE_URL}/api/courses`);
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get('page') || '1';
+    const limit = searchParams.get('limit') || '25';
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
+
+    const queryParams = new URLSearchParams({ page, limit });
+    if (status) queryParams.set('status', status);
+    if (search) queryParams.set('search', search);
+
+    const response = await fetch(`${COURSE_SERVICE_URL}/api/courses?${queryParams.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to fetch courses');
     }

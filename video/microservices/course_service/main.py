@@ -125,25 +125,55 @@ async def create_course(course: CourseCreate, db: Session = Depends(get_db)):
     db.refresh(db_course)
     return {"course_id": db_course.id, "message": "Course created successfully"}
 
-@app.get("/api/courses", response_model=List[dict])
-async def list_courses(db: Session = Depends(get_db)):
-    """List all courses"""
-    courses = db.query(Course).all()
-    # Return a richer list so frontends can render thumbnails, category and price without fetching each course individually
-    return [
-        {
-            "id": c.id,
-            "title": c.title,
-            "status": c.status,
-            "created_at": c.created_at.isoformat(),
-            "updated_at": c.updated_at.isoformat() if getattr(c, 'updated_at', None) else None,
-            "thumbnail_url": c.thumbnail_url,
-            "category": c.category,
-            "price": c.price,
-            "currency": c.currency,
+@app.get("/api/courses", response_model=dict)
+async def list_courses(page: int = 1, limit: int = 25, status: Optional[str] = None, search: Optional[str] = None, db: Session = Depends(get_db)):
+    """List courses with pagination and filtering"""
+    # Build query
+    query = db.query(Course)
+
+    # Apply filters
+    if status and status.lower() != 'all':
+        query = query.filter(Course.status == status.lower())
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(Course.title.ilike(search_term))
+
+    # Get total count with filters applied
+    total_count = query.count()
+
+    # Calculate offset
+    offset = (page - 1) * limit
+
+    # Get paginated courses
+    courses = query.offset(offset).limit(limit).all()
+
+    # Calculate total pages
+    total_pages = (total_count + limit - 1) // limit
+
+    # Return paginated response
+    return {
+        "courses": [
+            {
+                "id": c.id,
+                "title": c.title,
+                "status": c.status,
+                "created_at": c.created_at.isoformat(),
+                "updated_at": c.updated_at.isoformat() if getattr(c, 'updated_at', None) else None,
+                "thumbnail_url": c.thumbnail_url,
+                "category": c.category,
+                "price": c.price,
+                "currency": c.currency,
+            }
+            for c in courses
+        ],
+        "pagination": {
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "limit": limit
         }
-        for c in courses
-    ]
+    }
 
 @app.get("/api/courses/{course_id}", response_model=dict)
 async def get_course(course_id: int, db: Session = Depends(get_db)):

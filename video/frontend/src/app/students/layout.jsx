@@ -1,19 +1,17 @@
 "use client";
 
 import React from 'react';
-import StudentSidebar from '@/components/students/StudentSidebar';
 
 /**
  * Layout for Student Portal
- * Includes sidebar navigation
+ * Sidebar removed — pages should render full width now
  */
 export default function StudentsLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <StudentSidebar />
-      <div className="ml-20 transition-all duration-300">
+      <main className="transition-all duration-300">
         {children}
-      </div>
+      </main>
     </div>
   );
 }

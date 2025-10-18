@@ -1,6 +1,10 @@
-export async function GET() {
+export async function GET(request) {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/videos`);
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get('page') || '1';
+    const limit = searchParams.get('limit') || '10';
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/videos?page=${page}&limit=${limit}`);
     if (!response.ok) {
       return Response.json({ error: 'Failed to fetch videos' }, { status: response.status });
     }
