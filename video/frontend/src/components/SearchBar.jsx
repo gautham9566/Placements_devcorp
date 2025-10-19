@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const SearchBar = ({
   placeholder = "Search...",
@@ -9,19 +9,35 @@ const SearchBar = ({
   variant = "default", // "default", "centered", "admin"
   className = ""
 }) => {
+  // Local buffer so we only propagate changes when user presses Enter (or clicks submit)
+  const [inputValue, setInputValue] = useState(value || '');
+  const inputRef = useRef(null);
+
+  // Sync when external value changes
+  useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
+
+  const commit = (val) => {
+    if (onChange) onChange(val);
+    if (onSubmit) onSubmit(val);
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (onSubmit) {
-        onSubmit(value);
-      }
+      commit(inputValue);
+    }
+    if (e.key === 'Escape') {
+      // Clear on Escape for convenience
+      setInputValue('');
+      // do not auto-commit; user can press Enter to search empty string if desired
+      if (inputRef.current) inputRef.current.blur();
     }
   };
 
   const handleSubmitClick = () => {
-    if (onSubmit) {
-      onSubmit(value);
-    }
+    commit(inputValue);
   };
 
   const baseInputClasses = "w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent";
@@ -31,7 +47,8 @@ const SearchBar = ({
       case "centered":
         return `${baseInputClasses} px-16 text-lg font-medium`;
       case "admin":
-        return "px-4 py-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500";
+        // admin variant: slightly more compact padding, full width, and expand/visual emphasis on focus
+        return "w-full px-4 py-2 rounded-lg bg-gray-700 text-white placeholder-gray-400 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:shadow-lg transition-all";
       default:
         return baseInputClasses;
     }
@@ -42,7 +59,8 @@ const SearchBar = ({
       case "centered":
         return "relative max-w-4xl px-4";
       case "admin":
-        return "";
+        // allow the admin search to expand on larger screens
+        return "relative w-full max-w-md md:max-w-lg lg:max-w-2xl transition-all";
       default:
         return "relative max-w-2xl";
     }
@@ -52,16 +70,17 @@ const SearchBar = ({
     <div className={`${getContainerClasses()} ${className}`}>
       <div className="relative">
         <input
+          ref={inputRef}
           type="text"
           placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           className={getInputClasses()}
         />
 
         {/* Right submit button (optional) */}
-        {showSubmitButton && onSubmit && (
+        {showSubmitButton && (
           <button
             type="button"
             aria-label="Search"

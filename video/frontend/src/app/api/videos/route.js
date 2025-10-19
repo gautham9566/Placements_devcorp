@@ -3,8 +3,17 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const page = searchParams.get('page') || '1';
     const limit = searchParams.get('limit') || '10';
+    const status = searchParams.get('status');
+    const search = searchParams.get('search');
     
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/videos?page=${page}&limit=${limit}`);
+    // Build query string for backend
+    const backendParams = new URLSearchParams();
+    backendParams.set('page', page);
+    backendParams.set('limit', limit);
+    if (status) backendParams.set('status', status);
+    if (search) backendParams.set('search', search);
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/videos?${backendParams.toString()}`);
     if (!response.ok) {
       return Response.json({ error: 'Failed to fetch videos' }, { status: response.status });
     }

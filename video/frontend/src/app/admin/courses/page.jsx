@@ -14,6 +14,8 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
   const [localSearchTerm, setLocalSearchTerm] = useState('');
   const searchTerm = injectedSearchTerm !== undefined ? injectedSearchTerm : localSearchTerm;
   const setSearchTerm = injectedSetSearchTerm !== undefined ? injectedSetSearchTerm : setLocalSearchTerm;
+  // Local input state for search bar
+  const [inputSearchTerm, setInputSearchTerm] = useState(searchTerm);
   const [viewMode, setViewMode] = useState('grid'); // grid or list
 
   // Pagination state
@@ -38,10 +40,10 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
     return url;
   };
 
-  // Reset to page 1 when filters change
+  // Sync input search term with search term
   useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, searchTerm]);
+    setInputSearchTerm(searchTerm);
+  }, [searchTerm]);
 
   const fetchCourses = async (page = 1) => {
     try {
@@ -129,8 +131,13 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
             <input
               type="text"
               placeholder="Search courses..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={inputSearchTerm}
+              onChange={(e) => setInputSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setSearchTerm(inputSearchTerm);
+                }
+              }}
               className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

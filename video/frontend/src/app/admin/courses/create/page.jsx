@@ -818,7 +818,7 @@ function CourseStructureStep({ courseData, updateCourseData }) {
 													<option value="">Select a video...</option>
 													{courseData.videos.map((video) => (
 														<option key={video.hash} value={video.hash}>
-															{video.filename} ({video.hash.slice(0, 8)}...)
+															{video.title || 'Untitled'} ({video.hash.slice(0, 8)}...)
 														</option>
 													))}
 												</select>
@@ -1120,7 +1120,7 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 									<div key={video.hash} className="bg-gray-700 rounded-lg p-3">
 										<div className="flex items-center justify-between mb-2">
 											<div className="flex-1">
-												<p className="text-white font-medium">{video.filename}</p>
+												<p className="text-white font-medium">{video.title || 'Untitled'}</p>
 												<p className="text-gray-400 text-sm">
 													ID: {video.hash.slice(0, 8)}... | Uploaded: {new Date(video.uploaded_at).toLocaleDateString()}
 												</p>

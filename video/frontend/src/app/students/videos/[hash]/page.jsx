@@ -197,7 +197,7 @@ export default function VideoViewPage() {
                   videoHash={video.hash}
                   youtubeUrl={video.youtube_url}
                   poster={video.thumbnail_filename ? `/api/thumbnail/${video.hash}` : undefined}
-                  videoTitle={video.filename}
+                  videoTitle={video.title || 'Untitled Video'}
                   showStatsButton={true}
                   autoplay={false}
                 />
@@ -206,7 +206,7 @@ export default function VideoViewPage() {
 
             {/* Title + actions */}
             <div className="text-gray-900 dark:text-white">
-              <h1 className="text-2xl font-semibold mb-2">{video.filename}</h1>
+              <h1 className="text-2xl font-semibold mb-2">{video.title || 'Untitled Video'}</h1>
 {/* 
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-4">
@@ -283,10 +283,10 @@ export default function VideoViewPage() {
                       className="flex items-start space-x-4 cursor-pointer"
                     >
                       <div className="w-56 h-32 rounded-md overflow-hidden bg-gray-800 flex-shrink-0">
-                        <img src={rv.thumbnail_filename ? `/api/thumbnail/${rv.hash}` : '/images/placeholder.png'} alt={rv.filename || rv.title} className="w-full h-full object-cover" />
+                        <img src={rv.thumbnail_filename ? `/api/thumbnail/${rv.hash}` : '/images/placeholder.png'} alt={rv.title || 'Video thumbnail'} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-lg text-gray-100 line-clamp-2">{rv.filename || rv.title}</div>
+                        <div className="font-semibold text-lg text-gray-100 line-clamp-2">{rv.title || 'Untitled Video'}</div>
                         <div className="text-sm text-gray-300 mt-1">{rv.views ? `${rv.views.toLocaleString()} views • ` : ''}{rv.created_at ? formatDate(rv.created_at) : ''}</div>
                       </div>
                     </div>
@@ -333,7 +333,7 @@ function SearchBar() {
         const data = await res.json();
         const arr = Array.isArray(data) ? data : (data.videos || []);
         const q = query.trim().toLowerCase();
-        const matched = arr.filter(v => (v.filename || v.title || '').toLowerCase().includes(q));
+        const matched = arr.filter(v => (v.title || '').toLowerCase().includes(q));
         setSuggestions(matched.slice(0, 8));
         setShow(true);
       } catch (e) {
@@ -411,7 +411,7 @@ function SearchBar() {
               onMouseDown={(e) => { e.preventDefault(); onSelect(s); }}
               className={`px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${highlight === idx ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
             >
-              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{s.filename || s.title}</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{s.title || 'Untitled Video'}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">{s.views ? `${s.views.toLocaleString()} views` : ''}</div>
             </div>
           ))}

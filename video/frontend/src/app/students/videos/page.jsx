@@ -38,8 +38,20 @@ export default function VideosPage() {
         setLoadingMore(true);
       }
       
-      // Fetch videos from API with pagination and status filter
-      const response = await fetch(`/api/videos?page=${page}&limit=${itemsPerPage}&status=Published`);
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+        status: 'Published'
+      });
+      
+      // Add search parameter if searching
+      if (searchTerm && searchTerm.trim()) {
+        params.set('search', searchTerm.trim());
+      }
+      
+      // Fetch videos from API with pagination, status filter, and search
+      const response = await fetch(`/api/videos?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch videos');
       }
@@ -91,11 +103,11 @@ export default function VideosPage() {
     setLoadingMore(false);
   };
 
-  // Load content on mount
+  // Load content on mount and when search changes
   useEffect(() => {
     resetInfiniteScroll();
     fetchContent(1, false);
-  }, []);
+  }, [searchTerm]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -131,11 +143,8 @@ export default function VideosPage() {
     };
   }, [hasMore, loadingMore, videos.length, hasScrolled]);
 
-  // Filter videos based on search (client-side for current loaded videos only)
-  const filteredVideos = videos.filter(video =>
-    video.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    video.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Videos are now filtered server-side, so we use videos directly
+  const displayVideos = videos;
 
   const handleSearchSubmit = (term) => {
     const q = (term || searchTerm || '').trim();

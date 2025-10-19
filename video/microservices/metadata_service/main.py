@@ -205,7 +205,7 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
     return {"id": db_video.id, "hash": db_video.hash}
 
 @app.get("/videos")
-async def get_videos(page: int = 1, limit: int = 10, status: str = None, db: Session = Depends(get_db)):
+async def get_videos(page: int = 1, limit: int = 10, status: str = None, search: str = None, db: Session = Depends(get_db)):
     """Get videos with pagination and optional status filter."""
     # Calculate offset
     offset = (page - 1) * limit
@@ -214,6 +214,13 @@ async def get_videos(page: int = 1, limit: int = 10, status: str = None, db: Ses
     query = db.query(Video)
     if status:
         query = query.filter(Video.status == status)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Video.title.ilike(search_term)) | 
+            (Video.description.ilike(search_term))
+        )
     
     # Get total count with filter
     total_count = query.count()

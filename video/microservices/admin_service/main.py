@@ -6,6 +6,8 @@ import requests
 import os
 import shutil
 import time
+from typing import Optional
+from urllib.parse import urlencode
 
 # Simple cache for videos endpoint
 _admin_videos_cache = None
@@ -37,7 +39,7 @@ HLS_PATH = os.path.join(SHARED_STORAGE, "hls")
 # ============================================================================
 
 @app.get("/videos")
-def get_videos(page: int = 1, limit: int = 10, status: str = None):
+def get_videos(page: int = 1, limit: int = 10, status: str = None, search: str = None):
     """Proxy to metadata service - Get videos with pagination and optional status filter."""
     global _admin_videos_cache, _admin_cache_timestamp
 
@@ -46,6 +48,8 @@ def get_videos(page: int = 1, limit: int = 10, status: str = None):
         url = f"{METADATA_SERVICE_URL}/videos?page={page}&limit={limit}"
         if status:
             url += f"&status={status}"
+        if search:
+            url += f"&search={search}"
             
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
@@ -53,7 +57,7 @@ def get_videos(page: int = 1, limit: int = 10, status: str = None):
             
             # For backward compatibility with existing frontend code that expects unwrapped array
             # Only unwrap for the exact default case when no pagination params are expected
-            if page == 1 and limit == 10 and not status and "videos" in data and len(data["videos"]) <= 10:
+            if page == 1 and limit == 10 and not status and not search and "videos" in data and len(data["videos"]) <= 10:
                 # Check if this is truly a single page by seeing if total_pages > 1
                 if data.get("total_pages", 1) == 1:
                     result = data["videos"]
@@ -1114,9 +1118,24 @@ COURSE_SERVICE_URL = "http://localhost:8006"
 
 
 @app.get("/api/courses")
-def api_get_courses():
+def api_get_courses(page: int = 1, limit: int = 25, status: Optional[str] = None, search: Optional[str] = None):
     try:
-        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses", timeout=10)
+        # Forward query parameters to course service
+        query_params = []
+        if page != 1:
+            query_params.append(f"page={page}")
+        if limit != 25:
+            query_params.append(f"limit={limit}")
+        if status:
+            query_params.append(f"status={status}")
+        if search:
+            query_params.append(f"search={search}")
+        
+        url = f"{COURSE_SERVICE_URL}/api/courses"
+        if query_params:
+            url += "?" + "&".join(query_params)
+        
+        response = requests.get(url, timeout=10)
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
@@ -1261,10 +1280,15 @@ async def api_upload_course_thumbnail(course_id: int, file: UploadFile = File(..
 
 
 @app.get("/courses")
-def get_courses():
+def get_courses(request: Request):
     """Proxy to course service - Get all courses."""
     try:
-        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses", timeout=10)
+        # Forward all query parameters to course service
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{COURSE_SERVICE_URL}/api/courses"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.get(url, timeout=10)
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")

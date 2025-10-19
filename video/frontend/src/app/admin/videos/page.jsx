@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import VideoList from '../../../components/admin/VideoList';
 import Pagination from '../../../components/admin/Pagination';
@@ -10,7 +10,7 @@ import SearchBar from '../../../components/SearchBar';
 import VideoCard from '../../../components/students/VideoCard';
 import CourseCard from '../../../components/students/CourseCard';
 
-export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} }) {
+export default function AdminPage({ searchTerm: propSearchTerm = '', setSearchTerm: propSetSearchTerm = () => {} }) {
   const router = useRouter();
   const [videos, setVideos] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -34,13 +34,44 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [searchTerm, setSearchTerm] = useState(propSearchTerm);
+  const [loading, setLoading] = useState(false);
   const itemsPerPage = 10;
 
   const fetchVideos = async (page = 1) => {
     try {
       // Use getApiBaseUrl for automatic network switching
       const base = getApiBaseUrl();
-      const url = `${base}/videos?page=${page}&limit=${itemsPerPage}`;
+      let url = `${base}/videos?page=${page}&limit=${itemsPerPage}`;
+      // Add status filter (server-side) if not 'All'
+      if (filter && filter !== 'All') {
+        // Map local 'Drafts' to server 'draft' or 'Draft'
+        const status = filter === 'Drafts' ? 'Draft' : filter;
+        url += `&status=${encodeURIComponent(status)}`;
+      }
+
+      // Add date range filters if present (server expects ISO datetimes)
+      if (dateFrom) {
+        // Ensure seconds format if only date/time provided
+        const from = dateFrom.length === 16 ? `${dateFrom}:00` : dateFrom;
+        url += `&date_from=${encodeURIComponent(from)}`;
+      }
+      if (dateTo) {
+        const to = dateTo.length === 16 ? `${dateTo}:00` : dateTo;
+        url += `&date_to=${encodeURIComponent(to)}`;
+      }
+
+      // Add sort param
+      if (sortBy) {
+        // Only 'Date' implemented for now; allow 'date' server param
+        if (sortBy === 'Date') url += `&sort_by=date`;
+      }
+      
+      // Add search parameter if searching
+      if (searchTerm && searchTerm.trim()) {
+        url += `&search=${encodeURIComponent(searchTerm.trim())}`;
+      }
+      
       const response = await fetch(url, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
@@ -89,7 +120,13 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
   const fetchCourses = async () => {
     try {
       const base = getApiBaseUrl();
-      const url = `${base}/courses?status=published&limit=1000`;
+      let url = `${base}/courses?status=published&limit=1000`;
+      
+      // Add search parameter if searching
+      if (searchTerm && searchTerm.trim()) {
+        url += `&search=${encodeURIComponent(searchTerm.trim())}`;
+      }
+      
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
@@ -98,6 +135,18 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
       }
     } catch (error) {
       console.error('Failed to fetch courses:', error);
+    }
+  };
+
+  const fetchAllData = async (page = 1) => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchVideos(page),
+        fetchCourses()
+      ]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -276,25 +325,24 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
     }
   };
 
-  // load videos on mount and when page changes
+  // load videos on mount and when page or search changes
   React.useEffect(() => {
-    fetchVideos(currentPage);
-  }, [currentPage]);
+    fetchAllData(currentPage);
+  }, [currentPage, searchTerm, filter, dateFrom, dateTo, sortBy]);
 
   // load categories on mount
   React.useEffect(() => {
     fetchCategories();
-    fetchCourses();
   }, []);
 
   // Auto-refresh videos every 30 seconds to check for scheduled video status changes
   React.useEffect(() => {
     const interval = setInterval(() => {
-      fetchVideos(currentPage);
+      fetchAllData(currentPage);
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, [currentPage]);
+  }, [currentPage, searchTerm]);
 
   return (
     <div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
@@ -316,7 +364,7 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
 
             {/* Centered SearchBar */}
             <div className="flex-1 flex justify-center px-4">
-              <div className="w-full max-w-md">
+              <div className="w-full max-w-3xl">
                 <SearchBar
                   placeholder="Search videos..."
                   value={searchTerm || ''}
@@ -333,10 +381,18 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
 
         {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
-        {(searchTerm || '').trim() ? (
-          // Search mode with tabs
-          <>
-            {/* Tabs */}
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="text-gray-600 dark:text-gray-400">Loading...</span>
+            </div>
+          </div>
+        ) : 
+          (searchTerm || '').trim() ? (
+              <div>
+                {/* Search mode with tabs */}
+                {/* Tabs */}
             <div className="mb-6">
               <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
                 <button
@@ -347,7 +403,7 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  All ({videos.filter(v => (v.filename || v.title || '').toLowerCase().includes((searchTerm || '').toLowerCase())).length + courses.filter(c => (c.title || c.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())).length})
+                  All ({videos.length + courses.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('videos')}
@@ -357,7 +413,7 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Videos ({videos.filter(v => (v.filename || v.title || '').toLowerCase().includes((searchTerm || '').toLowerCase())).length})
+                  Videos ({videos.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('courses')}
@@ -367,7 +423,7 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Courses ({courses.filter(c => (c.title || c.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())).length})
+                  Courses ({courses.length})
                 </button>
               </div>
             </div>
@@ -375,23 +431,20 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
             {/* Search Results */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
               {(() => {
-                const filteredVideos = videos.filter(v => (v.filename || v.title || '').toLowerCase().includes((searchTerm || '').toLowerCase()));
-                const filteredCourses = courses.filter(c => (c.title || c.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()));
-
                 let results = [];
                 if (activeTab === 'all') {
                   results = [
-                    ...filteredVideos.map(v => ({ ...v, type: 'video' })),
-                    ...filteredCourses.map(c => ({ ...c, type: 'course' }))
+                    ...videos.map(v => ({ ...v, type: 'video' })),
+                    ...courses.map(c => ({ ...c, type: 'course' }))
                   ];
                 } else if (activeTab === 'videos') {
-                  results = filteredVideos.map(v => ({ ...v, type: 'video' }));
+                  results = videos.map(v => ({ ...v, type: 'video' }));
                 } else if (activeTab === 'courses') {
-                  results = filteredCourses.map(c => ({ ...c, type: 'course' }));
+                  results = courses.map(c => ({ ...c, type: 'course' }));
                 }
 
                 return results.map(r => (
-                  <div key={`${r.type}-${r.id}`}>
+                  <div key={`${r.type}-${r.id || r.hash}`}>
                     {r.type === 'video' ? (
                       <VideoCard video={r} />
                     ) : (
@@ -401,10 +454,10 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
                 ));
               })()}
             </div>
-          </>
-        ) : (
-          // Admin management mode
-          <>
+            </div>
+          ) : (
+            <div>
+              {/* Admin management mode */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
@@ -510,7 +563,7 @@ export default function AdminPage({ searchTerm = '', setSearchTerm = () => {} })
                 onPageChange={setCurrentPage}
               />
             )}
-          </>
+          </div>
         )}
       </main>
 

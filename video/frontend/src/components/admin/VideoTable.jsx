@@ -14,7 +14,7 @@ export default function VideoTable({ videos, transcodeStatus, qualities, deletin
               <tr className="bg-blue-600 text-white">
                 <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">ID</th>
                 <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Video ID (Hash)</th>
-                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Filename</th>
+                <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Title</th>
                 <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Transcode</th>
                 <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Thumbnail</th>
                 <th className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-left">Delete</th>
@@ -25,7 +25,7 @@ export default function VideoTable({ videos, transcodeStatus, qualities, deletin
                 <tr key={video.id} className={`${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : 'bg-white dark:bg-gray-800'} transition-colors duration-200`}>
                   <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white">{video.id}</td>
                   <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white font-mono">{video.hash}</td>
-                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white">{video.filename}</td>
+                  <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white">{video.title || 'Untitled'}</td>
                   <td className="border border-gray-300 dark:border-gray-600 px-3 py-3 text-gray-900 dark:text-white min-w-60">
                     <TranscodeStatus video={video} transcodeStatus={transcodeStatus} qualities={qualities} stopTranscode={stopTranscode} resumeTranscode={resumeTranscode} />
                   </td>

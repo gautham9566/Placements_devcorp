@@ -38,7 +38,7 @@ export default function UploadDialog({ show, onClose, videoFile, setVideoFile, t
               className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="">Choose a video...</option>
-              {videosWithoutThumbnail.map(v => <option key={v.hash} value={v.hash}>{v.filename} ({v.hash.slice(0,8)}...)</option>)}
+              {videosWithoutThumbnail.map(v => <option key={v.hash} value={v.hash}>{v.title || 'Untitled'} ({v.hash.slice(0,8)}...)</option>)}
             </select>
           </div>
         )}

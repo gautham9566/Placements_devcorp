@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import VideoCard from '@/components/students/VideoCard';
 import CourseCard from '@/components/students/CourseCard';
@@ -19,6 +19,7 @@ export default function SearchResultsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [searchInput, setSearchInput] = useState(q);
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'videos', 'courses'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid', 'list'
   const LIMIT = 100;
 
   const term = (q || '').trim().toLowerCase();
@@ -40,28 +41,50 @@ export default function SearchResultsPage() {
     setLoading(true);
     setSearchInput(q); // Sync search input with URL parameter
     fetchPage(1);
-  }, [q]);
+  }, [q]); // Only depend on q to avoid unnecessary re-renders
 
   const fetchPage = async (page) => {
     try {
-      // Fetch videos
-      const videoRes = await fetch(`/api/videos?page=${page}&limit=${LIMIT}`);
+      // Fetch videos with search parameter
+      const videoParams = new URLSearchParams({
+        page: page.toString(),
+        limit: LIMIT.toString(),
+        status: 'Published'
+      });
+      if (term) {
+        videoParams.set('search', term);
+      }
+      const videoRes = await fetch(`/api/videos?${videoParams.toString()}`);
       if (!videoRes.ok) throw new Error('Failed to fetch videos');
       const videoData = await videoRes.json();
       const videosArr = Array.isArray(videoData) ? videoData : (videoData.videos || []);
-      setAllVideos(prev => [...prev, ...videosArr]);
+      setAllVideos(prev => {
+        // Remove duplicates based on id before appending
+        const uniqueVideosArr = videosArr.filter(video => !prev.some(existing => existing.id === video.id));
+        return [...prev, ...uniqueVideosArr];
+      });
       // Check if more video pages
       const totalVideoPages = videoData.total_pages || Math.ceil(videoData.total / LIMIT);
       const hasMoreVideos = page < totalVideoPages && videosArr.length === LIMIT;
 
-      // Fetch courses (all at once for simplicity)
-      if (page === 1) {
-        const courseRes = await fetch(`/api/courses?status=published&limit=1000`); // Fetch many courses
-        if (courseRes.ok) {
-          const courseData = await courseRes.json();
-          const coursesArr = courseData.courses || [];
-          setAllCourses(coursesArr);
-        }
+      // Fetch courses with search parameter
+      const courseParams = new URLSearchParams({
+        page: '1',
+        limit: '1000',
+        status: 'published'
+      });
+      if (term) {
+        courseParams.set('search', term);
+      }
+      const courseRes = await fetch(`/api/courses?${courseParams.toString()}`);
+      if (courseRes.ok) {
+        const courseData = await courseRes.json();
+        const coursesArr = courseData.courses || [];
+        // Ensure courses are unique by ID
+        const uniqueCoursesArr = coursesArr.filter((course, index, self) =>
+          index === self.findIndex(c => c.id === course.id)
+        );
+        setAllCourses(uniqueCoursesArr);
       }
 
       setHasMore(hasMoreVideos);
@@ -74,50 +97,51 @@ export default function SearchResultsPage() {
   };
 
   const loadMore = () => {
-    if (loadingMore || !hasMore || !term) return;
+    if (loadingMore || !hasMore || !term || loading) return;
     setLoadingMore(true);
     const nextPage = currentPage + 1;
     setCurrentPage(nextPage);
     fetchPage(nextPage);
   };
 
+  const scrollTimeoutRef = useRef(null);
+
   useEffect(() => {
     const handleScroll = () => {
-      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-        loadMore();
+      if (scrollTimeoutRef.current) return; // Throttle scroll events
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
+          loadMore();
+        }
+        scrollTimeoutRef.current = null;
+      }, 100); // 100ms throttle
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
       }
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [loadingMore, hasMore, term, currentPage]);
+  }, [loadingMore, hasMore, term, currentPage, loading]);
 
-  // Rebuild results whenever allVideos, allCourses or search term changes
+  // Rebuild results whenever allVideos or allCourses changes
   useEffect(() => {
-    const filteredVideos = allVideos.filter(v => (v.filename || v.title || '').toLowerCase().includes(term));
-    const filteredCourses = allCourses.filter(c => (c.title || c.name || '').toLowerCase().includes(term));
+    // Since APIs now return filtered results, just combine them with type field
+    // Ensure no duplicates in the combined results
+    const videoResults = allVideos.map(v => ({ ...v, type: 'video' }));
+    const courseResults = allCourses.map(c => ({ ...c, type: 'course' }));
+    let combinedResults = [...videoResults, ...courseResults];
 
-    // Remove duplicates based on id
-    const uniqueVideos = filteredVideos.filter((video, index, self) =>
-      index === self.findIndex(v => v.id === video.id)
+    // Remove any potential duplicates (though videos and courses should have separate ID spaces)
+    combinedResults = combinedResults.filter((item, index, self) =>
+      index === self.findIndex(i => i.id === item.id && i.type === item.type)
     );
-    const uniqueCourses = filteredCourses.filter((course, index, self) =>
-      index === self.findIndex(c => c.id === course.id)
-    );
-
-    let combinedResults = [];
-    if (activeTab === 'all') {
-      combinedResults = [
-        ...uniqueVideos.map(v => ({ ...v, type: 'video' })),
-        ...uniqueCourses.map(c => ({ ...c, type: 'course' }))
-      ];
-    } else if (activeTab === 'videos') {
-      combinedResults = uniqueVideos.map(v => ({ ...v, type: 'video' }));
-    } else if (activeTab === 'courses') {
-      combinedResults = uniqueCourses.map(c => ({ ...c, type: 'course' }));
-    }
 
     setResults(combinedResults);
-  }, [allVideos, allCourses, term, activeTab]);
+  }, [allVideos, allCourses]);
 
   return (
     <div className="min-h-screen p-6 pr-0">
@@ -171,7 +195,7 @@ export default function SearchResultsPage() {
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  All ({allVideos.filter(v => (v.filename || v.title || '').toLowerCase().includes(term)).length + allCourses.filter(c => (c.title || c.name || '').toLowerCase().includes(term)).length})
+                  All ({results.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('videos')}
@@ -181,7 +205,7 @@ export default function SearchResultsPage() {
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Videos ({allVideos.filter(v => (v.filename || v.title || '').toLowerCase().includes(term)).length})
+                  Videos ({results.filter(r => r.type === 'video').length})
                 </button>
                 <button
                   onClick={() => setActiveTab('courses')}
@@ -191,12 +215,44 @@ export default function SearchResultsPage() {
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Courses ({allCourses.filter(c => (c.title || c.name || '').toLowerCase().includes(term)).length})
+                  Courses ({results.filter(r => r.type === 'course').length})
                 </button>
               </div>
             </div>
 
-            {results.length === 0 ? (
+            {/* View Mode Toggle */}
+            <div className="mb-6">
+              <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                  Grid
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  List
+                </button>
+              </div>
+            </div>
+
+            {results.filter(r => activeTab === 'all' || r.type === activeTab.slice(0, -1)).length === 0 ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center max-w-md">
                   <svg className="w-24 h-24 mx-auto text-gray-400 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -226,16 +282,22 @@ export default function SearchResultsPage() {
               <>
                 <div className="mb-4">
                   <p className="text-gray-600 dark:text-gray-400">
-                    Found {results.length} result{results.length !== 1 ? 's' : ''} matching your search
+                    Found {results.filter(r => activeTab === 'all' || r.type === activeTab.slice(0, -1)).length} result{results.filter(r => activeTab === 'all' || r.type === activeTab.slice(0, -1)).length !== 1 ? 's' : ''} matching your search
                   </p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                  {results.map(r => (
-                    <div key={`${r.type}-${r.id}`}>
+                <div className={`${
+                  viewMode === 'grid'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6'
+                    : 'flex flex-col space-y-4'
+                }`}>
+                  {results
+                    .filter(r => activeTab === 'all' || r.type === activeTab.slice(0, -1)) // 'videos' -> 'video', 'courses' -> 'course'
+                    .map(r => (
+                    <div key={`${r.type}-${r.id}`} className={viewMode === 'list' ? 'w-full' : ''}>
                       {r.type === 'video' ? (
-                        <VideoCard video={r} />
+                        <VideoCard video={r} viewMode={viewMode} />
                       ) : (
-                        <CourseCard course={r} />
+                        <CourseCard course={r} viewMode={viewMode} />
                       )}
                     </div>
                   ))}
@@ -248,11 +310,11 @@ export default function SearchResultsPage() {
                     </div>
                   </div>
                 )}
-                {!hasMore && results.length > 0 && (
+                {!hasMore && results.filter(r => activeTab === 'all' || r.type === activeTab.slice(0, -1)).length > 0 && (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">
-                      You've seen all {results.length} matching result{results.length !== 1 ? 's' : ''}
-                    </p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    You've seen all {results.filter(r => activeTab === 'all' || r.type === activeTab.slice(0, -1)).length} matching result{results.filter(r => activeTab === 'all' || r.type === activeTab.slice(0, -1)).length !== 1 ? 's' : ''}
+                  </p>
                   </div>
                 )}
               </>
