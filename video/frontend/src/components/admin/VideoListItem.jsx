@@ -42,7 +42,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
   const thumbnailSrc = getThumbnail(video.thumbnail_url) || '/images/placeholder.svg';
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
+    <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200 cursor-pointer" onClick={() => window.location.href = `/admin/videos/${video.hash}`}>
       <div className="col-span-1">
         <img
           src={thumbnailSrc}
@@ -59,7 +59,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
       <div className="col-span-1 text-gray-600 dark:text-gray-400">{video.views || '0'}</div>
       <div className="col-span-1 flex items-center space-x-2">
         <button 
-          onClick={() => onPublish && onPublish(video.hash)}
+          onClick={(e) => { e.stopPropagation(); onPublish && onPublish(video.hash); }}
           className={`transition-colors duration-200 ${
             video.status?.toLowerCase() === 'draft' 
               ? 'text-purple-400 hover:text-purple-300' 
@@ -73,7 +73,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onUnpublish && onUnpublish(video.hash)}
+          onClick={(e) => { e.stopPropagation(); onUnpublish && onUnpublish(video.hash); }}
           className={`transition-colors duration-200 ${
             video.status?.toLowerCase() === 'published' 
               ? 'text-orange-400 hover:text-orange-300' 
@@ -88,7 +88,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onEdit && onEdit(video)}
+          onClick={(e) => { e.stopPropagation(); onEdit && onEdit(video); }}
           className={`transition-colors duration-200 ${
             video.status?.toLowerCase() === 'published' 
               ? 'text-gray-600 cursor-not-allowed' 
@@ -102,7 +102,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onDelete(video.hash)} 
+          onClick={(e) => { e.stopPropagation(); onDelete(video.hash); }} 
           className="text-red-400 hover:text-red-300 transition-colors duration-200" 
           title="Delete"
         >
@@ -111,7 +111,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onPreview && onPreview(video)}
+          onClick={(e) => { e.stopPropagation(); onPreview && onPreview(video); }}
           className="text-green-400 hover:text-green-300 transition-colors duration-200" 
           title="Preview"
         >
@@ -121,7 +121,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => window.location.href = `/admin/videos/${video.hash}`}
+          onClick={(e) => { e.stopPropagation(); window.location.href = `/admin/videos/${video.hash}`; }}
           className="text-cyan-400 hover:text-cyan-300 transition-colors duration-200" 
           title="View Details & Comments"
         >

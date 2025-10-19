@@ -17,6 +17,7 @@ export default function AdminVideoDetailPage() {
   const [commentsCount, setCommentsCount] = useState(0);
   const [engagementStats, setEngagementStats] = useState(null);
   const [lmsUsername, setLmsUsername] = useState('admin');
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -80,6 +81,9 @@ export default function AdminVideoDetailPage() {
       setEditedVideo(updatedVideo);
       setIsEditing(false);
       alert('Video updated successfully!');
+      
+      // Refresh video data to ensure all changes are reflected
+      await fetchVideo();
     } catch (err) {
       console.error('Error updating video:', err);
       alert('Failed to update video');
@@ -190,7 +194,9 @@ export default function AdminVideoDetailPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Video Player */}
             <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg">
-              <CustomVideoPlayer videoHash={videoId} showStatsButton={true} />
+              <div className="aspect-video w-full">
+                <CustomVideoPlayer videoHash={videoId} showStatsButton={true} height="100%" />
+              </div>
             </div>
 
             {/* Video Information */}
@@ -227,9 +233,21 @@ export default function AdminVideoDetailPage() {
                       placeholder="Video description..."
                     />
                   ) : (
-                    <p className="text-gray-300 whitespace-pre-wrap">
-                      {video.description || 'No description available'}
-                    </p>
+                    <div>
+                      <p className="text-gray-300 whitespace-pre-wrap">
+                        {video.description ? (
+                          isDescriptionExpanded ? video.description : video.description.length > 200 ? video.description.substring(0, 200) + '...' : video.description
+                        ) : 'No description available'}
+                      </p>
+                      {video.description && video.description.length > 200 && (
+                        <button
+                          onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                          className="mt-2 text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
+                        >
+                          {isDescriptionExpanded ? 'Show less' : 'Show more'}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 

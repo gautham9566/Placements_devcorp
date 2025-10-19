@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation';
 /**
  * Video Card Component for grid and list layouts
  */
-const VideoCard = ({ video, viewMode = 'grid' }) => {
+const VideoCard = ({ video, viewMode = 'grid', redirectPath }) => {
   const router = useRouter();
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = () => setImageError(true);
-  const handleClick = () => router.push(`/students/videos/${video.hash}`);
+  const handleClick = () => router.push(redirectPath || `/students/videos/${video.hash}`);
 
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';

@@ -7,11 +7,11 @@ import { useRouter } from 'next/navigation';
  * Course Card Component for Udemy-like course grid
  * Shows thumbnail, title, description, duration, lesson count
  */
-const CourseCard = ({ course, viewMode = 'grid' }) => {
+const CourseCard = ({ course, viewMode = 'grid', redirectPath }) => {
   const router = useRouter();
 
   const handleClick = () => {
-    router.push(`/students/courses/${course.id}`);
+    router.push(redirectPath || `/students/courses/${course.id}`);
   };
 
   const formatDuration = (minutes) => {

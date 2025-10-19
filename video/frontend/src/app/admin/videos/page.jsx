@@ -446,9 +446,9 @@ export default function AdminPage({ searchTerm: propSearchTerm = '', setSearchTe
                 return results.map(r => (
                   <div key={`${r.type}-${r.id || r.hash}`}>
                     {r.type === 'video' ? (
-                      <VideoCard video={r} />
+                      <VideoCard video={r} redirectPath={`/admin/videos/${r.hash}`} />
                     ) : (
-                      <CourseCard course={r} />
+                      <CourseCard course={r} redirectPath={`/admin/courses/${r.id}`} />
                     )}
                   </div>
                 ));
