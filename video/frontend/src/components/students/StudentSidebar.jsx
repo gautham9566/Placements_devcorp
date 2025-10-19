@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '../../contexts/ThemeContext';
+import ThemeToggle from '../ui/ThemeToggle';
 
 /**
  * Expandable/Collapsible Sidebar for Student Portal
@@ -12,7 +13,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 const StudentSidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const pathname = usePathname();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark } = useTheme();
 
   const menuItems = [
     {
@@ -39,14 +40,18 @@ const StudentSidebar = () => {
 
   return (
     <div
-      className={`fixed left-0 top-0 h-full bg-gradient-to-b from-gray-900 to-gray-800 shadow-2xl z-40 transition-all duration-300 ease-in-out ${
+      className={`fixed left-0 top-0 h-full ${
+        isDark 
+          ? 'bg-gradient-to-b from-gray-900 to-gray-800 border-r border-gray-700' 
+          : 'bg-gradient-to-b from-white to-gray-50 border-r border-gray-200'
+      } shadow-2xl z-40 transition-all duration-300 ease-in-out ${
         isExpanded ? 'w-64' : 'w-20'
       }`}
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
     >
       {/* Logo/Brand */}
-      <div className="p-6 border-b border-gray-700">
+      <div className={`p-6 ${isDark ? 'border-b border-gray-700' : 'border-b border-gray-200'}`}>
         <div className="flex items-center">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -54,7 +59,9 @@ const StudentSidebar = () => {
             </svg>
           </div>
           {isExpanded && (
-            <span className="ml-3 text-white font-bold text-lg whitespace-nowrap">
+            <span className={`ml-3 font-bold text-lg whitespace-nowrap ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}>
               Learning Portal
             </span>
           )}
@@ -70,7 +77,9 @@ const StudentSidebar = () => {
             className={`flex items-center px-4 py-3 mb-2 rounded-lg transition-all duration-200 ${
               item.active
                 ? 'bg-blue-600 text-white shadow-lg'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                : isDark
+                  ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
             }`}
           >
             <span className="flex-shrink-0">{item.icon}</span>
@@ -83,23 +92,7 @@ const StudentSidebar = () => {
 
       {/* Theme Toggle */}
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
-        <button
-          onClick={toggleTheme}
-          className={`p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-all duration-200 ${
-            isExpanded ? 'opacity-100' : 'opacity-70 hover:opacity-100'
-          }`}
-          title={isDark ? "Switch to light theme" : "Switch to dark theme"}
-        >
-          {isDark ? (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-          ) : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-          )}
-        </button>
+        <ThemeToggle />
       </div>
     </div>
   );

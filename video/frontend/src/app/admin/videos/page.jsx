@@ -346,7 +346,7 @@ export default function AdminPage({ searchTerm: propSearchTerm = '', setSearchTe
 
   return (
     <div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
-      <main className="p-8">
+      <main className="p-8 bg-white dark:bg-gray-900/30">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">

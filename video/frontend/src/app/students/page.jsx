@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function StudentDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { changeTheme, isDark, resolvedTheme, isInitialized } = useTheme();
+  const [username, setUsername] = useState('Student');
   const [stats, setStats] = useState({
     totalCourses: 0,
     enrolledCourses: 0,
@@ -17,6 +21,40 @@ export default function StudentDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
+  const [themeInitialized, setThemeInitialized] = useState(false);
+
+  // Extract username and theme from URL params - run once on mount
+  useEffect(() => {
+    if (themeInitialized) return; // Prevent re-running
+
+    const usernameParam = searchParams.get('username');
+    if (usernameParam) {
+      setUsername(usernameParam);
+      sessionStorage.setItem('lms_username', usernameParam);
+    } else {
+      const storedUsername = sessionStorage.getItem('lms_username');
+      if (storedUsername) {
+        setUsername(storedUsername);
+      }
+    }
+
+    // Handle theme parameter with priority
+    const themeParam = searchParams.get('theme');
+    if (themeParam) {
+      console.log('Setting theme from URL parameter:', themeParam);
+      sessionStorage.setItem('lms_theme', themeParam);
+      changeTheme(themeParam);
+    } else {
+      const storedTheme = sessionStorage.getItem('lms_theme');
+      if (storedTheme) {
+        console.log('Setting theme from sessionStorage:', storedTheme);
+        changeTheme(storedTheme);
+      }
+    }
+    
+    setThemeInitialized(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // Only re-run when URL changes
 
   const fetchStats = async () => {
     try {
@@ -93,14 +131,14 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                Welcome back, Student!
+                Welcome back, {username}!
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
                 Track your learning progress and continue your journey

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 const ThemeContext = createContext();
 
@@ -13,56 +13,94 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  // Start with null so we can detect when we've resolved the initial preference
-  const [isDark, setIsDark] = useState(null);
+  const [theme, setTheme] = useState('dark');
+  const [resolvedTheme, setResolvedTheme] = useState('dark');
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load theme from sessionStorage (for iframe) or localStorage on mount
   useEffect(() => {
-    // Run only in the browser
-    try {
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'dark' || savedTheme === 'light') {
-        setIsDark(savedTheme === 'dark');
-        return;
-      }
-
-      // Fallback to OS preference when no saved theme
-      if (typeof window !== 'undefined' && window.matchMedia) {
-        setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
-      } else {
-        setIsDark(true);
-      }
-    } catch (e) {
-      // If anything fails, default to dark
-      setIsDark(true);
+    if (typeof window !== 'undefined') {
+      // Priority: sessionStorage (from iframe params) > localStorage > default
+      const sessionTheme = sessionStorage.getItem('lms_theme');
+      const savedTheme = localStorage.getItem('userTheme');
+      const initialTheme = sessionTheme || savedTheme || 'dark';
+      
+      setTheme(initialTheme);
+      setIsInitialized(true);
     }
   }, []);
 
+  // Apply theme to document and resolve system theme
   useEffect(() => {
-    // Don't run until initial preference is resolved
-    if (isDark === null) return;
+    if (typeof window !== 'undefined') {
+      const applyTheme = (themeToApply) => {
+        const root = document.documentElement;
+        const body = document.body;
+        
+        // Remove existing theme classes
+        body.classList.remove('dark-mode', 'light-mode');
+        root.removeAttribute('data-theme');
+        
+        let actualTheme = themeToApply;
+        
+        // Handle system theme
+        if (themeToApply === 'system') {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          actualTheme = prefersDark ? 'dark' : 'light';
+        }
+        
+        // Apply theme
+        if (actualTheme === 'dark') {
+          body.classList.add('dark-mode');
+          root.setAttribute('data-theme', 'dark');
+        } else {
+          body.classList.add('light-mode');
+          root.setAttribute('data-theme', 'light');
+        }
+        
+        setResolvedTheme(actualTheme);
+      };
 
-    try {
-      const root = document.documentElement;
-      if (isDark) {
-        root.classList.remove('light');
-        root.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        root.classList.remove('dark');
-        root.classList.add('light');
-        localStorage.setItem('theme', 'light');
+      applyTheme(theme);
+
+      // Listen for system theme changes when using system theme
+      if (theme === 'system') {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleChange = (e) => {
+          applyTheme('system');
+        };
+        
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
       }
-    } catch (e) {
-      // ignore DOM/localStorage errors in restricted environments
     }
-  }, [isDark]);
+  }, [theme]);
 
-  const toggleTheme = () => {
-    setIsDark((prev) => !prev);
+  const changeTheme = (newTheme) => {
+    setTheme(newTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userTheme', newTheme);
+      // Also update sessionStorage to persist across iframe navigation
+      sessionStorage.setItem('lms_theme', newTheme);
+    }
+  };
+
+  const value = {
+    theme,
+    resolvedTheme,
+    changeTheme,
+    isDark: resolvedTheme === 'dark',
+    isLight: resolvedTheme === 'light',
+    isInitialized,
+    // Legacy support for components using toggleTheme
+    toggleTheme: () => {
+      const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
+      changeTheme(newTheme);
+    }
   };
 
   return (
-    <ThemeContext.Provider value={{ isDark: !!isDark, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

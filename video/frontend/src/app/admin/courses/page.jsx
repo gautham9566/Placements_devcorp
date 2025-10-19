@@ -102,7 +102,7 @@ export default function CoursesPage({ searchTerm: injectedSearchTerm, setSearchT
 
   return (
     <div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
-      <div className="p-6">
+      <div className="p-6 bg-white dark:bg-gray-900/30">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-4">

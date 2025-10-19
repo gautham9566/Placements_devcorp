@@ -205,7 +205,7 @@ export default function StudentDashboard() {
         icon: Briefcase,
         color: 'green',
         priority: 3,
-        action: () => router.push('/jobs')
+        action: () => router.push('/jobpostings')
       });
     }
 
@@ -560,7 +560,7 @@ export default function StudentDashboard() {
                     <div
                       key={job.id || index}
                       className="p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:shadow-sm transition-all cursor-pointer"
-                      onClick={() => router.push(`/jobs/${job.id}`)}
+                      onClick={() => router.push(`/jobpostings/${job.id}`)}
                     >
                       <div className="flex items-start">
                         <div className="p-2 bg-green-100 rounded-lg">
@@ -594,7 +594,7 @@ export default function StudentDashboard() {
                 )}
               </div>
               <button
-                onClick={() => router.push('/jobs')}
+                onClick={() => router.push('/jobpostings')}
                 className="w-full mt-4 py-2 px-4 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors font-medium text-sm"
               >
                 View All Jobs

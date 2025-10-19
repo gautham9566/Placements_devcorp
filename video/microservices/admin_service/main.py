@@ -8,11 +8,15 @@ import shutil
 import time
 from typing import Optional
 from urllib.parse import urlencode
+from pydantic import BaseModel
 
 # Simple cache for videos endpoint
 _admin_videos_cache = None
 _admin_cache_timestamp = 0
 ADMIN_CACHE_TTL = 0.1  # 100ms cache
+
+# User session storage (in-memory)
+_user_sessions = {}
 
 app = FastAPI(title="Admin Service", default_response_class=ORJSONResponse)
 
@@ -23,6 +27,70 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================================================
+# USER SESSION MANAGEMENT
+# ============================================================================
+
+class UserSession(BaseModel):
+    username: str
+    theme: str = "dark"
+    role: str = "student"
+
+@app.post("/api/user/session")
+async def create_user_session(session: UserSession):
+    """
+    Create or update user session.
+    Called from the video frontend when it receives user data from parent iframe.
+    """
+    session_id = f"{session.username}_{session.role}"
+    _user_sessions[session_id] = {
+        "username": session.username,
+        "theme": session.theme,
+        "role": session.role,
+        "timestamp": time.time()
+    }
+    return {
+        "status": "success",
+        "session_id": session_id,
+        "data": _user_sessions[session_id]
+    }
+
+@app.get("/api/user/session/{username}")
+async def get_user_session(username: str):
+    """
+    Get user session data.
+    """
+    # Try to find session with username
+    for session_id, session_data in _user_sessions.items():
+        if session_data["username"] == username:
+            return session_data
+    
+    # Return default if not found
+    return {
+        "username": username,
+        "theme": "dark",
+        "role": "student"
+    }
+
+@app.get("/api/user/current")
+async def get_current_user(request: Request):
+    """
+    Get current user from session or return default.
+    Can be extended to use cookies or headers for authentication.
+    """
+    # Try to get username from query params or headers
+    username = request.query_params.get("username")
+    
+    if username and username in _user_sessions:
+        return _user_sessions[username]
+    
+    # Return default user
+    return {
+        "username": "guest",
+        "theme": "dark",
+        "role": "student"
+    }
 
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
 TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
