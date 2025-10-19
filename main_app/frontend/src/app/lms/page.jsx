@@ -67,6 +67,7 @@ export default function LMSPage() {
         src={iframeUrl}
         className="w-full min-h-screen border-0"
         title="LMS Student"
+        allowFullScreen
       />
     </div>
   );

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 // TopHeader provided by admin layout
 import CustomVideoPlayer from '../../../../../components/admin/CustomVideoPlayer';
+import CommentsSection from '../../../../../components/students/CommentsSection';
 import {
   DndContext,
   closestCenter,
@@ -168,6 +169,9 @@ export default function PreviewCoursePage() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [videoFile, setVideoFile] = useState(null);
+  const [showCommentsDialog, setShowCommentsDialog] = useState(false);
+  const [commentsCount, setCommentsCount] = useState(0);
+  const [lmsUsername, setLmsUsername] = useState('admin');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -186,6 +190,7 @@ export default function PreviewCoursePage() {
   useEffect(() => {
     fetchCourse();
     fetchAvailableVideos();
+    fetchCommentsCount();
   }, [courseId]);
 
   const fetchAvailableVideos = async () => {
@@ -203,6 +208,18 @@ export default function PreviewCoursePage() {
     } catch (error) {
       console.error('Error fetching videos:', error);
       setAvailableVideos([]);
+    }
+  };
+
+  const fetchCommentsCount = async () => {
+    try {
+      const response = await fetch(`/api/engagement/stats/course/${courseId}`);
+      if (response.ok) {
+        const stats = await response.json();
+        setCommentsCount(stats.comments || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching comments count:', error);
     }
   };
 
@@ -2000,10 +2017,59 @@ export default function PreviewCoursePage() {
                   )}
                 </div>
               )}
+
+              {/* Course Comments */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold text-white">Course Comments</h4>
+                  <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+                    {commentsCount}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowCommentsDialog(true)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <span>View & Reply to Comments</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Comments Dialog */}
+      {showCommentsDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h3 className="text-2xl font-bold text-white">Course Comments</h3>
+              <button
+                onClick={() => {
+                  setShowCommentsDialog(false);
+                  fetchCommentsCount(); // Refresh count when closing
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <CommentsSection
+                contentType="course"
+                contentId={courseId}
+                lmsUsername={lmsUsername}
+                isAdmin={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload Video Dialog */}
       {showUploadDialog && (

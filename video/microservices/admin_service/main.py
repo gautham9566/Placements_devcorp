@@ -97,6 +97,7 @@ TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 UPLOAD_SERVICE_URL = "http://127.0.0.1:8001"
 STREAMING_SERVICE_URL = "http://127.0.0.1:8004"
 COURSE_SERVICE_URL = "http://127.0.0.1:8006"
+ENGAGEMENT_SERVICE_URL = "http://127.0.0.1:8007"
 
 SHARED_STORAGE = os.path.abspath("../shared_storage")
 ORIGINALS_PATH = os.path.join(SHARED_STORAGE, "originals")
@@ -1616,6 +1617,135 @@ def delete_course_video(hash: str):
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "admin_service"}
+
+# ============================================================================
+# ENGAGEMENT SERVICE PROXY ROUTES
+# ============================================================================
+
+# Comments
+@app.post("/api/engagement/comments")
+async def create_comment_proxy(request: Request):
+    """Proxy to engagement service - Create a comment."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/comments", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.get("/api/engagement/comments")
+async def get_comments_proxy(request: Request):
+    """Proxy to engagement service - Get comments."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/comments"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.get(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.get("/api/engagement/comments/{comment_id}")
+async def get_comment_proxy(comment_id: int):
+    """Proxy to engagement service - Get a specific comment."""
+    try:
+        response = requests.get(f"{ENGAGEMENT_SERVICE_URL}/comments/{comment_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.put("/api/engagement/comments/{comment_id}")
+async def update_comment_proxy(comment_id: int, request: Request):
+    """Proxy to engagement service - Update a comment."""
+    try:
+        body = await request.json()
+        response = requests.put(f"{ENGAGEMENT_SERVICE_URL}/comments/{comment_id}", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.delete("/api/engagement/comments/{comment_id}")
+async def delete_comment_proxy(comment_id: int):
+    """Proxy to engagement service - Delete a comment."""
+    try:
+        response = requests.delete(f"{ENGAGEMENT_SERVICE_URL}/comments/{comment_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Likes
+@app.post("/api/engagement/likes")
+async def create_like_proxy(request: Request):
+    """Proxy to engagement service - Create a like."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/likes", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.delete("/api/engagement/likes")
+async def remove_like_proxy(request: Request):
+    """Proxy to engagement service - Remove a like."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/likes"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.delete(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Dislikes
+@app.post("/api/engagement/dislikes")
+async def create_dislike_proxy(request: Request):
+    """Proxy to engagement service - Create a dislike."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/dislikes", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.delete("/api/engagement/dislikes")
+async def remove_dislike_proxy(request: Request):
+    """Proxy to engagement service - Remove a dislike."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/dislikes"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.delete(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Views
+@app.post("/api/engagement/views")
+async def create_view_proxy(request: Request):
+    """Proxy to engagement service - Record a view."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/views", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Stats
+@app.get("/api/engagement/stats/{content_type}/{content_id}")
+async def get_engagement_stats_proxy(content_type: str, content_id: str, request: Request):
+    """Proxy to engagement service - Get engagement statistics."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/stats/{content_type}/{content_id}"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.get(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -83,6 +83,18 @@ const VideoPlayer = ({
   // Keyboard shortcuts like YouTube
   React.useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't handle keyboard shortcuts when typing in input fields
+      const activeElement = document.activeElement;
+      const isInputField = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+      );
+      
+      if (isInputField) {
+        return;
+      }
+
       // Only handle keyboard shortcuts when video is focused or controls are visible
       const videoContainer = document.querySelector(`[data-video-container="${videoHash}"]`);
       if (!videoContainer || (!videoContainer.contains(document.activeElement) && !showControls)) {
@@ -244,13 +256,61 @@ const VideoPlayer = ({
     }
   };
 
-  // Handle fullscreen toggle
+  // Handle fullscreen toggle with iframe support
   const handleFullscreenClick = () => {
     const videoContainer = document.querySelector(`[data-video-container="${videoHash}"]`);
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+
+    // Check if already in fullscreen
+    const isFullscreen = document.fullscreenElement ||
+                         document.webkitFullscreenElement ||
+                         document.mozFullScreenElement ||
+                         document.msFullscreenElement;
+
+    if (isFullscreen) {
+      // Exit fullscreen with browser prefixes
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
     } else if (videoContainer) {
-      videoContainer.requestFullscreen();
+      // Always try to fullscreen the video container first
+      // This will work in standalone mode and in iframes with allowfullscreen
+      const requestFullscreen = (element) => {
+        if (element.requestFullscreen) {
+          return element.requestFullscreen();
+        } else if (element.webkitRequestFullscreen) {
+          return element.webkitRequestFullscreen();
+        } else if (element.mozRequestFullScreen) {
+          return element.mozRequestFullScreen();
+        } else if (element.msRequestFullscreen) {
+          return element.msRequestFullscreen();
+        }
+        return Promise.reject(new Error('Fullscreen API not supported'));
+      };
+
+      // Try video container fullscreen first
+      requestFullscreen(videoContainer).catch(err => {
+        console.error('Video container fullscreen failed:', err);
+
+        // If video container fails and we're in an iframe, try document element as fallback
+        const isInIframe = window.self !== window.top;
+        if (isInIframe) {
+          console.log('Trying document fullscreen as fallback in iframe...');
+          requestFullscreen(document.documentElement).catch(fallbackErr => {
+            console.error('Document fullscreen fallback also failed:', fallbackErr);
+            // Could show a user-friendly message here
+            alert('Fullscreen is not available in this context. Please open the video in a new tab for fullscreen support.');
+          });
+        } else {
+          // Not in iframe, just show error
+          console.error('Fullscreen not supported:', err);
+        }
+      });
     }
   };
 

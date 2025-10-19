@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import SearchBar from '@/components/SearchBar';
+import CommentsSection from '@/components/students/CommentsSection';
 
 /**
  * Individual Course View Page (Udemy-like)
@@ -24,11 +25,20 @@ export default function CourseViewPage() {
   const [showResources, setShowResources] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
   const [searchInput, setSearchInput] = useState('');
+  const [showTab, setShowTab] = useState('curriculum'); // curriculum, resources, comments
+  const [lmsUsername, setLmsUsername] = useState('');
+  const [engagementStats, setEngagementStats] = useState(null);
 
   useEffect(() => {
+    // Get username from sessionStorage
+    const username = sessionStorage.getItem('lms_username') || 'Guest';
+    setLmsUsername(username);
+    
     if (courseId) {
       fetchCourse();
       loadProgress();
+      fetchEngagementStats();
+      recordView(username);
     }
   }, [courseId]);
 
@@ -149,6 +159,91 @@ export default function CourseViewPage() {
     router.push(`/students/search?q=${encodeURIComponent(q)}`);
   };
 
+  const fetchEngagementStats = async () => {
+    try {
+      const username = sessionStorage.getItem('lms_username') || 'Guest';
+      const response = await fetch(`/api/engagement/stats/course/${courseId}?lms_username=${username}`);
+      if (response.ok) {
+        const stats = await response.json();
+        setEngagementStats(stats);
+      }
+    } catch (err) {
+      console.error('Error fetching engagement stats:', err);
+    }
+  };
+
+  const recordView = async (username) => {
+    try {
+      await fetch('/api/engagement/views', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lms_username: username,
+          content_type: 'course',
+          content_id: courseId,
+        }),
+      });
+    } catch (err) {
+      console.error('Error recording view:', err);
+    }
+  };
+
+  const handleLike = async () => {
+    if (!lmsUsername || lmsUsername === 'Guest') return;
+    
+    try {
+      if (engagementStats?.user_liked) {
+        await fetch(`/api/engagement/likes?lms_username=${lmsUsername}&content_type=course&content_id=${courseId}`, {
+          method: 'DELETE',
+        });
+      } else {
+        await fetch('/api/engagement/likes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            lms_username: lmsUsername,
+            content_type: 'course',
+            content_id: courseId,
+          }),
+        });
+      }
+      fetchEngagementStats();
+    } catch (err) {
+      console.error('Error toggling like:', err);
+    }
+  };
+
+  const handleDislike = async () => {
+    if (!lmsUsername || lmsUsername === 'Guest') return;
+    
+    try {
+      if (engagementStats?.user_disliked) {
+        await fetch(`/api/engagement/dislikes?lms_username=${lmsUsername}&content_type=course&content_id=${courseId}`, {
+          method: 'DELETE',
+        });
+      } else {
+        await fetch('/api/engagement/dislikes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            lms_username: lmsUsername,
+            content_type: 'course',
+            content_id: courseId,
+          }),
+        });
+      }
+      fetchEngagementStats();
+    } catch (err) {
+      console.error('Error toggling dislike:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -213,8 +308,43 @@ export default function CourseViewPage() {
             </div>
           </div>
 
-          {/* Progress */}
+          {/* Progress & Engagement */}
           <div className="flex items-center justify-end space-x-4">
+            {/* Like/Dislike Buttons */}
+            {engagementStats && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleLike}
+                  className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors ${
+                    engagementStats?.user_liked
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                  disabled={!lmsUsername || lmsUsername === 'Guest'}
+                >
+                  <svg className="w-4 h-4" fill={engagementStats?.user_liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                  </svg>
+                  <span className="text-sm">{engagementStats?.likes || 0}</span>
+                </button>
+
+                <button
+                  onClick={handleDislike}
+                  className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors ${
+                    engagementStats?.user_disliked
+                      ? 'bg-red-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                  disabled={!lmsUsername || lmsUsername === 'Guest'}
+                >
+                  <svg className="w-4 h-4" fill={engagementStats?.user_disliked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                  </svg>
+                  <span className="text-sm">{engagementStats?.dislikes || 0}</span>
+                </button>
+              </div>
+            )}
+            
             <div className="text-right">
               <p className="text-sm text-gray-600 dark:text-gray-400">Your Progress</p>
               <p className="text-lg font-bold text-blue-600">{calculateProgress()}%</p>
@@ -393,9 +523,9 @@ export default function CourseViewPage() {
           <div className="border-b border-gray-200 dark:border-gray-700">
             <div className="flex">
               <button
-                onClick={() => setShowResources(false)}
-                className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                  !showResources
+                onClick={() => setShowTab('curriculum')}
+                className={`flex-1 px-4 py-3 font-semibold text-sm transition-colors ${
+                  showTab === 'curriculum'
                     ? 'text-blue-600 border-b-2 border-blue-600'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
@@ -403,21 +533,31 @@ export default function CourseViewPage() {
                 Curriculum
               </button>
               <button
-                onClick={() => setShowResources(true)}
-                className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                  showResources
+                onClick={() => setShowTab('resources')}
+                className={`flex-1 px-4 py-3 font-semibold text-sm transition-colors ${
+                  showTab === 'resources'
                     ? 'text-blue-600 border-b-2 border-blue-600'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
                 Resources
               </button>
+              <button
+                onClick={() => setShowTab('comments')}
+                className={`flex-1 px-4 py-3 font-semibold text-sm transition-colors ${
+                  showTab === 'comments'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Comments {engagementStats?.comments ? `(${engagementStats.comments})` : ''}
+              </button>
             </div>
           </div>
 
           {/* Content */}
           <div className="p-4">
-            {!showResources ? (
+            {showTab === 'curriculum' ? (
               // Curriculum Tree
               <div className="space-y-2">
                 {course.sections && course.sections.length > 0 ? (
@@ -501,7 +641,7 @@ export default function CourseViewPage() {
                   </p>
                 )}
               </div>
-            ) : (
+            ) : showTab === 'resources' ? (
               // Resources
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
@@ -538,6 +678,16 @@ export default function CourseViewPage() {
                     No resources available for this course
                   </p>
                 )}
+              </div>
+            ) : (
+              // Comments
+              <div>
+                <CommentsSection
+                  contentType="course"
+                  contentId={courseId}
+                  lmsUsername={lmsUsername}
+                  isAdmin={false}
+                />
               </div>
             )}
           </div>

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import VideoCard from '@/components/students/VideoCard';
+import CommentsSection from '@/components/students/CommentsSection';
 
 /**
  * Individual Video View Page (YouTube-like)
@@ -25,10 +26,18 @@ export default function VideoViewPage() {
   const [relatedPage, setRelatedPage] = useState(1);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [hasMoreRelated, setHasMoreRelated] = useState(true);
+  const [lmsUsername, setLmsUsername] = useState('');
+  const [engagementStats, setEngagementStats] = useState(null);
 
   useEffect(() => {
+    // Get username from sessionStorage
+    const username = sessionStorage.getItem('lms_username') || 'Guest';
+    setLmsUsername(username);
+    
     if (videoHash) {
       fetchVideo();
+      fetchEngagementStats();
+      recordView(username);
       (async () => {
         const published = await fetchRelatedVideos(1);
         setRelatedPool(published);
@@ -49,6 +58,95 @@ export default function VideoViewPage() {
       router.push('/students');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEngagementStats = async () => {
+    try {
+      const username = sessionStorage.getItem('lms_username') || 'Guest';
+      const response = await fetch(`/api/engagement/stats/video/${videoHash}?lms_username=${username}`);
+      if (response.ok) {
+        const stats = await response.json();
+        setEngagementStats(stats);
+      }
+    } catch (err) {
+      console.error('Error fetching engagement stats:', err);
+    }
+  };
+
+  const recordView = async (username) => {
+    try {
+      await fetch('/api/engagement/views', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lms_username: username,
+          content_type: 'video',
+          content_id: videoHash,
+        }),
+      });
+    } catch (err) {
+      console.error('Error recording view:', err);
+    }
+  };
+
+  const handleLike = async () => {
+    if (!lmsUsername || lmsUsername === 'Guest') return;
+    
+    try {
+      if (engagementStats?.user_liked) {
+        // Remove like
+        await fetch(`/api/engagement/likes?lms_username=${lmsUsername}&content_type=video&content_id=${videoHash}`, {
+          method: 'DELETE',
+        });
+      } else {
+        // Add like
+        await fetch('/api/engagement/likes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            lms_username: lmsUsername,
+            content_type: 'video',
+            content_id: videoHash,
+          }),
+        });
+      }
+      fetchEngagementStats(); // Refresh stats
+    } catch (err) {
+      console.error('Error toggling like:', err);
+    }
+  };
+
+  const handleDislike = async () => {
+    if (!lmsUsername || lmsUsername === 'Guest') return;
+    
+    try {
+      if (engagementStats?.user_disliked) {
+        // Remove dislike
+        await fetch(`/api/engagement/dislikes?lms_username=${lmsUsername}&content_type=video&content_id=${videoHash}`, {
+          method: 'DELETE',
+        });
+      } else {
+        // Add dislike
+        await fetch('/api/engagement/dislikes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            lms_username: lmsUsername,
+            content_type: 'video',
+            content_id: videoHash,
+          }),
+        });
+      }
+      fetchEngagementStats(); // Refresh stats
+    } catch (err) {
+      console.error('Error toggling dislike:', err);
     }
   };
 
@@ -114,25 +212,8 @@ export default function VideoViewPage() {
   };
 
   const handleRelatedClick = async (rv) => {
-    // Set the clicked video as main, reset description and rebuild the related pool for it
-    setVideo(rv);
-    setDescExpanded(false);
-    // Reset related states
-    setRelatedPage(1);
-    setRelatedPool([]);
-    setRelatedVideos([]);
-    setRelatedOffset(0);
-    setHasMoreRelated(true);
-    // Re-fetch related videos excluding the newly selected video so the pool is updated
-    const published = await fetchRelatedVideos(1, rv.hash);
-    setRelatedPool(published);
-    setRelatedVideos(published.slice(0, RELATED_CHUNK));
-    setRelatedOffset(Math.min(RELATED_CHUNK, published.length));
-
-    // Scroll to top so the player is visible
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    // Navigate to the new video page instead of just changing state
+    router.push(`/students/videos/${rv.hash}`);
   };
 
   if (loading) {
@@ -207,28 +288,53 @@ export default function VideoViewPage() {
             {/* Title + actions */}
             <div className="text-gray-900 dark:text-white">
               <h1 className="text-2xl font-semibold mb-2">{video.title || 'Untitled Video'}</h1>
-{/* 
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden flex items-center justify-center">
-                      <span className="text-sm text-white">N</span>
-                    </div>
-                    <div>
-                      <div className="font-medium">Uploader</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {video.views !== undefined ? `${video.views.toLocaleString()} views • ` : ''}{formatDate(video.created_at || video.upload_date)}
-                      </div>
-                    </div>
-                  </div>
+              
+              {/* Engagement Stats & Actions */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                  {engagementStats && (
+                    <>
+                      <span>{engagementStats.views.toLocaleString()} views</span>
+                      <span>•</span>
+                      <span>{formatDate(video.created_at || video.upload_date)}</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <button className="px-4 py-2 bg-gray-800 dark:bg-gray-700 text-white rounded-md">Like</button>
-                  <button className="px-4 py-2 bg-gray-800 dark:bg-gray-700 text-white rounded-md">Share</button>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md">Subscribe</button>
+                  {/* Like Button */}
+                  <button
+                    onClick={handleLike}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                      engagementStats?.user_liked
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    disabled={!lmsUsername || lmsUsername === 'Guest'}
+                  >
+                    <svg className="w-5 h-5" fill={engagementStats?.user_liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                    </svg>
+                    <span>{engagementStats?.likes || 0}</span>
+                  </button>
+
+                  {/* Dislike Button */}
+                  <button
+                    onClick={handleDislike}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                      engagementStats?.user_disliked
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                    disabled={!lmsUsername || lmsUsername === 'Guest'}
+                  >
+                    <svg className="w-5 h-5" fill={engagementStats?.user_disliked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                    </svg>
+                    <span>{engagementStats?.dislikes || 0}</span>
+                  </button>
                 </div>
-              </div> */}
+              </div>
 
               {/* Description */}
               {video.description && (
@@ -258,6 +364,16 @@ export default function VideoViewPage() {
                   )}
                 </div>
               )}
+
+              {/* Comments Section */}
+              <div className="mt-8">
+                <CommentsSection
+                  contentType="video"
+                  contentId={videoHash}
+                  lmsUsername={lmsUsername}
+                  isAdmin={false}
+                />
+              </div>
             </div>
           </main>
 
@@ -388,7 +504,7 @@ function SearchBar() {
                 const q = encodeURIComponent(query.trim());
                 setShow(false);
                 setQuery('');
-                router.push(`/students/videos/search?q=${q}`);
+                router.push(`/students/search?q=${q}`);
               }
             }
           }
