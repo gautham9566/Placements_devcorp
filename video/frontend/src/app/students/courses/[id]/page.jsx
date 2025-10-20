@@ -428,10 +428,11 @@ export default function CourseViewPage() {
                 {/* Comments Section */}
                 <div className="mt-6">
                   <CommentsSection
-                    contentType="video"
-                    contentId={currentLesson.video_id}
+                    contentType="course"
+                    contentId={courseId}
                     lmsUsername={lmsUsername}
                     isAdmin={false}
+                    currentVideoId={currentLesson.video_id}
                   />
                 </div>
 

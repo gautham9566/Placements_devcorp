@@ -22,15 +22,16 @@ import React, { useState, useEffect } from 'react';
  * @param {string} props.lmsUsername - Username of the current user
  * @param {boolean} props.isAdmin - Whether the current user is an admin
  * @param {string} props.currentVideoId - Current video ID (for course filtering)
+ * @param {boolean} props.defaultExpanded - Whether comments should be expanded by default
  */
-export default function CommentsSection({ contentType, contentId, lmsUsername, isAdmin = false, currentVideoId = null }) {
+export default function CommentsSection({ contentType, contentId, lmsUsername, isAdmin = false, currentVideoId = null, defaultExpanded = false }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null); // comment id being replied to
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [commentsExpanded, setCommentsExpanded] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(defaultExpanded);
   const [expandedReplies, setExpandedReplies] = useState(new Set()); // Set of comment ids with expanded replies
   const [commentFilter, setCommentFilter] = useState('all'); // 'all' or 'current_video'
   const [showCommentInput, setShowCommentInput] = useState(false); // Separate state for comment input
@@ -317,15 +318,18 @@ export default function CommentsSection({ contentType, contentId, lmsUsername, i
 
             <div className="flex items-center space-x-3">
               {/* Filter dropdown for courses */}
-              {contentType === 'course' && currentVideoId && (
+              {contentType === 'course' && (
                 <div className="relative">
                   <select
                     value={commentFilter}
                     onChange={(e) => setCommentFilter(e.target.value)}
                     className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300 dark:border-gray-600"
+                    disabled={!currentVideoId && commentFilter === 'current_video'}
                   >
-                    <option value="all">All Comments</option>
-                    <option value="current_video">Current Video</option>
+                    <option value="all">All Course Comments</option>
+                    <option value="current_video" disabled={!currentVideoId}>
+                      {currentVideoId ? 'Current Video Comments' : 'Select a Video First'}
+                    </option>
                   </select>
                 </div>
               )}

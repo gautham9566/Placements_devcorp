@@ -2046,7 +2046,14 @@ export default function PreviewCoursePage() {
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
-              <h3 className="text-2xl font-bold text-white">Course Comments</h3>
+              <div>
+                <h3 className="text-2xl font-bold text-white">Course Comments</h3>
+                {selectedVideo && (
+                  <p className="text-sm text-gray-400 mt-1">
+                    Use the dropdown below to filter between all course comments or current video comments
+                  </p>
+                )}
+              </div>
               <button
                 onClick={() => {
                   setShowCommentsDialog(false);
@@ -2066,6 +2073,7 @@ export default function PreviewCoursePage() {
                 lmsUsername={lmsUsername}
                 isAdmin={true}
                 currentVideoId={selectedVideo}
+                defaultExpanded={true}
               />
             </div>
           </div>
