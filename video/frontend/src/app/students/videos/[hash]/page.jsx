@@ -285,22 +285,34 @@ export default function VideoViewPage() {
               </div>
             </div>
 
-            {/* Title + actions */}
+            {/* Title */}
             <div className="text-gray-900 dark:text-white">
-              <h1 className="text-2xl font-semibold mb-2">{video.title || 'Untitled Video'}</h1>
+              <h1 className="text-2xl font-semibold mb-3">{video.title || 'Untitled Video'}</h1>
               
-              {/* Engagement Stats & Actions */}
+              {/* Engagement Stats Row - Views/Date on left, Like/Dislike on right */}
               <div className="flex items-center justify-between mb-4">
+                {/* Left: Views and Date */}
                 <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                   {engagementStats && (
                     <>
-                      <span>{engagementStats.views.toLocaleString()} views</span>
-                      <span>•</span>
-                      <span>{formatDate(video.created_at || video.upload_date)}</span>
+                      <div className="flex items-center space-x-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span>{engagementStats.views.toLocaleString()} views</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>{formatDate(video.created_at || video.upload_date)}</span>
+                      </div>
                     </>
                   )}
                 </div>
 
+                {/* Right: Like/Dislike Buttons */}
                 <div className="flex items-center space-x-2">
                   {/* Like Button */}
                   <button
@@ -338,7 +350,7 @@ export default function VideoViewPage() {
 
               {/* Description */}
               {video.description && (
-                <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow mb-6">
                   <div
                     className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap text-sm"
                     role="button"
@@ -366,7 +378,7 @@ export default function VideoViewPage() {
               )}
 
               {/* Comments Section */}
-              <div className="mt-8">
+              <div className="mt-4">
                 <CommentsSection
                   contentType="video"
                   contentId={videoHash}

@@ -35,6 +35,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const content_type = searchParams.get('content_type');
     const content_id = searchParams.get('content_id');
+    const video_id = searchParams.get('video_id');
     const page = searchParams.get('page') || '1';
     const limit = searchParams.get('limit') || '50';
 
@@ -45,9 +46,14 @@ export async function GET(request) {
       );
     }
 
-    const response = await fetch(
-      `${ENGAGEMENT_SERVICE_URL}/comments?content_type=${content_type}&content_id=${content_id}&page=${page}&limit=${limit}`
-    );
+    let url = `${ENGAGEMENT_SERVICE_URL}/comments?content_type=${content_type}&content_id=${content_id}&page=${page}&limit=${limit}`;
+    
+    // Add video_id filter if provided (for course comments filtering)
+    if (video_id) {
+      url += `&video_id=${video_id}`;
+    }
+
+    const response = await fetch(url);
 
     const data = await response.json();
 

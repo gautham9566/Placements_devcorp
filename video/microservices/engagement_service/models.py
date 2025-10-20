@@ -26,6 +26,7 @@ class Comment(Base):
     lms_username = Column(String, nullable=False, index=True)  # User who posted the comment
     content_type = Column(String, nullable=False, index=True)  # 'video' or 'course'
     content_id = Column(String, nullable=False, index=True)  # video hash or course id
+    video_id = Column(String, nullable=True, index=True)  # Specific video ID for course comments
     comment_text = Column(Text, nullable=False)
     parent_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)  # For replies
     is_admin_reply = Column(Boolean, default=False)  # Flag for admin replies

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, exists
+from sqlalchemy import or_, exists, select
 from models import get_db, Course, Section, Lesson, CourseVideo
 from pydantic import BaseModel
 from typing import List, Optional
@@ -138,16 +138,8 @@ async def list_courses(page: int = 1, limit: int = 25, status: Optional[str] = N
 
     if search:
         search_term = f"%{search}%"
-        # Search in both course titles and video titles within courses
-        query = query.filter(
-            or_(
-                Course.title.ilike(search_term),
-                exists().where(
-                    (CourseVideo.course_id == Course.id) & 
-                    (CourseVideo.title.ilike(search_term))
-                )
-            )
-        )
+        # Search only in course titles for now to avoid complex subqueries
+        query = query.filter(Course.title.ilike(search_term))
 
     # Get total count with filters applied
     total_count = query.count()

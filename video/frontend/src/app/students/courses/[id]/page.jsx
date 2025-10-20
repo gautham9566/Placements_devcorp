@@ -37,10 +37,15 @@ export default function CourseViewPage() {
     if (courseId) {
       fetchCourse();
       loadProgress();
-      fetchEngagementStats();
       recordView(username);
     }
   }, [courseId]);
+
+  useEffect(() => {
+    if (currentLesson?.video_id) {
+      fetchEngagementStats();
+    }
+  }, [currentLesson?.video_id]);
 
   const fetchCourse = async () => {
     try {
@@ -160,9 +165,11 @@ export default function CourseViewPage() {
   };
 
   const fetchEngagementStats = async () => {
+    if (!currentLesson?.video_id) return;
+    
     try {
       const username = sessionStorage.getItem('lms_username') || 'Guest';
-      const response = await fetch(`/api/engagement/stats/course/${courseId}?lms_username=${username}`);
+      const response = await fetch(`/api/engagement/stats/video/${currentLesson.video_id}?lms_username=${username}`);
       if (response.ok) {
         const stats = await response.json();
         setEngagementStats(stats);
@@ -191,11 +198,11 @@ export default function CourseViewPage() {
   };
 
   const handleLike = async () => {
-    if (!lmsUsername || lmsUsername === 'Guest') return;
+    if (!lmsUsername || lmsUsername === 'Guest' || !currentLesson?.video_id) return;
     
     try {
       if (engagementStats?.user_liked) {
-        await fetch(`/api/engagement/likes?lms_username=${lmsUsername}&content_type=course&content_id=${courseId}`, {
+        await fetch(`/api/engagement/likes?lms_username=${lmsUsername}&content_type=video&content_id=${currentLesson.video_id}`, {
           method: 'DELETE',
         });
       } else {
@@ -206,8 +213,8 @@ export default function CourseViewPage() {
           },
           body: JSON.stringify({
             lms_username: lmsUsername,
-            content_type: 'course',
-            content_id: courseId,
+            content_type: 'video',
+            content_id: currentLesson.video_id,
           }),
         });
       }
@@ -218,11 +225,11 @@ export default function CourseViewPage() {
   };
 
   const handleDislike = async () => {
-    if (!lmsUsername || lmsUsername === 'Guest') return;
+    if (!lmsUsername || lmsUsername === 'Guest' || !currentLesson?.video_id) return;
     
     try {
       if (engagementStats?.user_disliked) {
-        await fetch(`/api/engagement/dislikes?lms_username=${lmsUsername}&content_type=course&content_id=${courseId}`, {
+        await fetch(`/api/engagement/dislikes?lms_username=${lmsUsername}&content_type=video&content_id=${currentLesson.video_id}`, {
           method: 'DELETE',
         });
       } else {
@@ -233,8 +240,8 @@ export default function CourseViewPage() {
           },
           body: JSON.stringify({
             lms_username: lmsUsername,
-            content_type: 'course',
-            content_id: courseId,
+            content_type: 'video',
+            content_id: currentLesson.video_id,
           }),
         });
       }
@@ -309,42 +316,7 @@ export default function CourseViewPage() {
           </div>
 
           {/* Progress & Engagement */}
-          <div className="flex items-center justify-end space-x-4">
-            {/* Like/Dislike Buttons */}
-            {engagementStats && (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleLike}
-                  className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors ${
-                    engagementStats?.user_liked
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                  disabled={!lmsUsername || lmsUsername === 'Guest'}
-                >
-                  <svg className="w-4 h-4" fill={engagementStats?.user_liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                  </svg>
-                  <span className="text-sm">{engagementStats?.likes || 0}</span>
-                </button>
-
-                <button
-                  onClick={handleDislike}
-                  className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors ${
-                    engagementStats?.user_disliked
-                      ? 'bg-red-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                  disabled={!lmsUsername || lmsUsername === 'Guest'}
-                >
-                  <svg className="w-4 h-4" fill={engagementStats?.user_disliked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
-                  </svg>
-                  <span className="text-sm">{engagementStats?.dislikes || 0}</span>
-                </button>
-              </div>
-            )}
-            
+          <div className="flex items-center justify-end space-x-4"> 
             <div className="text-right">
               <p className="text-sm text-gray-600 dark:text-gray-400">Your Progress</p>
               <p className="text-lg font-bold text-blue-600">{calculateProgress()}%</p>
@@ -360,14 +332,14 @@ export default function CourseViewPage() {
       </div>
 
   {/* Split Screen Layout */}
-  <div className="flex h-[calc(100vh-80px)] min-h-0 mt-6">
+  <div className="flex h-[calc(100vh-140px)]">
         {/* Left Side - Video Player (60-70%) */}
-        <div className="flex-[0_0_65%] flex flex-col min-h-0 pr-6">
+        <div className="flex-[0_0_65%] flex flex-col overflow-y-auto px-6">
           {currentLesson && currentLesson.video_id ? (
             <>
               {/* Sticky Video Player (Udemy-like) */}
-              <div className="w-full flex-shrink-0 sticky top-20 z-10 flex items-center justify-center" style={{ height: '72.5%' }}>
-                <div className="w-full h-full max-w-6xl aspect-video rounded-xl overflow-hidden shadow-lg" style={{ marginTop: '0' }}>
+              <div className="w-full flex-shrink-0 mb-4">
+                <div className="w-full aspect-video rounded-xl overflow-hidden shadow-lg bg-black">
                   <VideoPlayer
                     videoHash={currentLesson.video_id}
                     youtubeUrl={currentLesson.youtube_url}
@@ -378,131 +350,111 @@ export default function CourseViewPage() {
                   />
                 </div>
               </div>
-              
-              {/* Video Controls */}
-              {/* <div className="bg-gray-900 px-6 py-4 flex items-center justify-between">
-                <button
-                  onClick={goToPreviousLesson}
-                  className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Previous
-                </button>
-                
-                <button
-                  onClick={() => toggleLessonComplete(currentLesson.id)}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                    completedLessons.has(currentLesson.id)
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
-                >
-                  {completedLessons.has(currentLesson.id) ? 'Completed ✓' : 'Mark as Complete'}
-                </button>
-                
-                <button
-                  onClick={goToNextLesson}
-                  className="flex items-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                >
-                  Next
-                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div> */}
 
-              {/* Lesson Details Section - YouTube-like description panel */}
-              <div className="px-6 py-6 overflow-auto" style={{ height: '30%' }}>
-                <div className="max-w-6xl mx-auto">
-                  <div
-                    className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 cursor-pointer"
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={descExpanded}
-                    onClick={() => setDescExpanded(!descExpanded)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setDescExpanded(!descExpanded);
-                      }
-                    }}
-                  >
-                    <div className="space-y-3">
-                      {/* Title + meta */}
-                      <div>
-                        <div className="flex items-start">
-                          <h3 className="text-xl font-semibold leading-tight flex-1">
-                            {currentLesson.title}
-                          </h3>
-                          <svg
-                            className={`w-5 h-5 ml-3 transform transition-transform ${descExpanded ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              {/* Lesson Details Section */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  {currentLesson.title}
+                </h3>
+
+                {/* Engagement Stats Row - Views/Date on left, Like/Dislike on right */}
+                <div className="flex items-center justify-between mb-4">
+                  {/* Left: Views and Date */}
+                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                    {engagementStats && (
+                      <>
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
+                          <span>{engagementStats.views.toLocaleString()} views</span>
                         </div>
-                        <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex items-center space-x-3">
-                          <span>{currentLesson.views ? `${currentLesson.views} views` : ''}</span>
-                          {currentLesson.uploaded_at && (
-                            <span className="truncate">• {currentLesson.uploaded_at}</span>
-                          )}
-                          {currentLesson.duration && (
-                            <span className="ml-auto">{currentLesson.duration} min</span>
-                          )}
+                        <div className="flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>{new Date().toLocaleDateString()}</span>
                         </div>
-                      </div>
+                      </>
+                    )}
+                  </div>
 
-                  {/* Collapsible Description */}
-                  {currentLesson.description && (
-                    <div>
-                      <div className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap" style={{ maxHeight: descExpanded ? 'none' : 96, overflow: 'hidden' }}>
-                        {currentLesson.description}
-                      </div>
-                      {currentLesson.description.length > 300 && (
-                        <button
-                          onClick={() => setDescExpanded(!descExpanded)}
-                          className="mt-2 text-sm text-blue-600 hover:underline"
-                        >
-                          {descExpanded ? 'Show less' : 'Show more'}
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  {/* Right: Like/Dislike Buttons */}
+                  <div className="flex items-center space-x-2">
+                    {/* Like Button */}
+                    <button
+                      onClick={handleLike}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                        engagementStats?.user_liked
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                      disabled={!lmsUsername || lmsUsername === 'Guest'}
+                    >
+                      <svg className="w-5 h-5" fill={engagementStats?.user_liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                      </svg>
+                      <span>{engagementStats?.likes || 0}</span>
+                    </button>
 
-                  {/* Resources (kept below description) */}
-                  {currentLesson.resources && currentLesson.resources.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Resources</h4>
-                      <div className="space-y-2">
-                        {currentLesson.resources.map((resource, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
-                            <div className="flex items-center space-x-3">
-                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <div>
-                                <p className="font-medium text-sm">{resource.title || resource.name || `Resource ${index + 1}`}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{resource.type || 'file'}</p>
-                              </div>
+                    {/* Dislike Button */}
+                    <button
+                      onClick={handleDislike}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                        engagementStats?.user_disliked
+                          ? 'bg-red-600 text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                      disabled={!lmsUsername || lmsUsername === 'Guest'}
+                    >
+                      <svg className="w-5 h-5" fill={engagementStats?.user_disliked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                      </svg>
+                      <span>{engagementStats?.dislikes || 0}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {currentLesson.description && (
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</h4>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                      {currentLesson.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Comments Section */}
+                <div className="mt-6">
+                  <CommentsSection
+                    contentType="video"
+                    contentId={currentLesson.video_id}
+                    lmsUsername={lmsUsername}
+                    isAdmin={false}
+                  />
+                </div>
+
+                {currentLesson.resources && currentLesson.resources.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Resources</h4>
+                    <div className="space-y-2">
+                      {currentLesson.resources.map((resource, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                          <div className="flex items-center space-x-3">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <div>
+                              <p className="font-medium text-sm">{resource.title || resource.name || `Resource ${index + 1}`}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{resource.type || 'file'}</p>
                             </div>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); /* implement download action */ }}
-                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
-                            >
-                              Download
-                            </button>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-              </div>
-                </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -518,7 +470,7 @@ export default function CourseViewPage() {
   </div>
 
         {/* Right Side - Course Content Panel (30-40%) */}
-  <div className="flex-[0_0_35%] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto min-h-0">
+  <div className="flex-[0_0_35%] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
           {/* Tabs */}
           <div className="border-b border-gray-200 dark:border-gray-700">
             <div className="flex">
@@ -541,16 +493,6 @@ export default function CourseViewPage() {
                 }`}
               >
                 Resources
-              </button>
-              <button
-                onClick={() => setShowTab('comments')}
-                className={`flex-1 px-4 py-3 font-semibold text-sm transition-colors ${
-                  showTab === 'comments'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                Comments {engagementStats?.comments ? `(${engagementStats.comments})` : ''}
               </button>
             </div>
           </div>
@@ -667,9 +609,6 @@ export default function CourseViewPage() {
                             </p>
                           </div>
                         </div>
-                        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors">
-                          Download
-                        </button>
                       </div>
                     </div>
                   ))
@@ -687,6 +626,7 @@ export default function CourseViewPage() {
                   contentId={courseId}
                   lmsUsername={lmsUsername}
                   isAdmin={false}
+                  currentVideoId={currentLesson?.video_id || null}
                 />
               </div>
             )}

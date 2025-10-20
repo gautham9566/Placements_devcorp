@@ -2065,6 +2065,7 @@ export default function PreviewCoursePage() {
                 contentId={courseId}
                 lmsUsername={lmsUsername}
                 isAdmin={true}
+                currentVideoId={selectedVideo}
               />
             </div>
           </div>

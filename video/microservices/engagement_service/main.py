@@ -25,6 +25,7 @@ class CommentCreate(BaseModel):
     lms_username: str
     content_type: str  # 'video' or 'course'
     content_id: str
+    video_id: Optional[str] = None  # Specific video ID for course comments
     comment_text: str
     parent_id: Optional[int] = None
     is_admin_reply: Optional[bool] = False
@@ -37,6 +38,7 @@ class CommentResponse(BaseModel):
     lms_username: str
     content_type: str
     content_id: str
+    video_id: Optional[str] = None
     comment_text: str
     parent_id: Optional[int]
     is_admin_reply: bool
@@ -91,6 +93,7 @@ async def create_comment(comment: CommentCreate, db: Session = Depends(get_db)):
         lms_username=db_comment.lms_username,
         content_type=db_comment.content_type,
         content_id=db_comment.content_id,
+        video_id=db_comment.video_id,
         comment_text=db_comment.comment_text,
         parent_id=db_comment.parent_id,
         is_admin_reply=db_comment.is_admin_reply,
@@ -103,19 +106,27 @@ async def create_comment(comment: CommentCreate, db: Session = Depends(get_db)):
 async def get_comments(
     content_type: str,
     content_id: str,
+    video_id: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
-    """Get comments for a specific video or course (only top-level comments with replies)"""
+    """Get comments for a specific video or course (only top-level comments with replies)
+    For courses, can filter by specific video_id"""
     offset = (page - 1) * limit
     
-    # Get top-level comments (no parent)
-    top_comments = db.query(Comment).filter(
+    # Build query for top-level comments (no parent)
+    query = db.query(Comment).filter(
         Comment.content_type == content_type,
         Comment.content_id == content_id,
         Comment.parent_id.is_(None)
-    ).order_by(Comment.created_at.desc()).offset(offset).limit(limit).all()
+    )
+    
+    # Add video_id filter if provided (for course comments)
+    if video_id:
+        query = query.filter(Comment.video_id == video_id)
+    
+    top_comments = query.order_by(Comment.created_at.desc()).offset(offset).limit(limit).all()
     
     # Build response with replies
     result = []
@@ -127,6 +138,7 @@ async def get_comments(
             lms_username=comment.lms_username,
             content_type=comment.content_type,
             content_id=comment.content_id,
+            video_id=comment.video_id,
             comment_text=comment.comment_text,
             parent_id=comment.parent_id,
             is_admin_reply=comment.is_admin_reply,
@@ -138,6 +150,7 @@ async def get_comments(
                     lms_username=reply.lms_username,
                     content_type=reply.content_type,
                     content_id=reply.content_id,
+                    video_id=reply.video_id,
                     comment_text=reply.comment_text,
                     parent_id=reply.parent_id,
                     is_admin_reply=reply.is_admin_reply,
@@ -165,6 +178,7 @@ async def get_comment(comment_id: int, db: Session = Depends(get_db)):
         lms_username=comment.lms_username,
         content_type=comment.content_type,
         content_id=comment.content_id,
+        video_id=comment.video_id,
         comment_text=comment.comment_text,
         parent_id=comment.parent_id,
         is_admin_reply=comment.is_admin_reply,
@@ -176,6 +190,7 @@ async def get_comment(comment_id: int, db: Session = Depends(get_db)):
                 lms_username=reply.lms_username,
                 content_type=reply.content_type,
                 content_id=reply.content_id,
+                video_id=reply.video_id,
                 comment_text=reply.comment_text,
                 parent_id=reply.parent_id,
                 is_admin_reply=reply.is_admin_reply,
@@ -206,6 +221,7 @@ async def update_comment(comment_id: int, comment_update: CommentUpdate, db: Ses
         lms_username=comment.lms_username,
         content_type=comment.content_type,
         content_id=comment.content_id,
+        video_id=comment.video_id,
         comment_text=comment.comment_text,
         parent_id=comment.parent_id,
         is_admin_reply=comment.is_admin_reply,
@@ -217,6 +233,7 @@ async def update_comment(comment_id: int, comment_update: CommentUpdate, db: Ses
                 lms_username=reply.lms_username,
                 content_type=reply.content_type,
                 content_id=reply.content_id,
+                video_id=reply.video_id,
                 comment_text=reply.comment_text,
                 parent_id=reply.parent_id,
                 is_admin_reply=reply.is_admin_reply,
