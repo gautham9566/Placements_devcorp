@@ -308,7 +308,7 @@ const JobDetailsPreview = ({ job }) => {
 };
 
 // --- Form View Component ---
-const ApplicationForm = ({ job, formData, setFormData, setStep, canApply = true }) => {
+const ApplicationForm = ({ job, formData, setFormData, setStep, canApply = true, userResumes = [] }) => {
   const handleChange = (e) => {
     const { name, value, type, files } = e.target;
     if (type === 'file') {
@@ -412,7 +412,39 @@ const ApplicationForm = ({ job, formData, setFormData, setStep, canApply = true 
 
   return (
     <form onSubmit={handleSubmit}>
-      <SectionCard title="📝 Cover Letter" icon="📝">
+      <SectionCard title="� Resume Selection" icon="📄">
+        <div className="md:col-span-2">
+          <label htmlFor="resume_id" className="block text-sm font-medium text-gray-700 mb-1.5">
+            Select Resume <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="resume_id"
+            name="resume_id"
+            value={formData.resume_id || ''}
+            onChange={handleChange}
+            required={true}
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-200"
+          >
+            <option value="">-- Select a resume --</option>
+            {userResumes && userResumes.length > 0 ? (
+              userResumes.map((resume) => (
+                <option key={resume.id} value={resume.id}>
+                  {resume.name} {resume.is_primary ? '(Primary)' : ''} - Uploaded {new Date(resume.uploaded_at).toLocaleDateString()}
+                </option>
+              ))
+            ) : (
+              <option value="" disabled>No resumes available</option>
+            )}
+          </select>
+          <p className="mt-2 text-xs text-gray-500">
+            {userResumes && userResumes.length > 0 
+              ? `You have ${userResumes.length} resume${userResumes.length > 1 ? 's' : ''} available. Select the one you want to use for this application.`
+              : 'Please upload a resume in your profile before applying.'}
+          </p>
+        </div>
+      </SectionCard>
+      
+      <SectionCard title="�📝 Cover Letter" icon="📝">
         <TextareaField 
           label="Cover Letter"
           name="cover_letter"
@@ -450,7 +482,10 @@ const ApplicationForm = ({ job, formData, setFormData, setStep, canApply = true 
 };
 
 // --- Review View Component ---
-const ReviewApplication = ({ job, formData, setStep, onSubmit, isSubmitting, canApply = true }) => {
+const ReviewApplication = ({ job, formData, setStep, onSubmit, isSubmitting, canApply = true, userResumes = [] }) => {
+  
+  // Find the selected resume
+  const selectedResume = userResumes.find(r => r.id === parseInt(formData.resume_id));
   
   // A reusable row for displaying a piece of data
   const DataRow = ({ label, value }) => (
@@ -469,7 +504,35 @@ const ReviewApplication = ({ job, formData, setStep, onSubmit, isSubmitting, can
 
   return (
     <div>
-      <SectionCard title="📝 Cover Letter" onEdit={() => setStep('form')} icon="📝">
+      <SectionCard title="� Selected Resume" onEdit={() => setStep('form')} icon="📄">
+        <div className="md:col-span-2">
+          {selectedResume ? (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-gray-900">{selectedResume.name}</h4>
+                  <p className="text-sm text-gray-600">
+                    Uploaded on {new Date(selectedResume.uploaded_at).toLocaleDateString()}
+                    {selectedResume.is_primary && <span className="ml-2 text-indigo-600 font-medium">(Primary Resume)</span>}
+                  </p>
+                </div>
+                <a 
+                  href={selectedResume.file_url || selectedResume.resume_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                >
+                  View →
+                </a>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No resume selected</p>
+          )}
+        </div>
+      </SectionCard>
+      
+      <SectionCard title="�📝 Cover Letter" onEdit={() => setStep('form')} icon="📝">
         <div className="md:col-span-2">
           <TextData label="Cover Letter" value={formData.cover_letter} />
         </div>
@@ -535,10 +598,12 @@ export default function JobApplicationPage() {
   const [freezeStatus, setFreezeStatus] = useState(null);
   const [canApply, setCanApply] = useState(true);
   const [freezeRestrictions, setFreezeRestrictions] = useState([]);
+  const [userResumes, setUserResumes] = useState([]);
 
   // Form data state
   const [formData, setFormData] = useState({
     cover_letter: '',
+    resume_id: '',
     additional_fields: {}
   });
 
@@ -580,10 +645,18 @@ export default function JobApplicationPage() {
         const resumes = await studentsAPI.getResumes();
         profile.resumes = resumes;
         profile.resume_count = resumes.length;
+        setUserResumes(resumes);
+        
+        // Auto-select primary resume if available
+        const primaryResume = resumes.find(r => r.is_primary);
+        if (primaryResume && !formData.resume_id) {
+          setFormData(prev => ({ ...prev, resume_id: primaryResume.id.toString() }));
+        }
       } catch (resumeError) {
         console.log('Could not fetch resumes:', resumeError);
         profile.resumes = [];
         profile.resume_count = 0;
+        setUserResumes([]);
       }
 
       setUserProfile(profile);
@@ -691,11 +764,22 @@ export default function JobApplicationPage() {
       });
       return;
     }
+    
+    if (!formData.resume_id) {
+      showApplicationSubmissionError({
+        response: {
+          data: {
+            resume: ['Please select a resume to submit with your application.']
+          }
+        }
+      });
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      await applyToJob(jobId, formData.cover_letter, formData.additional_fields);
+      await applyToJob(jobId, formData.cover_letter, formData.additional_fields, formData.resume_id);
       
       // Success - show success notification and redirect
       showSuccess('Application Submitted!', 'Your job application has been submitted successfully. Good luck!');
@@ -874,6 +958,7 @@ export default function JobApplicationPage() {
               setFormData={setFormData}
               setStep={setStep}
               canApply={canApply}
+              userResumes={userResumes}
             />
           ) : (
             <ReviewApplication
@@ -883,6 +968,7 @@ export default function JobApplicationPage() {
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
               canApply={canApply}
+              userResumes={userResumes}
             />
           )}
         </main>

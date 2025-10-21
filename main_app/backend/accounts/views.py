@@ -1125,6 +1125,25 @@ class ResumeDetailView(generics.RetrieveUpdateDestroyAPIView):
                 other_resumes.save()
 
         instance.delete()
+    
+    def patch(self, request, *args, **kwargs):
+        """Handle PATCH requests - allow setting as primary"""
+        instance = self.get_object()
+        
+        # Check if setting as primary
+        if 'is_primary' in request.data and request.data['is_primary']:
+            # The save method in Resume model will automatically unset other primaries
+            instance.is_primary = True
+            instance.save()
+            
+            serializer = self.get_serializer(instance)
+            return Response({
+                'message': 'Resume set as primary successfully',
+                'resume': serializer.data
+            })
+        
+        # Otherwise, handle as normal update
+        return super().patch(request, *args, **kwargs)
 
 
 # Admin API Views
