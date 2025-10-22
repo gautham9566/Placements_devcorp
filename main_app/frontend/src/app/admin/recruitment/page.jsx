@@ -3,21 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  DndContext,
-  DragOverlay,
-  closestCorners,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import {
   Search,
   Filter,
   Plus,
@@ -60,21 +45,6 @@ export default function RecruitmentBoard() {
   // Candidate detail modal
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  
-  // Drag and drop
-  const [activeId, setActiveId] = useState(null);
-  const [overId, setOverId] = useState(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   // Load board data
   useEffect(() => {
@@ -103,104 +73,6 @@ export default function RecruitmentBoard() {
     }
   };
 
-  const handleDragStart = (event) => {
-    setActiveId(event.active.id);
-  };
-
-  const handleDragOver = (event) => {
-    const { over } = event;
-    setOverId(over ? over.id : null);
-  };
-
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
-
-    setActiveId(null);
-    setOverId(null);
-
-    if (!over) return;
-
-    const activeId = active.id;
-    const overId = over.id;
-
-    if (activeId === overId) return;
-
-    // Find the candidate being dragged
-    let candidateCard = null;
-    let fromStageId = null;
-    let toStageId = null;
-
-    // Find which stage the candidate is in
-    for (const stage of stages) {
-      const items = stage.candidates || stage.cards || [];
-      const card = items.find(c => c.id === activeId);
-      if (card) {
-        candidateCard = card;
-        fromStageId = stage.id;
-        break;
-      }
-    }
-
-    // Determine target stage
-    // overId might be a stage ID or another card ID
-    const targetStage = stages.find(s => s.id === overId);
-    if (targetStage) {
-      toStageId = targetStage.id;
-    } else {
-      // Find which stage contains the card we're hovering over
-      for (const stage of stages) {
-        const items = stage.candidates || stage.cards || [];
-        if (items.some(c => c.id === overId)) {
-          toStageId = stage.id;
-          break;
-        }
-      }
-    }
-
-    if (!toStageId || fromStageId === toStageId) return;
-
-    // Optimistic update
-    const newStages = stages.map(stage => {
-      const items = stage.candidates || stage.cards || [];
-      if (stage.id === fromStageId) {
-        return {
-          ...stage,
-          candidates: items.filter(c => c.id !== activeId),
-          cards: items.filter(c => c.id !== activeId),
-          count: stage.count - 1,
-        };
-      }
-      if (stage.id === toStageId) {
-        return {
-          ...stage,
-          candidates: [...items, candidateCard],
-          cards: [...items, candidateCard],
-          count: stage.count + 1,
-        };
-      }
-      return stage;
-    });
-
-    setStages(newStages);
-
-    // Make API call
-    try {
-      await moveCandidateStage(activeId, {
-        candidate_id: activeId,
-        from_stage_id: fromStageId,
-        to_stage_id: toStageId,
-      });
-
-      // Reload board to get updated data
-      loadBoardData();
-    } catch (err) {
-      console.error('Failed to move candidate:', err);
-      // Revert on error
-      setStages(stages);
-      alert('Failed to move candidate. Please try again.');
-    }
-  };
-
   const handleCandidateClick = (candidate) => {
     setSelectedCandidate(candidate);
     setShowDetailModal(true);
@@ -208,16 +80,6 @@ export default function RecruitmentBoard() {
 
   const handleRemoveTag = (tag) => {
     setSelectedTags(prev => prev.filter(t => t !== tag));
-  };
-
-  const getActiveCandidate = () => {
-    if (!activeId) return null;
-    for (const stage of stages) {
-      const items = stage.candidates || stage.cards || [];
-      const card = items.find(c => c.id === activeId);
-      if (card) return card;
-    }
-    return null;
   };
 
   const filteredStages = stages.map(stage => {
@@ -440,35 +302,15 @@ export default function RecruitmentBoard() {
       {/* Main Content - Kanban Board */}
       {viewMode === 'kanban' && (
         <div className="p-6 overflow-x-auto">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex gap-4 min-w-max pb-6">
-              {filteredStages.map((stage) => (
-                <KanbanColumn
-                  key={stage.id}
-                  stage={stage}
-                  onCandidateClick={handleCandidateClick}
-                  isOver={overId === stage.id}
-                />
-              ))}
-            </div>
-
-            <DragOverlay>
-              {activeId ? (
-                <div className="rotate-3 opacity-90">
-                  <CandidateCard
-                    candidate={getActiveCandidate()}
-                    isDragging={true}
-                  />
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+          <div className="flex gap-4 min-w-max pb-6">
+            {filteredStages.map((stage) => (
+              <KanbanColumn
+                key={stage.id}
+                stage={stage}
+                onCandidateClick={handleCandidateClick}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -506,6 +348,7 @@ export default function RecruitmentBoard() {
       {showDetailModal && selectedCandidate && (
         <CandidateDetailModal
           candidate={selectedCandidate}
+          stages={stages}
           onClose={() => {
             setShowDetailModal(false);
             setSelectedCandidate(null);

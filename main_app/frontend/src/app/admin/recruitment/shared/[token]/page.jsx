@@ -211,15 +211,17 @@ export default function SharedRecruitmentBoard() {
       {/* Kanban Board */}
       <div className="p-6">
         <div className="flex gap-4 overflow-x-auto pb-6">
-          {board.stages?.map((stage) => (
+          {board.stages && board.stages.length > 0 ? board.stages.map((stage) => (
             <KanbanColumn
               key={stage.id}
               stage={stage}
               onCandidateClick={handleCandidateClick}
-              isSharedView={true}
-              canDrag={link.permission_level === 'EDIT' || link.permission_level === 'FULL'}
             />
-          ))}
+          )) : (
+            <div className="w-full text-center py-12">
+              <p className="text-gray-500">No stages available</p>
+            </div>
+          )}
         </div>
 
         {/* Empty State */}

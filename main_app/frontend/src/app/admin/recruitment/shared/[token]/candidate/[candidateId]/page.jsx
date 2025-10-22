@@ -21,6 +21,7 @@ import {
   CheckCircle,
   Circle,
   ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import {
   getCandidateCard,
@@ -28,6 +29,8 @@ import {
   getCandidateHistory,
   addCandidateComment,
   updateCandidateCard,
+  moveCandidateStage,
+  getSharedBoard,
 } from '@/api/ats.js';
 
 // Dynamically import PDFViewer to avoid SSR issues with react-pdf
@@ -47,6 +50,7 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
   const params = useParams();
   const router = useRouter();
   const routeCandidateId = params?.candidateId;
+  const token = params?.token;
 
   // If neither a prop candidate nor route candidateId is available yet, show initial loading
   if (!initialCandidate && !routeCandidateId) {
@@ -70,6 +74,9 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [rating, setRating] = useState(initialCandidate?.rating || 0);
+  const [stages, setStages] = useState([]);
+  const [permissionLevel, setPermissionLevel] = useState('VIEW');
+  const [isMoving, setIsMoving] = useState(false);
 
   useEffect(() => {
     loadCandidateDetails();
@@ -82,10 +89,12 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
 
     setIsFetching(true);
     try {
-      const [candidateRes, commentsRes, historyRes] = await Promise.all([
+      // Load candidate details, comments, history, and shared board data
+      const [candidateRes, commentsRes, historyRes, sharedBoardRes] = await Promise.all([
         getCandidateCard(idToLoad),
         getCandidateComments(idToLoad),
         getCandidateHistory(idToLoad),
+        token ? getSharedBoard(token) : Promise.resolve(null),
       ]);
 
       if (candidateRes.data) {
@@ -94,6 +103,15 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
       }
       if (commentsRes.data) setComments(commentsRes.data);
       if (historyRes.data) setHistory(historyRes.data);
+      
+      // Set pipeline data and permission level if available
+      if (sharedBoardRes?.data?.board?.stages) {
+        setStages(sharedBoardRes.data.board.stages);
+      }
+      if (sharedBoardRes?.data?.link?.permission_level) {
+        setPermissionLevel(sharedBoardRes.data.link.permission_level);
+      }
+      
     } catch (err) {
       console.error('Failed to load candidate details:', err);
     } finally {
@@ -122,17 +140,65 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
     }
   };
 
-  const handleRatingChange = async (newRating) => {
-    const previousRating = rating;
+  const handleMoveToNextStage = async () => {
+    if (!candidate || !candidate.current_stage || !stages.length) return;
+
+    setIsMoving(true);
     try {
-      setRating(newRating);
-      const idToUse = candidate?.id || routeCandidateId;
-      if (!idToUse) throw new Error('Candidate ID is not available');
-      await updateCandidateCard(idToUse, { rating: newRating });
+      // Find current stage index
+      const currentStageIndex = stages.findIndex(stage => stage.id === candidate.current_stage);
+      if (currentStageIndex === -1 || currentStageIndex === stages.length - 1) {
+        // Already in the last stage
+        alert('Candidate is already in the final stage');
+        return;
+      }
+
+      const nextStage = stages[currentStageIndex + 1];
+
+      await moveCandidateStage(candidate.id, {
+        candidate_id: candidate.id,
+        from_stage_id: candidate.current_stage,
+        to_stage_id: nextStage.id,
+      });
+
+      // Reload candidate details to get updated data
       await loadCandidateDetails();
-    } catch (err) {
-      console.error('Failed to update rating:', err);
-      setRating(previousRating);
+    } catch (error) {
+      console.error('Failed to move candidate:', error);
+      alert('Failed to move candidate to next stage. Please try again.');
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
+  const handleMoveToPreviousStage = async () => {
+    if (!candidate || !candidate.current_stage || !stages.length) return;
+
+    setIsMoving(true);
+    try {
+      // Find current stage index
+      const currentStageIndex = stages.findIndex(stage => stage.id === candidate.current_stage);
+      if (currentStageIndex === -1 || currentStageIndex === 0) {
+        // Already in the first stage
+        alert('Candidate is already in the first stage');
+        return;
+      }
+
+      const previousStage = stages[currentStageIndex - 1];
+
+      await moveCandidateStage(candidate.id, {
+        candidate_id: candidate.id,
+        from_stage_id: candidate.current_stage,
+        to_stage_id: previousStage.id,
+      });
+
+      // Reload candidate details to get updated data
+      await loadCandidateDetails();
+    } catch (error) {
+      console.error('Failed to move candidate:', error);
+      alert('Failed to move candidate to previous stage. Please try again.');
+    } finally {
+      setIsMoving(false);
     }
   };
 
@@ -153,13 +219,21 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
   };
 
   const getStageStatus = (stageName) => {
-    // Simplified stage status for UI
-    const currentStageIndex = history.findIndex(h => h.to_stage_name === candidate.stage_name);
-    const targetStageIndex = history.findIndex(h => h.to_stage_name === stageName);
-    
+    // Determine status based on candidate's current position in the full pipeline
+    if (!stages.length || !candidate.stage_name) return 'pending';
+
+    const currentStageIndex = stages.findIndex(stage => stage.id === candidate.current_stage);
+    const targetStageIndex = stages.findIndex(stage => stage.name === stageName);
+
     if (targetStageIndex === -1) return 'pending';
+    if (targetStageIndex < currentStageIndex) return 'completed';
     if (targetStageIndex === currentStageIndex) return 'active';
-    return 'completed';
+    return 'pending';
+  };
+
+  const getFilteredPipelineStages = () => {
+    // Return all stages from the recruitment pipeline
+    return stages;
   };
 
   return (
@@ -350,10 +424,35 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
           <div className="flex-1 overflow-y-auto p-6 min-w-0">
             {/* Action Buttons */}
             <div className="flex items-center gap-3 mb-6">
-              <button className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50">
+              <button
+                onClick={handleMoveToPreviousStage}
+                disabled={isMoving}
+                className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Refuse
               </button>
-              <div className="ml-auto text-sm text-gray-600">No Meeting</div>
+              {(permissionLevel === 'EDIT' || permissionLevel === 'FULL') && (
+                <button
+                  onClick={handleMoveToNextStage}
+                  disabled={isMoving}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isMoving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Moving...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="w-4 h-4" />
+                      Move to Next Stage
+                    </>
+                  )}
+                </button>
+              )}
+              <div className="ml-auto text-sm text-gray-600">
+                Current Stage: {candidate.stage_name || 'Unknown'}
+              </div>
             </div>
 
             {/* Job & Contract Section */}
@@ -450,10 +549,10 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
             <div className="mb-6">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">Recruitment Pipeline</h3>
               <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                {history.slice(0, 5).map((historyItem, index) => {
-                  const status = getStageStatus(historyItem.to_stage_name);
+                {getFilteredPipelineStages().map((stage, index) => {
+                  const status = getStageStatus(stage.name);
                   return (
-                    <div key={index} className="flex items-center flex-shrink-0">
+                    <div key={stage.id} className="flex items-center flex-shrink-0">
                       <div className="flex flex-col items-center">
                         <div
                           className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -473,15 +572,10 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
                           )}
                         </div>
                         <span className="text-xs text-gray-600 mt-1">
-                          {historyItem.to_stage_name}
+                          {stage.name}
                         </span>
-                        {historyItem.moved_at && (
-                          <span className="text-xs text-gray-400">
-                            {new Date(historyItem.moved_at).toLocaleDateString()}
-                          </span>
-                        )}
                       </div>
-                      {index < history.length - 1 && (
+                      {index < getFilteredPipelineStages().length - 1 && (
                         <div
                           className={`h-0.5 w-12 mx-2 ${
                             status === 'completed' ? 'bg-green-300' : 'bg-gray-200'
