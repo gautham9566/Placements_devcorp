@@ -25,6 +25,7 @@ export default function ATSLinksPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedLinkId, setCopiedLinkId] = useState(null);
   const [deletingLinkId, setDeletingLinkId] = useState(null);
+  const [updatingPermissionId, setUpdatingPermissionId] = useState(null);
 
   // Load shareable links
   const loadLinks = async () => {
@@ -91,6 +92,27 @@ export default function ATSLinksPage() {
       alert('Failed to delete link');
     } finally {
       setDeletingLinkId(null);
+    }
+  };
+
+  // Update permission level
+  const updatePermission = async (linkId, newPermission) => {
+    try {
+      setUpdatingPermissionId(linkId);
+      await client.patch(`/api/v1/jobs/ats/links/${linkId}/`, {
+        permission_level: newPermission
+      });
+      // Update local state
+      setLinks(links.map(link =>
+        link.id === linkId
+          ? { ...link, permission_level: newPermission }
+          : link
+      ));
+    } catch (err) {
+      console.error('Error updating permission:', err);
+      alert('Failed to update permission');
+    } finally {
+      setUpdatingPermissionId(null);
     }
   };
 
@@ -196,13 +218,16 @@ export default function ATSLinksPage() {
                   Company Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Job Title
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Link
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Permission
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
+                  Created / Expires
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -212,7 +237,7 @@ export default function ATSLinksPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredLinks.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
+                  <td colSpan="7" className="px-6 py-12 text-center">
                     <LinkIcon className="mx-auto text-gray-400 mb-4" size={48} />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No shareable links found</h3>
                     <p className="text-gray-600">
@@ -227,7 +252,7 @@ export default function ATSLinksPage() {
                       <div className="flex items-center">
                         <Briefcase className="text-gray-400 mr-2" size={16} />
                         <span className="text-sm font-medium text-gray-900">
-                          {link?.applications_view ? 'Applications View' : (link?.job_id || 'N/A')}
+                          {link?.job_id || 'N/A'}
                         </span>
                       </div>
                     </td>
@@ -235,9 +260,14 @@ export default function ATSLinksPage() {
                       <div className="flex items-center">
                         <Building2 className="text-gray-400 mr-2" size={16} />
                         <span className="text-sm text-gray-900">
-                          {link?.applications_view ? 'All Companies' : (link?.company_name || 'N/A')}
+                          {link?.company_name || 'N/A'}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">
+                        {link?.job_title || 'N/A'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
@@ -254,12 +284,34 @@ export default function ATSLinksPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">
-                        {getPermissionDisplay(link?.permission_level)}
-                      </span>
+                      {updatingPermissionId === link?.id ? (
+                        <div className="flex items-center">
+                          <RefreshCw className="animate-spin mr-2" size={14} />
+                          <span className="text-sm text-gray-500">Updating...</span>
+                        </div>
+                      ) : (
+                        <select
+                          value={link?.permission_level || 'VIEW'}
+                          onChange={(e) => link?.id && updatePermission(link.id, e.target.value)}
+                          className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          disabled={!link?.id}
+                        >
+                          <option value="VIEW">View Only</option>
+                          <option value="COMMENT">View & Comment</option>
+                          <option value="EDIT">View, Comment & Edit</option>
+                          <option value="FULL">Full Access</option>
+                        </select>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(link?.created_at)}
+                      <div className="space-y-1">
+                        <div>
+                          <span className="font-medium">Created:</span> {formatDate(link?.created_at)}
+                        </div>
+                        <div>
+                          <span className="font-medium">Expires:</span> {formatDate(link?.expires_at)}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">

@@ -31,6 +31,7 @@ export default function AdminLayout({ children }) {
       items: [
         { title: 'Dashboard', href: '/admin/dashboard', icon: <IconHome /> },
         { title: 'Calendar', href: '/admin/calendar', icon: <Calendar className="w-5 h-5" /> },
+        { title: 'ATS', href: '/admin/recruitment', icon: <IconBriefcase /> },
         { title: 'Applications', href: '/admin/applications', icon: <IconClipboardList /> },
         { title: 'Placed Students', href: '/admin/placed-students', icon: <Trophy className="w-5 h-5" /> },
         { title: 'Student Management', href: '/admin/student-management', icon: <User className="w-5 h-5" /> },
