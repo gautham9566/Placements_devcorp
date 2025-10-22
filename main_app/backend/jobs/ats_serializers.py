@@ -380,12 +380,15 @@ class KanbanBoardSerializer(serializers.Serializer):
 class ShareableLinkSerializer(serializers.ModelSerializer):
     is_expired = serializers.SerializerMethodField()
     can_access = serializers.SerializerMethodField()
-    pipeline_name = serializers.CharField(source='pipeline.name', read_only=True)
+    pipeline_name = serializers.SerializerMethodField()
+    job_id = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
+    job_title = serializers.SerializerMethodField()
     
     class Meta:
         model = ShareableLink
         fields = [
-            'id', 'token', 'pipeline', 'pipeline_name', 'applications_view',
+            'id', 'token', 'pipeline', 'pipeline_name', 'job_id', 'company_name', 'job_title', 'applications_view',
             'permission_level', 'created_by', 'created_at', 'expires_at',
             'access_count', 'last_accessed_at', 'is_active',
             'is_expired', 'can_access'
@@ -397,6 +400,18 @@ class ShareableLinkSerializer(serializers.ModelSerializer):
     
     def get_can_access(self, obj):
         return obj.can_access()
+    
+    def get_pipeline_name(self, obj):
+        return obj.pipeline.name if obj.pipeline else None
+    
+    def get_job_id(self, obj):
+        return obj.pipeline.job.id if obj.pipeline and obj.pipeline.job else None
+    
+    def get_company_name(self, obj):
+        return obj.pipeline.job.company.name if obj.pipeline and obj.pipeline.job and obj.pipeline.job.company else None
+    
+    def get_job_title(self, obj):
+        return obj.pipeline.job.title if obj.pipeline and obj.pipeline.job else None
     
     def create(self, validated_data):
         # Generate token if not provided

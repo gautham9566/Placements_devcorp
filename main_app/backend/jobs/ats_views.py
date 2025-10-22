@@ -753,7 +753,9 @@ class ShareableLinkViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing shareable links
     """
-    queryset = ShareableLink.objects.all()
+    queryset = ShareableLink.objects.select_related(
+        'pipeline__job__company'
+    ).all()
     serializer_class = ShareableLinkSerializer
     permission_classes = [permissions.IsAdminUser]
 

@@ -1,152 +1,134 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   Search,
-  Filter,
-  Plus,
-  LayoutGrid,
-  List,
-  Calendar,
-  Grid,
-  Bell,
-  X,
-  Download,
+  Eye,
+  Share2,
+  Trash2,
+  Copy,
+  Check,
+  ExternalLink,
   RefreshCw,
-  Settings,
+  AlertCircle,
+  Building2,
+  Briefcase,
+  Link2 as LinkIcon
 } from 'lucide-react';
-import KanbanColumn from './components/KanbanColumn';
-import CandidateCard from './components/CandidateCard';
-import CandidateDetailModal from './components/CandidateDetailModal';
-import ListView from './views/ListView';
-import CalendarView from './views/CalendarView';
-import GridView from './views/GridView';
-import { getKanbanBoard, moveCandidateStage, getSharedBoard } from '../../../api/ats';
+import { getShareableLinks } from '../../../api/ats';
+import client from '../../../api/client';
 
-export default function RecruitmentBoard() {
-  const searchParams = useSearchParams();
-  const sharedToken = searchParams.get('token');
-
-  // State
-  const [boardData, setBoardData] = useState(null);
-  const [stages, setStages] = useState([]);
+export default function ATSLinksPage() {
+  const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // UI State
-  const [viewMode, setViewMode] = useState('kanban'); // kanban, list, calendar, grid
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedJob, setSelectedJob] = useState('ALL');
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [selectedStage, setSelectedStage] = useState('ALL');
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // Candidate detail modal
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [copiedLinkId, setCopiedLinkId] = useState(null);
+  const [deletingLinkId, setDeletingLinkId] = useState(null);
 
-  // Load board data
-  useEffect(() => {
-    loadBoardData();
-  }, [sharedToken]);
-
-  const loadBoardData = async () => {
+  // Load shareable links
+  const loadLinks = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      const response = sharedToken
-        ? await getSharedBoard(sharedToken)
-        : await getKanbanBoard();
-
-      if (response.data) {
-        const data = sharedToken ? response.data.board : response.data;
-        setBoardData(data);
-        setStages(data.stages || []);
-      }
+      const response = await getShareableLinks();
+      const linksData = response.data?.results || response.data || [];
+      setLinks(Array.isArray(linksData) ? linksData : []);
     } catch (err) {
-      console.error('Failed to load board data:', err);
-      setError('Failed to load recruitment board. Please try again.');
+      console.error('Error loading shareable links:', err);
+      setError(err.message || 'Failed to load shareable links');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCandidateClick = (candidate) => {
-    setSelectedCandidate(candidate);
-    setShowDetailModal(true);
-  };
+  useEffect(() => {
+    loadLinks();
+  }, []);
 
-  const handleRemoveTag = (tag) => {
-    setSelectedTags(prev => prev.filter(t => t !== tag));
-  };
+  // Filter links based on search term
+  const filteredLinks = links.filter(link => {
+    if (!link || typeof link !== 'object') return false;
 
-  const filteredStages = stages.map(stage => {
-    const items = stage.candidates || stage.cards || [];
-    return {
-      ...stage,
-      candidates: items.filter(card => {
-        // Search filter
-        if (searchTerm) {
-          const searchLower = searchTerm.toLowerCase();
-          const matchesSearch = 
-            card.candidate_name?.toLowerCase().includes(searchLower) ||
-            card.candidate_email?.toLowerCase().includes(searchLower) ||
-            card.job_title?.toLowerCase().includes(searchLower) ||
-            card.company_name?.toLowerCase().includes(searchLower);
-          if (!matchesSearch) return false;
-        }
+    // If no search term, include all links
+    if (!searchTerm.trim()) return true;
 
-        // Job filter
-        if (selectedJob !== 'ALL' && card.job_title !== selectedJob) {
-          return false;
-        }
-
-        // Tag filter
-        if (selectedTags.length > 0) {
-          const cardTags = card.tags || [];
-          const hasAllTags = selectedTags.every(tag => cardTags.includes(tag));
-          if (!hasAllTags) return false;
-        }
-
-        return true;
-      }),
-      cards: items.filter(card => {
-        // Search filter
-        if (searchTerm) {
-          const searchLower = searchTerm.toLowerCase();
-          const matchesSearch = 
-            card.candidate_name?.toLowerCase().includes(searchLower) ||
-            card.candidate_email?.toLowerCase().includes(searchLower) ||
-            card.job_title?.toLowerCase().includes(searchLower) ||
-            card.company_name?.toLowerCase().includes(searchLower);
-          if (!matchesSearch) return false;
-        }
-
-        // Job filter
-        if (selectedJob !== 'ALL' && card.job_title !== selectedJob) {
-          return false;
-        }
-
-        // Tag filter
-        if (selectedTags.length > 0) {
-          const cardTags = card.tags || [];
-          const hasAllTags = selectedTags.every(tag => cardTags.includes(tag));
-          if (!hasAllTags) return false;
-        }
-
-        return true;
-      }),
-    };
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (link.pipeline_name && link.pipeline_name.toLowerCase().includes(searchLower)) ||
+      (link.job_title && link.job_title.toLowerCase().includes(searchLower)) ||
+      (link.company_name && link.company_name.toLowerCase().includes(searchLower)) ||
+      (link.job_id && link.job_id.toString().includes(searchLower)) ||
+      (link.token && link.token.toLowerCase().includes(searchLower)) ||
+      (link.applications_view && 'applications view'.includes(searchLower))
+    );
   });
+
+  // Copy link to clipboard
+  const copyToClipboard = async (linkId, token) => {
+    try {
+      const fullUrl = `${window.location.origin}/admin/recruitment/shared/${token}`;
+      await navigator.clipboard.writeText(fullUrl);
+      setCopiedLinkId(linkId);
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  // Delete link
+  const deleteLink = async (linkId) => {
+    if (!confirm('Are you sure you want to delete this shareable link?')) {
+      return;
+    }
+
+    try {
+      setDeletingLinkId(linkId);
+      await client.delete(`/api/v1/jobs/ats/links/${linkId}/`);
+      setLinks(links.filter(link => link.id !== linkId));
+    } catch (err) {
+      console.error('Error deleting link:', err);
+      alert('Failed to delete link');
+    } finally {
+      setDeletingLinkId(null);
+    }
+  };
+
+  // Open link in new tab
+  const viewLink = (token) => {
+    const fullUrl = `${window.location.origin}/admin/recruitment/shared/${token}`;
+    window.open(fullUrl, '_blank');
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Get permission level display
+  const getPermissionDisplay = (level) => {
+    const displays = {
+      'VIEW': 'View Only',
+      'COMMENT': 'View & Comment',
+      'EDIT': 'View, Comment & Edit',
+      'FULL': 'Full Access'
+    };
+    return displays[level] || level;
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-96">
         <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">Loading recruitment board...</p>
+          <RefreshCw className="animate-spin mx-auto mb-4" size={32} />
+          <p className="text-gray-600">Loading ATS links...</p>
         </div>
       </div>
     );
@@ -154,208 +136,187 @@ export default function RecruitmentBoard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-96">
         <div className="text-center">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-            <p className="text-red-800 font-medium mb-4">{error}</p>
-            <button
-              onClick={loadBoardData}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
-              Try Again
-            </button>
-          </div>
+          <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Links</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadLinks}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-6">
-              <h1 className="text-2xl font-bold text-gray-900">Recruitment</h1>
-              <nav className="flex items-center gap-4">
-                <button className="text-purple-600 font-medium border-b-2 border-purple-600 pb-1">
-                  Applications
-                </button>
-                <button className="text-gray-600 hover:text-gray-900">
-                  Reporting
-                </button>
-                <button className="text-gray-600 hover:text-gray-900">
-                  Configuration
-                </button>
-              </nav>
-            </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">ATS Shareable Links</h1>
+          <p className="text-gray-600 mt-1">Manage shareable links for recruitment pipelines</p>
+        </div>
+        <button
+          onClick={loadLinks}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <RefreshCw size={16} />
+          Refresh
+        </button>
+      </div>
 
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
-                {boardData?.pipeline?.organization_name || 'Caffeine Junction - Coffeeland'}
-              </span>
-              <button className="relative p-2 text-gray-600 hover:text-gray-900">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-            </div>
-          </div>
-
-          {/* Secondary Toolbar */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                <Plus className="w-4 h-4" />
-                New
-              </button>
-
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search candidates..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 w-80"
-                />
-              </div>
-
-              {/* Filters */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                <Filter className="w-4 h-4" />
-                Filters
-              </button>
-
-              {/* Active Tags */}
-              {selectedTags.map(tag => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                >
-                  {tag}
-                  <button
-                    onClick={() => handleRemoveTag(tag)}
-                    className="hover:bg-blue-200 rounded-full p-0.5"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-
-            {/* View Toggle Buttons */}
-            <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('kanban')}
-                className={`p-2 rounded ${
-                  viewMode === 'kanban'
-                    ? 'bg-white text-purple-600 shadow'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                title="Kanban View"
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded ${
-                  viewMode === 'list'
-                    ? 'bg-white text-purple-600 shadow'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                title="List View"
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`p-2 rounded ${
-                  viewMode === 'calendar'
-                    ? 'bg-white text-purple-600 shadow'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                title="Calendar View"
-              >
-                <Calendar className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded ${
-                  viewMode === 'grid'
-                    ? 'bg-white text-purple-600 shadow'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                title="Grid View"
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+      {/* Search */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <input
+            type="text"
+            placeholder="Search by job title, company name, job ID, or token..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
 
-      {/* Main Content - Kanban Board */}
-      {viewMode === 'kanban' && (
-        <div className="p-6 overflow-x-auto">
-          <div className="flex gap-4 min-w-max pb-6">
-            {filteredStages.map((stage) => (
-              <KanbanColumn
-                key={stage.id}
-                stage={stage}
-                onCandidateClick={handleCandidateClick}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Links Table */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Job ID / Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Company Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Link
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Permission
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredLinks.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center">
+                    <LinkIcon className="mx-auto text-gray-400 mb-4" size={48} />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No shareable links found</h3>
+                    <p className="text-gray-600">
+                      {searchTerm ? 'Try adjusting your search terms.' : 'Create your first shareable link to get started.'}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredLinks.map((link) => (
+                  <tr key={link?.id || Math.random()} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Briefcase className="text-gray-400 mr-2" size={16} />
+                        <span className="text-sm font-medium text-gray-900">
+                          {link?.applications_view ? 'Applications View' : (link?.job_id || 'N/A')}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Building2 className="text-gray-400 mr-2" size={16} />
+                        <span className="text-sm text-gray-900">
+                          {link?.applications_view ? 'All Companies' : (link?.company_name || 'N/A')}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                          {link?.token || 'N/A'}
+                        </code>
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          link?.can_access
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {link?.can_access ? 'Active' : 'Expired'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">
+                        {getPermissionDisplay(link?.permission_level)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(link?.created_at)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        {/* View Action */}
+                        <button
+                          onClick={() => link?.token && viewLink(link.token)}
+                          disabled={!link?.token}
+                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors disabled:opacity-50"
+                          title="View link"
+                        >
+                          <Eye size={16} />
+                        </button>
 
-      {/* List View */}
-      {viewMode === 'list' && (
-        <div className="p-6">
-          <ListView
-            stages={filteredStages}
-            onCandidateClick={handleCandidateClick}
-          />
-        </div>
-      )}
+                        {/* Share/Copy Action */}
+                        <button
+                          onClick={() => link?.id && link?.token && copyToClipboard(link.id, link.token)}
+                          disabled={!link?.id || !link?.token}
+                          className={`p-1 rounded transition-colors ${
+                            copiedLinkId === link?.id
+                              ? 'text-green-600 bg-green-50'
+                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                          }`}
+                          title="Copy link"
+                        >
+                          {copiedLinkId === link?.id ? <Check size={16} /> : <Copy size={16} />}
+                        </button>
 
-      {/* Calendar View */}
-      {viewMode === 'calendar' && (
-        <div className="p-6">
-          <CalendarView
-            stages={filteredStages}
-            onCandidateClick={handleCandidateClick}
-          />
+                        {/* Delete Action */}
+                        <button
+                          onClick={() => link?.id && deleteLink(link.id)}
+                          disabled={!link?.id || deletingLinkId === link?.id}
+                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                          title="Delete link"
+                        >
+                          {deletingLinkId === link?.id ? (
+                            <RefreshCw size={16} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
-      {/* Grid View */}
-      {viewMode === 'grid' && (
-        <div className="p-6">
-          <GridView
-            stages={filteredStages}
-            onCandidateClick={handleCandidateClick}
-          />
+      {/* Summary */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <span>Total Links: {filteredLinks.length}</span>
+          <span>Active Links: {filteredLinks.filter(link => link?.can_access).length}</span>
         </div>
-      )}
-
-      {/* Candidate Detail Modal */}
-      {showDetailModal && selectedCandidate && (
-        <CandidateDetailModal
-          candidate={selectedCandidate}
-          stages={stages}
-          onClose={() => {
-            setShowDetailModal(false);
-            setSelectedCandidate(null);
-          }}
-          onUpdate={loadBoardData}
-        />
-      )}
+      </div>
     </div>
   );
 }
