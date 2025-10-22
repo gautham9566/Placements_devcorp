@@ -747,3 +747,110 @@ class InitializeATSView(APIView):
             'pipeline_id': str(pipeline.id),
             'pipeline_name': pipeline.name
         })
+
+
+class ShareableLinkViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing shareable links
+    """
+    queryset = ShareableLink.objects.all()
+    serializer_class = ShareableLinkSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by job_id if provided
+        job_id = self.request.query_params.get('job_id')
+        if job_id:
+            # Find pipeline for this job and filter links by that pipeline
+            try:
+                pipeline = RecruitmentPipeline.objects.get(job_id=job_id)
+                queryset = queryset.filter(pipeline=pipeline)
+            except RecruitmentPipeline.DoesNotExist:
+                # If no pipeline exists for this job, return empty queryset
+                return queryset.none()
+
+        # Filter by applications_view if specified
+        applications_view = self.request.query_params.get('applications_view')
+        if applications_view is not None:
+            queryset = queryset.filter(applications_view=applications_view.lower() == 'true')
+
+        # Only return active (non-expired) links by default
+        queryset = queryset.filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        )
+
+        return queryset.order_by('-created_at')
+
+    @action(detail=False, methods=['post'])
+    def generate_link(self, request):
+        """
+        Generate a new shareable link
+        """
+        job_id = request.data.get('job_id')
+        applications_view = request.data.get('applications_view', False)
+        permission_level = request.data.get('permission_level', 'VIEW')
+        expires_in_days = request.data.get('expires_in_days')
+
+        # Calculate expiry
+        expires_at = None
+        if expires_in_days:
+            expires_at = timezone.now() + timedelta(days=int(expires_in_days))
+
+        # Create link
+        link_data = {
+            'token': ShareableLink.generate_token(),
+            'permission_level': permission_level,
+            'expires_at': expires_at,
+            'applications_view': applications_view,
+            'created_by': request.user
+        }
+
+        # Handle job_id - find or create pipeline for the job
+        if job_id:
+            try:
+                job = JobPosting.objects.get(id=job_id)
+                # Try to find existing pipeline for this job
+                pipeline = RecruitmentPipeline.objects.filter(job=job).first()
+
+                # If no pipeline exists, create a default one
+                if not pipeline:
+                    import logging
+                    logger = logging.getLogger(__name__)
+
+                    pipeline = RecruitmentPipeline.objects.create(
+                        name=f"Pipeline for {job.title}",
+                        job=job,
+                        organization_name=job.company.name if hasattr(job, 'company') else 'Organization',
+                        is_default=False,
+                        is_active=True
+                    )
+                    logger.info(f"Created pipeline: {pipeline.id}")
+
+                    # Add default stages to the pipeline
+                    default_stages = PipelineStage.objects.filter(
+                        stage_type__in=['NEW', 'SCREENING', 'FIRST_INTERVIEW', 'OFFER_MADE', 'CONTRACT_SIGNED'],
+                        is_active=True
+                    ).order_by('order_index')[:5]
+
+                    if default_stages.exists():
+                        logger.info(f"Found {default_stages.count()} existing stages")
+                        pipeline.stages.set(default_stages)
+                    else:
+                        # Create basic stages if they don't exist
+                        logger.warning("No default stages found, creating basic ones")
+                        # This would need to be implemented based on existing stage creation logic
+
+                link_data['pipeline'] = pipeline
+            except JobPosting.DoesNotExist:
+                return Response(
+                    {'error': 'Job not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Create the link
+        link = ShareableLink.objects.create(**link_data)
+
+        serializer = self.get_serializer(link)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

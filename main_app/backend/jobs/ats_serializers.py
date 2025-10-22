@@ -378,7 +378,6 @@ class KanbanBoardSerializer(serializers.Serializer):
 
 
 class ShareableLinkSerializer(serializers.ModelSerializer):
-    full_url = serializers.SerializerMethodField()
     is_expired = serializers.SerializerMethodField()
     can_access = serializers.SerializerMethodField()
     pipeline_name = serializers.CharField(source='pipeline.name', read_only=True)
@@ -389,20 +388,9 @@ class ShareableLinkSerializer(serializers.ModelSerializer):
             'id', 'token', 'pipeline', 'pipeline_name', 'applications_view',
             'permission_level', 'created_by', 'created_at', 'expires_at',
             'access_count', 'last_accessed_at', 'is_active',
-            'full_url', 'is_expired', 'can_access'
+            'is_expired', 'can_access'
         ]
         read_only_fields = ['id', 'token', 'created_at', 'access_count', 'last_accessed_at']
-    
-    def get_full_url(self, obj):
-        """Generate full shareable URL"""
-        # Use frontend URL for shareable links
-        from django.conf import settings
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
-        
-        if obj.applications_view:
-            return f'{frontend_url}/admin/recruitment/shared/{obj.token}'
-        else:
-            return f'{frontend_url}/admin/recruitment/shared/{obj.token}'
     
     def get_is_expired(self, obj):
         return obj.is_expired()

@@ -27,7 +27,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { getAllApplications, getApplicationStats, deleteApplication } from '../../../api/applications';
-import { updateShareableLink } from '../../../api/ats';
+import { updateShareableLink, getShareableLinks } from '../../../api/ats';
 import ApplicationFilters from './components/ApplicationFilters';
 import ApplicationsTable from './components/ApplicationsTable';
 import ExportModal from './components/ExportModal';
@@ -85,6 +85,11 @@ function ApplicationsPageContent() {
   useEffect(() => {
     loadApplications();
   }, [currentPage, filters, jobIdFromUrl]);
+
+  // Load existing shareable links on mount
+  useEffect(() => {
+    loadExistingShareableLinks();
+  }, [jobIdFromUrl]);
 
   // Initialize filtered applications when applications data changes
   useEffect(() => {
@@ -302,7 +307,94 @@ function ApplicationsPageContent() {
     }
   };
 
+  const loadExistingShareableLinks = async () => {
+    try {
+      console.log('Loading existing shareable links...');
+      const params = {};
+      if (jobIdFromUrl) {
+        params.job_id = jobIdFromUrl;
+        console.log('Fetching links for job ID:', jobIdFromUrl);
+      }
+      const response = await getShareableLinks(params);
+      console.log('API Response received');
+      
+      let links = [];
+      
+      // Handle different response structures like the applications API
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          // Direct array response
+          links = response.data;
+        } else if (response.data.results) {
+          if (Array.isArray(response.data.results)) {
+            // Simple results array
+            links = response.data.results;
+          } else if (typeof response.data.results === 'object' && response.data.results.results) {
+            // Nested results structure
+            links = response.data.results.results || [];
+          }
+        }
+      }
+      
+      console.log('Processed links array:', links.length, 'links found');
+      
+      if (links.length > 0) {
+        // Find active links that haven't expired, sorted by creation date (newest first)
+        const now = new Date();
+        
+        const activeLinks = links
+          .filter(link => {
+            const expiresAt = link.expires_at ? new Date(link.expires_at) : null;
+            const isNotExpired = !expiresAt || expiresAt > now;
+            
+            return isNotExpired;
+          })
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        console.log('Active links found:', activeLinks.length);
+        
+        // Use the most recent active link
+        const activeLink = activeLinks.length > 0 ? activeLinks[0] : null;
+        
+        if (activeLink) {
+          console.log('Setting shareable link for job:', activeLink.job_id || 'general');
+          
+          // Ensure the link has a full_url field
+          let linkToSet = { ...activeLink };
+          
+          // If full_url is missing but we have a token, construct the full URL
+          if (!linkToSet.full_url && linkToSet.token) {
+            // Assuming the shared board URL follows the pattern from the routing
+            linkToSet.full_url = `${window.location.origin}/admin/recruitment/shared/${linkToSet.token}`;
+          }
+          
+          setShareableLink(linkToSet);
+          console.log('Shareable link state set successfully');
+        } else {
+          console.log('No active link found to set');
+        }
+      } else {
+        console.log('No links found in response');
+      }
+    } catch (error) {
+      console.error('Failed to load existing shareable links:', error);
+      // Don't show error to user as this is a background operation
+    }
+  };
+
   const generateShareableLink = async () => {
+    // First check if there's already an active link
+    if (shareableLink) {
+      const now = new Date();
+      const expiresAt = shareableLink.expires_at ? new Date(shareableLink.expires_at) : null;
+      
+      // If link exists and hasn't expired, don't generate a new one
+      if (!expiresAt || expiresAt > now) {
+        alert(`An active shareable link already exists${jobIdFromUrl ? ' for this job' : ''}. You can copy the existing link or update its permissions.`);
+        return;
+      }
+    }
+
     setGeneratingLink(true);
     try {
       // Generate shareable link via API

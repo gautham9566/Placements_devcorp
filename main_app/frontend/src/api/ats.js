@@ -60,8 +60,8 @@ export function generateShareableLink(data) {
 }
 
 // Get shareable links
-export function getShareableLinks() {
-  return client.get('/api/v1/jobs/ats/links/');
+export function getShareableLinks(params = {}) {
+  return client.get('/api/v1/jobs/ats/links/', { params });
 }
 
 // Access shared board (no auth required)
