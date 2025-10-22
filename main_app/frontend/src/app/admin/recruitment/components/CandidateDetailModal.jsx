@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Star, ArrowRight, Mail, Phone, MapPin, Calendar, User } from 'lucide-react';
-import { moveCandidateStage } from '../../../api/ats';
+import { moveCandidateStage } from '../../../../api/ats';
 
 export default function CandidateDetailModal({ candidate, onClose, onUpdate, stages = [] }) {
   const [isMoving, setIsMoving] = useState(false);

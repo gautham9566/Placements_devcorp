@@ -412,9 +412,15 @@ function ApplicationsPageContent() {
       const response = await client.post('/api/v1/jobs/ats/links/generate_link/', requestData);
 
       if (response.data) {
-        setShareableLink(response.data);
+        // Ensure the link has a full_url field
+        let linkData = { ...response.data };
+        if (!linkData.full_url && linkData.token) {
+          linkData.full_url = `${window.location.origin}/admin/recruitment/shared/${linkData.token}`;
+        }
+        
+        setShareableLink(linkData);
         // Auto-copy the link
-        await copyLinkToClipboard(response.data.full_url);
+        await copyLinkToClipboard(linkData.full_url);
       }
     } catch (error) {
       console.error('Failed to generate shareable link:', error);
