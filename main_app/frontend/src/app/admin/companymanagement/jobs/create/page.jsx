@@ -92,7 +92,8 @@ export default function CreateJobPage() {
         additional_fields: jobData.additional_fields || [], // Include additional fields
         allowed_passout_years: selectedPassoutYears, // Add selected passout years
         allowed_departments: selectedDepartments, // Add selected departments
-        arrears_requirement: arrearsRequirement // Add arrears requirement
+        arrears_requirement: arrearsRequirement, // Add arrears requirement
+        min_cgpa: jobData.min_cgpa // Add minimum CGPA requirement
       };
       
       console.log('Sending job data to backend:', formattedJobData);

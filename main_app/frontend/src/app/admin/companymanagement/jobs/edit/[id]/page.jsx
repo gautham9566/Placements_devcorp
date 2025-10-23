@@ -31,7 +31,8 @@ export default function EditJob({ params }) {
     company_name: '',
     allowed_passout_years: [],
     allowed_departments: [],
-    arrears_requirement: 'NO_RESTRICTION'
+    arrears_requirement: 'NO_RESTRICTION',
+    min_cgpa: ''
   });
 
   const [interviewRounds, setInterviewRounds] = useState([
@@ -99,7 +100,8 @@ export default function EditJob({ params }) {
             company_name: jobData.company_name || jobData.company?.name || '',
             allowed_passout_years: jobData.allowed_passout_years || [],
             allowed_departments: jobData.allowed_departments || [],
-            arrears_requirement: jobData.arrears_requirement || 'NO_RESTRICTION'
+            arrears_requirement: jobData.arrears_requirement || 'NO_RESTRICTION',
+            min_cgpa: jobData.min_cgpa || ''
           };
           
           setFormData(formattedData);
@@ -250,7 +252,8 @@ export default function EditJob({ params }) {
         additional_fields: additionalFields,
         allowed_passout_years: selectedPassoutYears,
         allowed_departments: selectedDepartments,
-        arrears_requirement: arrearsRequirement
+        arrears_requirement: arrearsRequirement,
+        min_cgpa: formData.min_cgpa ? parseFloat(formData.min_cgpa) : null
       };
       
       const response = await updateJob(jobId, apiData);
@@ -628,6 +631,26 @@ export default function EditJob({ params }) {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Minimum CGPA Requirement */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Minimum CGPA Requirement
+              </label>
+              <p className="text-sm text-gray-500 mb-3">
+                Set a minimum CGPA requirement for applicants. Students with CGPA below this threshold will not be able to apply. Leave empty for no CGPA requirement.
+              </p>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                step="0.01"
+                value={formData.min_cgpa}
+                onChange={(e) => handleInputChange('min_cgpa', e.target.value)}
+                placeholder="e.g., 7.5"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             {/* Interview Timeline */}

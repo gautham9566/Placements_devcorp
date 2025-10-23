@@ -708,6 +708,15 @@ class JobApplicationEligibilityView(APIView):
                     "reason": "You have already applied to this job."
                 })
 
+            # Check CGPA requirement
+            if job.min_cgpa is not None:
+                student_cgpa = float(student.gpa or 0)
+                if student_cgpa < job.min_cgpa:
+                    return Response({
+                        "can_apply": False,
+                        "reason": f"Minimum CGPA requirement not met. Required: {job.min_cgpa}, Your CGPA: {student_cgpa}"
+                    })
+
             return Response({
                 "can_apply": True,
                 "freeze_status": student.freeze_status

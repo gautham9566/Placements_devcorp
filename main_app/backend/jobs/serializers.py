@@ -30,7 +30,7 @@ class JobPostingDetailSerializer(serializers.ModelSerializer):
                   'company_name', 'salary_min', 'salary_max', 
                   'required_skills', 'application_deadline', 
                   'is_active', 'is_published', 'interview_rounds', 
-                  'additional_fields', 'created_at', 'updated_at')
+                  'additional_fields', 'min_cgpa', 'created_at', 'updated_at')
     
     def get_company_name(self, obj):
         return obj.company.name if obj.company else None
@@ -72,13 +72,20 @@ class JobPostingCreateUpdateSerializer(serializers.ModelSerializer):
         required=False,
         help_text="Arrears requirement for applicants"
     )
+    min_cgpa = serializers.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text="Minimum CGPA required for applicants. Leave blank for no CGPA requirement."
+    )
     
     class Meta:
         model = JobPosting
         fields = ('id', 'title', 'description', 'location', 'job_type', 
                   'salary_min', 'salary_max', 'required_skills', 
                   'application_deadline', 'is_active', 'is_published',
-                  'interview_rounds', 'additional_fields', 'allowed_passout_years', 'allowed_departments', 'arrears_requirement')
+                  'interview_rounds', 'additional_fields', 'allowed_passout_years', 'allowed_departments', 'arrears_requirement', 'min_cgpa')
         read_only_fields = ('id',)
     
     def validate_interview_rounds(self, value):
@@ -246,7 +253,7 @@ class EnhancedJobSerializer(serializers.ModelSerializer):
             'location', 'job_type', 'salary_min', 'salary_max', 'duration',
             'application_deadline', 'requirements', 'skills', 'benefits',
             'is_active', 'is_published', 'interview_rounds', 'additional_fields',
-            'required_skills', 'allowed_passout_years', 'allowed_departments', 'arrears_requirement',
+            'required_skills', 'allowed_passout_years', 'allowed_departments', 'arrears_requirement', 'min_cgpa',
             'created_at', 'updated_at', 'company'
         ]
         

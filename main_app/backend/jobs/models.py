@@ -30,6 +30,7 @@ class JobPosting(models.Model):
         ('ALLOW_WITH_ARREARS', 'Allow students with active arrears'),
         ('NO_ARREARS_ALLOWED', 'Students must have no active arrears'),
     ], default='NO_RESTRICTION', help_text="Arrears requirement for applicants")
+    min_cgpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True, help_text="Minimum CGPA required for applicants. Leave blank for no CGPA requirement.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     on_campus = models.BooleanField(default=True)  # True = On-campus, False = Off-campus

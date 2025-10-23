@@ -20,7 +20,8 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
     application_deadline: initialData.application_deadline || '',
     duration: initialData.duration || '',
     company_id: initialData.company_id || '',
-    company_name: initialData.company_name || ''
+    company_name: initialData.company_name || '',
+    min_cgpa: initialData.min_cgpa || ''
   });
 
   const [interviewRounds, setInterviewRounds] = useState(
@@ -147,6 +148,7 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
         additional_fields: additionalFields,
         salary_min: parseFloat(formData.salary_min) || 0,
         salary_max: parseFloat(formData.salary_max) || 0,
+        min_cgpa: formData.min_cgpa ? parseFloat(formData.min_cgpa) : null,
         requirements: formData.requirements.filter(req => req.trim()),
         skills: formData.skills.filter(skill => skill.trim()),
         benefits: formData.benefits.filter(benefit => benefit.trim()),
@@ -360,6 +362,25 @@ export default function JobPostingForm({ companies, onSubmit, onCancel, initialD
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Minimum CGPA Required
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="10"
+                value={formData.min_cgpa}
+                onChange={(e) => handleInputChange('min_cgpa', e.target.value)}
+                placeholder="e.g., 7.5 (leave blank for no requirement)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Students must have CGPA ≥ this value to apply. Leave blank for no CGPA requirement.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Duration
