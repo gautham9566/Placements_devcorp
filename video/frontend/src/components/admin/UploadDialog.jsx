@@ -4,46 +4,71 @@ export default function UploadDialog({ show, onClose, videoFile, setVideoFile, t
   if (!show) return null;
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-    }}>
-      <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,1)', maxWidth: '500px', width: '90%' }}>
-        <h2 style={{ marginTop: 0, color: '#000' }}>Upload Files</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Upload Files</h2>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#000' }}>Choose Video File (optional):</label>
-          <input type="file" accept="video/*" onChange={(e)=>setVideoFile(e.target.files[0])} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '10px' }} />
-          <p style={{ fontSize: '14px', color: '#666', marginTop: '5px' }}>Supported formats: MP4, MOV, AVI, M4V (HEVC), HEVC. Only these will be accepted and processed.</p>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold text-gray-900 dark:text-white">Choose Video File (optional):</label>
+          <input 
+            type="file" 
+            accept="video/*" 
+            onChange={(e)=>setVideoFile(e.target.files[0])} 
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+          />
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Supported formats: MP4, MOV, AVI, M4V (HEVC), HEVC. Only these will be accepted and processed.</p>
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#000' }}>Choose Thumbnail File (optional):</label>
-          <input type="file" accept="image/*" onChange={(e)=>setThumbnailFile(e.target.files[0])} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '10px' }} />
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold text-gray-900 dark:text-white">Choose Thumbnail File (optional):</label>
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={(e)=>setThumbnailFile(e.target.files[0])} 
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" 
+          />
         </div>
 
         {thumbnailFile && !videoFile && (
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#000' }}>Select Video for Thumbnail:</label>
-            <select value={selectedVideo} onChange={(e)=>setSelectedVideo(e.target.value)} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
+          <div className="mb-4">
+            <label className="block mb-2 font-semibold text-gray-900 dark:text-white">Select Video for Thumbnail:</label>
+            <select 
+              value={selectedVideo} 
+              onChange={(e)=>setSelectedVideo(e.target.value)} 
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
               <option value="">Choose a video...</option>
-              {videosWithoutThumbnail.map(v => <option key={v.hash} value={v.hash}>{v.filename} ({v.hash.slice(0,8)}...)</option>)}
+              {videosWithoutThumbnail.map(v => <option key={v.hash} value={v.hash}>{v.title || 'Untitled'} ({v.hash.slice(0,8)}...)</option>)}
             </select>
           </div>
         )}
 
         {uploading && (
-          <div style={{ margin: '15px 0' }}>
-            <div style={{ height: '10px', background: '#eee', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ width: `${progress}%`, height: '100%', background: '#28a745', transition: 'width 0.2s' }} />
+          <div className="mb-4">
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+              <div 
+                className="h-full bg-green-500 transition-all duration-200" 
+                style={{ width: `${progress}%` }}
+              />
             </div>
-            <div style={{ textAlign: 'right', fontSize: '12px', color: '#333', marginTop: '6px' }}>{progress}%</div>
+            <div className="text-right text-sm text-gray-600 dark:text-gray-400 mt-1">{progress}%</div>
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button onClick={onClose} style={{ padding: '10px 20px', backgroundColor: '#b61010ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleUpload} disabled={uploading || (!videoFile && !thumbnailFile)} style={{ padding: '10px 20px', backgroundColor: uploading || (!videoFile && !thumbnailFile) ? '#ccc' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: uploading || (!videoFile && !thumbnailFile) ? 'not-allowed' : 'pointer' }}>{uploading ? 'Uploading...' : 'Upload'}</button>
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onClose} 
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={handleUpload} 
+            disabled={uploading || (!videoFile && !thumbnailFile)} 
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded transition-colors"
+          >
+            {uploading ? 'Uploading...' : 'Upload'}
+          </button>
         </div>
       </div>
     </div>

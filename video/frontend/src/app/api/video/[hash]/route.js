@@ -15,6 +15,11 @@ export async function GET(request, { params }) {
     });
 
     const headers = new Headers(upstreamResponse.headers);
+    // If the upstream is serving an m3u8 master playlist via this route, force content-type
+    const urlPath = upstreamUrl.pathname || '';
+    if (urlPath.toLowerCase().endsWith('.m3u8')) {
+      headers.set('content-type', 'application/vnd.apple.mpegurl');
+    }
     if (!headers.has('cache-control')) {
       headers.set('cache-control', 'no-store');
     }

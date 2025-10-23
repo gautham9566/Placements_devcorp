@@ -41,8 +41,25 @@ from .views import (
     RecommendedJobsView,
 )
 
+# ATS Views
+from .ats_views import (
+    PipelineStageViewSet,
+    RecruitmentPipelineViewSet,
+    CandidateCardViewSet,
+    KanbanBoardView,
+    BulkMoveCandidatesView,
+    ShareableLinkViewSet,
+    SharedAccessView,
+    InitializeATSView,
+)
+
 router = DefaultRouter()
 router.register(r'forms', CompanyFormViewSet)
+# ATS routers
+router.register(r'ats/stages', PipelineStageViewSet)
+router.register(r'ats/pipelines', RecruitmentPipelineViewSet)
+router.register(r'ats/candidates', CandidateCardViewSet)
+router.register(r'ats/links', ShareableLinkViewSet)
 
 urlpatterns = [
     # Enhanced API endpoints (main endpoints)
@@ -94,6 +111,12 @@ urlpatterns = [
     
     # Calendar API
     path('calendar/events/', CalendarEventsView.as_view(), name='calendar-events'),
+    
+    # ATS (Applicant Tracking System) API
+    path('ats/board/', KanbanBoardView.as_view(), name='ats-kanban-board'),
+    path('ats/bulk-move/', BulkMoveCandidatesView.as_view(), name='ats-bulk-move'),
+    path('ats/initialize/', InitializeATSView.as_view(), name='ats-initialize'),
+    path('ats/shared/<str:token>/', SharedAccessView.as_view(), name='ats-shared-access'),
     
     # Forms API
     path('', include(router.urls)),

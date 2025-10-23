@@ -22,7 +22,7 @@ export function listJobs(params = {}) {
 }
 
 // Apply to a job
-export function applyToJob(job, coverLetter, additionalFields = {}) {
+export function applyToJob(job, coverLetter, additionalFields = {}, resumeId = null) {
   // Check if any additional fields contain files
   const hasFiles = Object.values(additionalFields).some(value => value instanceof File);
 
@@ -30,6 +30,11 @@ export function applyToJob(job, coverLetter, additionalFields = {}) {
     // Use FormData for file uploads
     const formData = new FormData();
     formData.append('cover_letter', coverLetter);
+    
+    // Add resume_id if provided
+    if (resumeId) {
+      formData.append('resume_id', resumeId);
+    }
 
     // Handle additional fields with files
     Object.entries(additionalFields).forEach(([key, value]) => {
@@ -47,10 +52,17 @@ export function applyToJob(job, coverLetter, additionalFields = {}) {
     });
   } else {
     // Use JSON for non-file submissions
-    return client.post(`/api/v1/jobs/${job}/apply/`, {
+    const payload = {
       cover_letter: coverLetter,
       additional_field_responses: additionalFields
-    });
+    };
+    
+    // Add resume_id if provided
+    if (resumeId) {
+      payload.resume_id = resumeId;
+    }
+    
+    return client.post(`/api/v1/jobs/${job}/apply/`, payload);
   }
 }
 

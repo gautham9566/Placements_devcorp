@@ -42,7 +42,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
   const thumbnailSrc = getThumbnail(video.thumbnail_url) || '/images/placeholder.svg';
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-800/30 hover:bg-gray-900/40 transition-colors duration-200">
+    <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200 cursor-pointer" onClick={() => window.location.href = `/admin/videos/${video.hash}`}>
       <div className="col-span-1">
         <img
           src={thumbnailSrc}
@@ -51,15 +51,15 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           onError={(e) => { e.currentTarget.src = '/images/placeholder.svg'; }}
         />
       </div>
-  <div className="col-span-3 text-white font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.title ? (video.title.length > 20 ? video.title.slice(0, 20) + '...' : video.title) : 'N/A'}</div>
-  <div className="col-span-1 text-gray-400 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.description ? (video.description.length > 20 ? video.description.slice(0, 20) + '...' : video.description) : 'N/A'}</div>
-      <div className="col-span-2 text-gray-400">{video.category || 'N/A'}</div>
-      <div className="col-span-2 text-gray-400">{new Date(video.created_at).toLocaleDateString()}</div>
+  <div className="col-span-3 text-gray-900 dark:text-white font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.title ? (video.title.length > 20 ? video.title.slice(0, 20) + '...' : video.title) : 'N/A'}</div>
+  <div className="col-span-1 text-gray-600 dark:text-gray-400 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{video.description ? (video.description.length > 20 ? video.description.slice(0, 20) + '...' : video.description) : 'N/A'}</div>
+      <div className="col-span-2 text-gray-600 dark:text-gray-400">{video.category || 'N/A'}</div>
+      <div className="col-span-2 text-gray-600 dark:text-gray-400">{new Date(video.created_at).toLocaleDateString()}</div>
       <div className="col-span-1">{getStatusChip(video.status || 'Draft')}</div>
-      <div className="col-span-1 text-gray-400">{video.views || '0'}</div>
+      <div className="col-span-1 text-gray-600 dark:text-gray-400">{video.views || '0'}</div>
       <div className="col-span-1 flex items-center space-x-2">
         <button 
-          onClick={() => onPublish && onPublish(video.hash)}
+          onClick={(e) => { e.stopPropagation(); onPublish && onPublish(video.hash); }}
           className={`transition-colors duration-200 ${
             video.status?.toLowerCase() === 'draft' 
               ? 'text-purple-400 hover:text-purple-300' 
@@ -73,7 +73,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onUnpublish && onUnpublish(video.hash)}
+          onClick={(e) => { e.stopPropagation(); onUnpublish && onUnpublish(video.hash); }}
           className={`transition-colors duration-200 ${
             video.status?.toLowerCase() === 'published' 
               ? 'text-orange-400 hover:text-orange-300' 
@@ -88,7 +88,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onEdit && onEdit(video)}
+          onClick={(e) => { e.stopPropagation(); onEdit && onEdit(video); }}
           className={`transition-colors duration-200 ${
             video.status?.toLowerCase() === 'published' 
               ? 'text-gray-600 cursor-not-allowed' 
@@ -102,7 +102,7 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onDelete(video.hash)} 
+          onClick={(e) => { e.stopPropagation(); onDelete(video.hash); }} 
           className="text-red-400 hover:text-red-300 transition-colors duration-200" 
           title="Delete"
         >
@@ -111,13 +111,22 @@ const VideoListItem = ({ video, onSelect, onPublish, onDelete, onEdit, onPreview
           </svg>
         </button>
         <button 
-          onClick={() => onPreview && onPreview(video)}
+          onClick={(e) => { e.stopPropagation(); onPreview && onPreview(video); }}
           className="text-green-400 hover:text-green-300 transition-colors duration-200" 
           title="Preview"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        </button>
+        <button 
+          onClick={(e) => { e.stopPropagation(); window.location.href = `/admin/videos/${video.hash}`; }}
+          className="text-cyan-400 hover:text-cyan-300 transition-colors duration-200" 
+          title="View Details & Comments"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </button>
       </div>

@@ -3,8 +3,8 @@ import VideoListItem from './VideoListItem';
 
 const VideoList = ({ videos, onSelectVideo, onPublish, onDelete, onEdit, onPreview, onUnpublish }) => {
   return (
-    <div className="bg-gray-900 bg-opacity-30 backdrop-blur-sm rounded-lg overflow-hidden border border-gray-800/30">
-      <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-800/30 text-gray-200 font-bold text-sm">
+    <div className="bg-white dark:bg-gray-800 bg-opacity-30 backdrop-blur-sm rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700">
+      <div className="grid grid-cols-12 gap-2 items-center p-4 border-b border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white font-bold text-sm">
         <div className="col-span-1">Thumbnail</div>
         <div className="col-span-3 min-w-0">Video Title</div>
         <div className="col-span-1 min-w-0">Description</div>

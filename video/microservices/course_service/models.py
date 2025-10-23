@@ -67,6 +67,28 @@ class Lesson(Base):
     # Relationships
     section = relationship("Section", back_populates="lessons")
 
+class CourseVideo(Base):
+    """Video metadata for videos uploaded in courses context"""
+    __tablename__ = "course_videos"
+    id = Column(Integer, primary_key=True, index=True)
+    hash = Column(String, unique=True, index=True)
+    filename = Column(String)
+    title = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    status = Column(String, nullable=True)
+    thumbnail_filename = Column(String, nullable=True)
+    original_resolution = Column(String, nullable=True)
+    original_quality_label = Column(String, nullable=True)
+    stopped = Column(Integer, default=0)  # 0: not stopped, 1: stopped
+    transcoding_status = Column(String, default='pending', nullable=True)  # pending, transcoding, completed, failed
+    created_at = Column(DateTime, default=datetime.utcnow)
+    scheduled_at = Column(String, nullable=True)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)  # Required for course videos
+
+    # Relationships
+    course = relationship("Course")
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 

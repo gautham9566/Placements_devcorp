@@ -6,11 +6,17 @@ import requests
 import os
 import shutil
 import time
+from typing import Optional
+from urllib.parse import urlencode
+from pydantic import BaseModel
 
 # Simple cache for videos endpoint
 _admin_videos_cache = None
 _admin_cache_timestamp = 0
 ADMIN_CACHE_TTL = 0.1  # 100ms cache
+
+# User session storage (in-memory)
+_user_sessions = {}
 
 app = FastAPI(title="Admin Service", default_response_class=ORJSONResponse)
 
@@ -22,10 +28,76 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============================================================================
+# USER SESSION MANAGEMENT
+# ============================================================================
+
+class UserSession(BaseModel):
+    username: str
+    theme: str = "dark"
+    role: str = "student"
+
+@app.post("/api/user/session")
+async def create_user_session(session: UserSession):
+    """
+    Create or update user session.
+    Called from the video frontend when it receives user data from parent iframe.
+    """
+    session_id = f"{session.username}_{session.role}"
+    _user_sessions[session_id] = {
+        "username": session.username,
+        "theme": session.theme,
+        "role": session.role,
+        "timestamp": time.time()
+    }
+    return {
+        "status": "success",
+        "session_id": session_id,
+        "data": _user_sessions[session_id]
+    }
+
+@app.get("/api/user/session/{username}")
+async def get_user_session(username: str):
+    """
+    Get user session data.
+    """
+    # Try to find session with username
+    for session_id, session_data in _user_sessions.items():
+        if session_data["username"] == username:
+            return session_data
+    
+    # Return default if not found
+    return {
+        "username": username,
+        "theme": "dark",
+        "role": "student"
+    }
+
+@app.get("/api/user/current")
+async def get_current_user(request: Request):
+    """
+    Get current user from session or return default.
+    Can be extended to use cookies or headers for authentication.
+    """
+    # Try to get username from query params or headers
+    username = request.query_params.get("username")
+    
+    if username and username in _user_sessions:
+        return _user_sessions[username]
+    
+    # Return default user
+    return {
+        "username": "guest",
+        "theme": "dark",
+        "role": "student"
+    }
+
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
 TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 UPLOAD_SERVICE_URL = "http://127.0.0.1:8001"
 STREAMING_SERVICE_URL = "http://127.0.0.1:8004"
+COURSE_SERVICE_URL = "http://127.0.0.1:8006"
+ENGAGEMENT_SERVICE_URL = "http://127.0.0.1:8007"
 
 SHARED_STORAGE = os.path.abspath("../shared_storage")
 ORIGINALS_PATH = os.path.join(SHARED_STORAGE, "originals")
@@ -36,30 +108,35 @@ HLS_PATH = os.path.join(SHARED_STORAGE, "hls")
 # ============================================================================
 
 @app.get("/videos")
-def get_videos():
-    """Proxy to metadata service - Get all videos."""
+def get_videos(page: int = 1, limit: int = 10, status: str = None, search: str = None):
+    """Proxy to metadata service - Get videos with pagination and optional status filter."""
     global _admin_videos_cache, _admin_cache_timestamp
 
-    # Check cache
-    current_time = time.time()
-    if _admin_videos_cache is not None and (current_time - _admin_cache_timestamp) < ADMIN_CACHE_TTL:
-        return _admin_videos_cache
-
+    # Always get pagination data from metadata service
     try:
-        response = requests.get(f"{METADATA_SERVICE_URL}/videos", timeout=10)
+        url = f"{METADATA_SERVICE_URL}/videos?page={page}&limit={limit}"
+        if status:
+            url += f"&status={status}"
+        if search:
+            url += f"&search={search}"
+            
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            # Unwrap the videos array for frontend compatibility
-            if "videos" in data:
-                result = data["videos"]
-            else:
-                result = data
-
-            # Update cache
-            _admin_videos_cache = result
-            _admin_cache_timestamp = current_time
-
-            return result
+            
+            # For backward compatibility with existing frontend code that expects unwrapped array
+            # Only unwrap for the exact default case when no pagination params are expected
+            if page == 1 and limit == 10 and not status and not search and "videos" in data and len(data["videos"]) <= 10:
+                # Check if this is truly a single page by seeing if total_pages > 1
+                if data.get("total_pages", 1) == 1:
+                    result = data["videos"]
+                    # Update cache for single page
+                    _admin_videos_cache = result
+                    _admin_cache_timestamp = time.time()
+                    return result
+            
+            # Return full pagination response for all other cases
+            return data
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
@@ -324,6 +401,82 @@ async def get_videos_by_course(course_id: int):
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Metadata service unavailable: {str(e)}")
 
+@app.get("/api/courses/{course_id}/videos")
+async def get_course_videos(course_id: int):
+    """Proxy to course service - Get all videos for a specific course."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/course/{course_id}", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            # Return just the videos array, not the wrapper object
+            return JSONResponse(content=data.get("videos", []), status_code=200)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.post("/course-videos")
+async def create_course_video(request: Request):
+    """Proxy to course service - Create course video metadata."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    try:
+        resp = requests.post(
+            f"{COURSE_SERVICE_URL}/course-videos",
+            json=body,
+            timeout=10
+        )
+        return JSONResponse(content=resp.json() if resp.text else {}, status_code=resp.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/course-videos/course/{course_id}")
+async def get_course_videos_by_course(course_id: int):
+    """Proxy to course service - Get all course videos for a specific course."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/course/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/course-videos/{video_hash}")
+async def get_course_video_metadata(video_hash: str):
+    """Proxy to course service - Get course video metadata."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{video_hash}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.patch("/course-videos/{video_hash}")
+async def update_course_video_metadata(video_hash: str, request: Request):
+    """Proxy to course service - Update course video metadata."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    try:
+        resp = requests.patch(
+            f"{COURSE_SERVICE_URL}/course-videos/{video_hash}",
+            json=body,
+            timeout=10
+        )
+        return JSONResponse(content=resp.json() if resp.text else {}, status_code=resp.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.delete("/course-videos/{video_hash}")
+async def delete_course_video(video_hash: str):
+    """Proxy to course service - Delete course video."""
+    try:
+        response = requests.delete(f"{COURSE_SERVICE_URL}/course-videos/{video_hash}", timeout=10)
+        return JSONResponse(content=response.json() if response.text else {}, status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
 @app.get("/categories")
 def get_categories():
     """Proxy to metadata service - Get all categories."""
@@ -423,6 +576,62 @@ async def upload_complete(upload_id: str = Form(...), course_id: str = Form(None
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Upload service unavailable: {str(e)}")
 
+@app.post("/api/courses/{course_id}/upload/init")
+async def course_upload_init_proxy(
+    course_id: int,
+    filename: str = Form(...),
+    total_chunks: int = Form(...)
+):
+    """Proxy to upload service - Initialize chunked upload for a course."""
+    try:
+        data = {"filename": filename, "total_chunks": total_chunks, "course_id": str(course_id)}
+
+        response = requests.post(
+            f"{UPLOAD_SERVICE_URL}/upload/init",
+            data=data,
+            timeout=30
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Upload service unavailable: {str(e)}")
+
+@app.post("/api/courses/{course_id}/upload/chunk")
+async def course_upload_chunk(
+    course_id: int,
+    upload_id: str = Form(...),
+    index: int = Form(...),
+    file: UploadFile = File(...)
+):
+    """Proxy to upload service - Upload a chunk for a course."""
+    try:
+        files = {"file": (file.filename, await file.read(), file.content_type)}
+        data = {"upload_id": upload_id, "index": index, "course_id": str(course_id)}
+
+        response = requests.post(
+            f"{UPLOAD_SERVICE_URL}/upload/chunk",
+            data=data,
+            files=files,
+            timeout=120
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Upload service unavailable: {str(e)}")
+
+@app.post("/api/courses/{course_id}/upload/complete")
+async def course_upload_complete(course_id: int, upload_id: str = Form(...)):
+    """Proxy to upload service - Complete upload for a course."""
+    try:
+        data = {"upload_id": upload_id, "course_id": str(course_id)}
+
+        response = requests.post(
+            f"{UPLOAD_SERVICE_URL}/upload/complete",
+            data=data,
+            timeout=30
+        )
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Upload service unavailable: {str(e)}")
+
 @app.get("/speedtest")
 async def speedtest():
     """Proxy to upload service - Network speed test."""
@@ -445,16 +654,31 @@ async def transcode_trigger(video_hash: str, request: Request):
     except:
         qualities = []
         network_speed = 10
-    
+
     try:
-        # Get video info from metadata
+        # Try to get video info from metadata service first (standalone videos)
         video_response = requests.get(f"{METADATA_SERVICE_URL}/videos/{video_hash}", timeout=10)
-        if video_response.status_code != 200:
+        video_found = False
+        filename = None
+
+        if video_response.status_code == 200:
+            video_data = video_response.json()
+            filename = video_data.get("filename")
+            video_found = True
+            print(f"[ADMIN] Found video {video_hash} in metadata service")
+        else:
+            # Try course service (course videos)
+            course_video_response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{video_hash}", timeout=10)
+            if course_video_response.status_code == 200:
+                video_data = course_video_response.json()
+                filename = video_data.get("filename")
+                video_found = True
+                print(f"[ADMIN] Found video {video_hash} in course service")
+
+        if not video_found:
+            print(f"[ADMIN] Video {video_hash} not found in either service")
             raise HTTPException(status_code=404, detail="Video not found")
-        
-        video_data = video_response.json()
-        filename = video_data.get("filename")
-        
+
         # Start transcoding
         transcode_payload = {
             "upload_id": video_hash,
@@ -463,13 +687,17 @@ async def transcode_trigger(video_hash: str, request: Request):
         }
         if qualities:
             transcode_payload["qualities"] = qualities
-        
+
+        print(f"[ADMIN] Triggering transcode for {video_hash} with filename {filename}")
         response = requests.post(
             f"{TRANSCODING_SERVICE_URL}/transcode/{video_hash}",
             json=transcode_payload,
             timeout=10
         )
+        print(f"[ADMIN] Transcode response: {response.status_code}")
         return JSONResponse(content=response.json(), status_code=response.status_code)
+    except HTTPException:
+        raise
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Service unavailable: {str(e)}")
 
@@ -959,9 +1187,24 @@ COURSE_SERVICE_URL = "http://localhost:8006"
 
 
 @app.get("/api/courses")
-def api_get_courses():
+def api_get_courses(page: int = 1, limit: int = 25, status: Optional[str] = None, search: Optional[str] = None):
     try:
-        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses", timeout=10)
+        # Forward query parameters to course service
+        query_params = []
+        if page != 1:
+            query_params.append(f"page={page}")
+        if limit != 25:
+            query_params.append(f"limit={limit}")
+        if status:
+            query_params.append(f"status={status}")
+        if search:
+            query_params.append(f"search={search}")
+        
+        url = f"{COURSE_SERVICE_URL}/api/courses"
+        if query_params:
+            url += "?" + "&".join(query_params)
+        
+        response = requests.get(url, timeout=10)
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
@@ -1106,10 +1349,15 @@ async def api_upload_course_thumbnail(course_id: int, file: UploadFile = File(..
 
 
 @app.get("/courses")
-def get_courses():
+def get_courses(request: Request):
     """Proxy to course service - Get all courses."""
     try:
-        response = requests.get(f"{COURSE_SERVICE_URL}/api/courses", timeout=10)
+        # Forward all query parameters to course service
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{COURSE_SERVICE_URL}/api/courses"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.get(url, timeout=10)
         return JSONResponse(content=response.json(), status_code=response.status_code)
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
@@ -1248,9 +1496,256 @@ async def get_course_thumbnail(path: str):
     except requests.RequestException as e:
         raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
 
+# ============================================================================
+# COURSE VIDEO METADATA PROXY ROUTES
+# ============================================================================
+
+# API-prefixed routes (for frontend calling NEXT_PUBLIC_API_URL/api/...)
+@app.post("/api/course-videos")
+async def api_create_course_video(request: Request):
+    """Proxy to course service - Create video metadata in courses database."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/course-videos", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/api/course-videos/course/{course_id}")
+def api_get_course_videos(course_id: int):
+    """Proxy to course service - Get all videos for a specific course from courses database."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/course/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/api/course-videos/{hash}")
+def api_get_course_video(hash: str):
+    """Proxy to course service - Get a specific video by hash from courses database."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{hash}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.patch("/api/course-videos/{hash}")
+async def api_update_course_video(hash: str, request: Request):
+    """Proxy to course service - Update a video's metadata in courses database."""
+    try:
+        body = await request.json()
+        response = requests.patch(f"{COURSE_SERVICE_URL}/course-videos/{hash}", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.delete("/api/course-videos/{hash}")
+def api_delete_course_video(hash: str):
+    """Proxy to course service - Delete a video from courses database."""
+    try:
+        response = requests.delete(f"{COURSE_SERVICE_URL}/course-videos/{hash}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/api/videos/course/{course_id}")
+def api_get_videos_by_course(course_id: int):
+    """Proxy to course service - Get all videos for a specific course (alternative route)."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/course/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+# Non-API-prefixed routes (for direct admin service calls)
+@app.post("/course-videos")
+async def create_course_video(request: Request):
+    """Proxy to course service - Create video metadata in courses database."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{COURSE_SERVICE_URL}/course-videos", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/videos/course/{course_id}")
+def get_course_videos(course_id: int):
+    """Proxy to course service - Get all videos for a specific course from courses database."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/course/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/course-videos/course/{course_id}")
+def get_course_videos_alt(course_id: int):
+    """Proxy to course service - Get all videos for a specific course (alternative route)."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/course/{course_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.get("/course-videos/{hash}")
+def get_course_video(hash: str):
+    """Proxy to course service - Get a specific video by hash from courses database."""
+    try:
+        response = requests.get(f"{COURSE_SERVICE_URL}/course-videos/{hash}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.patch("/course-videos/{hash}")
+async def update_course_video(hash: str, request: Request):
+    """Proxy to course service - Update a video's metadata in courses database."""
+    try:
+        body = await request.json()
+        response = requests.patch(f"{COURSE_SERVICE_URL}/course-videos/{hash}", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
+@app.delete("/course-videos/{hash}")
+def delete_course_video(hash: str):
+    """Proxy to course service - Delete a video from courses database."""
+    try:
+        response = requests.delete(f"{COURSE_SERVICE_URL}/course-videos/{hash}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Course service unavailable: {str(e)}")
+
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "admin_service"}
+
+# ============================================================================
+# ENGAGEMENT SERVICE PROXY ROUTES
+# ============================================================================
+
+# Comments
+@app.post("/api/engagement/comments")
+async def create_comment_proxy(request: Request):
+    """Proxy to engagement service - Create a comment."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/comments", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.get("/api/engagement/comments")
+async def get_comments_proxy(request: Request):
+    """Proxy to engagement service - Get comments."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/comments"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.get(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.get("/api/engagement/comments/{comment_id}")
+async def get_comment_proxy(comment_id: int):
+    """Proxy to engagement service - Get a specific comment."""
+    try:
+        response = requests.get(f"{ENGAGEMENT_SERVICE_URL}/comments/{comment_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.put("/api/engagement/comments/{comment_id}")
+async def update_comment_proxy(comment_id: int, request: Request):
+    """Proxy to engagement service - Update a comment."""
+    try:
+        body = await request.json()
+        response = requests.put(f"{ENGAGEMENT_SERVICE_URL}/comments/{comment_id}", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.delete("/api/engagement/comments/{comment_id}")
+async def delete_comment_proxy(comment_id: int):
+    """Proxy to engagement service - Delete a comment."""
+    try:
+        response = requests.delete(f"{ENGAGEMENT_SERVICE_URL}/comments/{comment_id}", timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Likes
+@app.post("/api/engagement/likes")
+async def create_like_proxy(request: Request):
+    """Proxy to engagement service - Create a like."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/likes", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.delete("/api/engagement/likes")
+async def remove_like_proxy(request: Request):
+    """Proxy to engagement service - Remove a like."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/likes"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.delete(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Dislikes
+@app.post("/api/engagement/dislikes")
+async def create_dislike_proxy(request: Request):
+    """Proxy to engagement service - Create a dislike."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/dislikes", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+@app.delete("/api/engagement/dislikes")
+async def remove_dislike_proxy(request: Request):
+    """Proxy to engagement service - Remove a dislike."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/dislikes"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.delete(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Views
+@app.post("/api/engagement/views")
+async def create_view_proxy(request: Request):
+    """Proxy to engagement service - Record a view."""
+    try:
+        body = await request.json()
+        response = requests.post(f"{ENGAGEMENT_SERVICE_URL}/views", json=body, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
+
+# Stats
+@app.get("/api/engagement/stats/{content_type}/{content_id}")
+async def get_engagement_stats_proxy(content_type: str, content_id: str, request: Request):
+    """Proxy to engagement service - Get engagement statistics."""
+    try:
+        query_string = urlencode(list(request.query_params.multi_items()))
+        url = f"{ENGAGEMENT_SERVICE_URL}/stats/{content_type}/{content_id}"
+        if query_string:
+            url += f"?{query_string}"
+        response = requests.get(url, timeout=10)
+        return JSONResponse(content=response.json(), status_code=response.status_code)
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Engagement service unavailable: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

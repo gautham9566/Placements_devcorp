@@ -17,14 +17,23 @@ import {
   User,
   FileText,
   MoreHorizontal,
-  RefreshCw
+  RefreshCw,
+  Link as LinkIcon,
+  Copy,
+  Check,
+  ExternalLink,
+  ChevronDown,
+  Lock,
+  MessageSquare
 } from 'lucide-react';
 import { getAllApplications, getApplicationStats, deleteApplication } from '../../../api/applications';
+import { updateShareableLink, getShareableLinks } from '../../../api/ats';
 import ApplicationFilters from './components/ApplicationFilters';
 import ApplicationsTable from './components/ApplicationsTable';
 import ExportModal from './components/ExportModal';
 import ApplicationDetailModal from './components/ApplicationDetailModal';
 import StatusBadge from '../../../components/applications/StatusBadge';
+import client from '../../../api/client';
 
 function ApplicationsPageContent() {
   const searchParams = useSearchParams();
@@ -47,6 +56,15 @@ function ApplicationsPageContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
+  // Shareable link state
+  const [shareableLink, setShareableLink] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [selectedPermissionLevel, setSelectedPermissionLevel] = useState('VIEW');
+  const [showPermissionDropdown, setShowPermissionDropdown] = useState(false);
+  const [showExistingLinkDropdown, setShowExistingLinkDropdown] = useState(false);
+  const [updatingPermission, setUpdatingPermission] = useState(false);
+
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -68,6 +86,11 @@ function ApplicationsPageContent() {
     loadApplications();
   }, [currentPage, filters, jobIdFromUrl]);
 
+  // Load existing shareable links on mount
+  useEffect(() => {
+    loadExistingShareableLinks();
+  }, [jobIdFromUrl]);
+
   // Initialize filtered applications when applications data changes
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -83,6 +106,21 @@ function ApplicationsPageContent() {
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm, applications]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showPermissionDropdown && !event.target.closest('.permission-dropdown-container')) {
+        setShowPermissionDropdown(false);
+      }
+      if (showExistingLinkDropdown && !event.target.closest('.existing-link-dropdown-container')) {
+        setShowExistingLinkDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPermissionDropdown, showExistingLinkDropdown]);
 
   const loadApplications = async () => {
     try {
@@ -269,6 +307,194 @@ function ApplicationsPageContent() {
     }
   };
 
+  const loadExistingShareableLinks = async () => {
+    try {
+      console.log('Loading existing shareable links...');
+      const params = {};
+      if (jobIdFromUrl) {
+        params.job_id = jobIdFromUrl;
+        console.log('Fetching links for job ID:', jobIdFromUrl);
+      }
+      const response = await getShareableLinks(params);
+      console.log('API Response received');
+      
+      let links = [];
+      
+      // Handle different response structures like the applications API
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          // Direct array response
+          links = response.data;
+        } else if (response.data.results) {
+          if (Array.isArray(response.data.results)) {
+            // Simple results array
+            links = response.data.results;
+          } else if (typeof response.data.results === 'object' && response.data.results.results) {
+            // Nested results structure
+            links = response.data.results.results || [];
+          }
+        }
+      }
+      
+      console.log('Processed links array:', links.length, 'links found');
+      
+      if (links.length > 0) {
+        // Find active links that haven't expired, sorted by creation date (newest first)
+        const now = new Date();
+        
+        const activeLinks = links
+          .filter(link => {
+            const expiresAt = link.expires_at ? new Date(link.expires_at) : null;
+            const isNotExpired = !expiresAt || expiresAt > now;
+            
+            return isNotExpired;
+          })
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        console.log('Active links found:', activeLinks.length);
+        
+        // Use the most recent active link
+        const activeLink = activeLinks.length > 0 ? activeLinks[0] : null;
+        
+        if (activeLink) {
+          console.log('Setting shareable link for job:', activeLink.job_id || 'general');
+          
+          // Ensure the link has a full_url field
+          let linkToSet = { ...activeLink };
+          
+          // If full_url is missing but we have a token, construct the full URL
+          if (!linkToSet.full_url && linkToSet.token) {
+            // Assuming the shared board URL follows the pattern from the routing
+            linkToSet.full_url = `${window.location.origin}/admin/recruitment/shared/${linkToSet.token}`;
+          }
+          
+          setShareableLink(linkToSet);
+          console.log('Shareable link state set successfully');
+        } else {
+          console.log('No active link found to set');
+        }
+      } else {
+        console.log('No links found in response');
+      }
+    } catch (error) {
+      console.error('Failed to load existing shareable links:', error);
+      // Don't show error to user as this is a background operation
+    }
+  };
+
+  const generateShareableLink = async () => {
+    // First check if there's already an active link
+    if (shareableLink) {
+      const now = new Date();
+      const expiresAt = shareableLink.expires_at ? new Date(shareableLink.expires_at) : null;
+      
+      // If link exists and hasn't expired, don't generate a new one
+      if (!expiresAt || expiresAt > now) {
+        alert(`An active shareable link already exists${jobIdFromUrl ? ' for this job' : ''}. You can copy the existing link or update its permissions.`);
+        return;
+      }
+    }
+
+    setGeneratingLink(true);
+    try {
+      // Generate shareable link via API
+      const requestData = {
+        applications_view: true,
+        permission_level: selectedPermissionLevel,
+        expires_in_days: 30
+      };
+      
+      // Add job_id if available
+      if (jobIdFromUrl) {
+        requestData.job_id = jobIdFromUrl;
+      }
+      
+      const response = await client.post('/api/v1/jobs/ats/links/generate_link/', requestData);
+
+      if (response.data) {
+        // Ensure the link has a full_url field
+        let linkData = { ...response.data };
+        if (!linkData.full_url && linkData.token) {
+          linkData.full_url = `${window.location.origin}/admin/recruitment/shared/${linkData.token}`;
+        }
+        
+        setShareableLink(linkData);
+        // Auto-copy the link
+        await copyLinkToClipboard(linkData.full_url);
+      }
+    } catch (error) {
+      console.error('Failed to generate shareable link:', error);
+      alert('Failed to generate shareable link. Please try again.');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const copyLinkToClipboard = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      alert('Failed to copy link to clipboard');
+    }
+  };
+
+  const updateLinkPermission = async (newLevel) => {
+    if (!shareableLink?.id) return;
+    
+    setUpdatingPermission(true);
+    try {
+      await updateShareableLink(shareableLink.id, {
+        permission_level: newLevel
+      });
+      
+      // Update local state
+      setShareableLink(prev => ({
+        ...prev,
+        permission_level: newLevel
+      }));
+      
+      setShowExistingLinkDropdown(false);
+    } catch (err) {
+      console.error('Error updating permission level:', err);
+      alert('Failed to update access level. Please try again.');
+    } finally {
+      setUpdatingPermission(false);
+    }
+  };
+
+  const getPermissionDetails = (level) => {
+    const details = {
+      VIEW: { 
+        icon: Eye, 
+        text: 'View Only', 
+        color: 'bg-blue-100 text-blue-700',
+        description: 'Read-only access'
+      },
+      COMMENT: { 
+        icon: MessageSquare, 
+        text: 'Can Comment', 
+        color: 'bg-green-100 text-green-700',
+        description: 'Can add comments'
+      },
+      EDIT: { 
+        icon: Edit, 
+        text: 'Can Edit', 
+        color: 'bg-purple-100 text-purple-700',
+        description: 'Can edit & move candidates'
+      },
+      FULL: { 
+        icon: Lock, 
+        text: 'Full Access', 
+        color: 'bg-orange-100 text-orange-700',
+        description: 'Complete control'
+      },
+    };
+    return details[level] || details.VIEW;
+  };
+
   const getStatusIcon = (status) => {
     const iconMap = {
       'APPLIED': <Clock className="w-4 h-4" />,
@@ -326,6 +552,79 @@ function ApplicationsPageContent() {
             <Filter className="w-4 h-4" />
             Filters
           </button>
+
+          {/* Share ATS Board Button with Permission Dropdown */}
+          <div className="relative permission-dropdown-container">
+            <button
+              onClick={shareableLink ? () => copyLinkToClipboard(shareableLink.full_url) : () => setShowPermissionDropdown(!showPermissionDropdown)}
+              disabled={generatingLink}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                linkCopied
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
+              } ${generatingLink ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title="Generate and copy shareable link to ATS board"
+            >
+              {linkCopied ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  Link Copied!
+                </>
+              ) : generatingLink ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <LinkIcon className="w-4 h-4" />
+                  {shareableLink ? 'Copy Link' : 'Share ATS Board'}
+                  {!shareableLink && <ChevronDown className={`w-4 h-4 transition-transform ${showPermissionDropdown ? 'rotate-180' : ''}`} />}
+                </>
+              )}
+            </button>
+
+            {/* Permission Dropdown Menu */}
+            {showPermissionDropdown && !shareableLink && (
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-20">
+                <div className="px-4 py-2 border-b border-gray-200">
+                  <p className="text-xs font-semibold text-gray-700 uppercase">Select Access Level</p>
+                </div>
+                {['VIEW', 'COMMENT', 'EDIT', 'FULL'].map((level) => {
+                  const { icon: Icon, text, color, description } = getPermissionDetails(level);
+                  const isActive = selectedPermissionLevel === level;
+                  
+                  return (
+                    <button
+                      key={level}
+                      onClick={() => {
+                        setSelectedPermissionLevel(level);
+                        setShowPermissionDropdown(false);
+                        // Generate link immediately after selection
+                        setTimeout(() => generateShareableLink(), 100);
+                      }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                        isActive 
+                          ? 'bg-gray-50' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${color}`}>
+                        <Icon size={18} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">{text}</div>
+                        <div className="text-xs text-gray-500">{description}</div>
+                      </div>
+                      {isActive && (
+                        <CheckCircle size={18} className="text-green-600" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           
           <button
             onClick={() => setShowExportModal(true)}
@@ -345,6 +644,126 @@ function ApplicationsPageContent() {
           </button>
         </div>
       </div>
+
+      {/* Shareable Link Info Panel */}
+      {shareableLink && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-sm border border-purple-200 p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <LinkIcon className="w-5 h-5 text-purple-600" />
+                <h3 className="font-semibold text-gray-900">Shareable ATS Board Link</h3>
+                
+                {/* Permission Level Dropdown */}
+                <div className="relative existing-link-dropdown-container">
+                  <button
+                    onClick={() => setShowExistingLinkDropdown(!showExistingLinkDropdown)}
+                    disabled={updatingPermission}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      getPermissionDetails(shareableLink.permission_level).color
+                    } hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {(() => {
+                      const { icon: Icon, text } = getPermissionDetails(shareableLink.permission_level);
+                      return (
+                        <>
+                          <Icon size={14} />
+                          <span>{text}</span>
+                          {updatingPermission ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <ChevronDown size={12} className={`transition-transform ${showExistingLinkDropdown ? 'rotate-180' : ''}`} />
+                          )}
+                        </>
+                      );
+                    })()}
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showExistingLinkDropdown && (
+                    <div className="absolute left-0 mt-2 w-60 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-20">
+                      <div className="px-3 py-2 border-b border-gray-200">
+                        <p className="text-xs font-semibold text-gray-700 uppercase">Change Access Level</p>
+                      </div>
+                      {['VIEW', 'COMMENT', 'EDIT', 'FULL'].map((level) => {
+                        const { icon: Icon, text, color, description } = getPermissionDetails(level);
+                        const isActive = shareableLink.permission_level === level;
+                        
+                        return (
+                          <button
+                            key={level}
+                            onClick={() => updateLinkPermission(level)}
+                            disabled={isActive || updatingPermission}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                              isActive 
+                                ? 'bg-gray-50 cursor-default' 
+                                : 'hover:bg-gray-50 cursor-pointer'
+                            } disabled:opacity-50`}
+                          >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${color}`}>
+                              <Icon size={16} />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-xs font-medium text-gray-900">{text}</div>
+                              <div className="text-[10px] text-gray-500">{description}</div>
+                            </div>
+                            {isActive && (
+                              <CheckCircle size={14} className="text-green-600" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                Share this link to give {getPermissionDetails(shareableLink.permission_level).text.toLowerCase()} access to the recruitment tracking system. 
+                {shareableLink.expires_at && ` Link expires on ${new Date(shareableLink.expires_at).toLocaleDateString()}.`}
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-white rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm text-gray-700 overflow-x-auto">
+                  {shareableLink.full_url}
+                </div>
+                <button
+                  onClick={() => copyLinkToClipboard(shareableLink.full_url)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    linkCopied
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy
+                    </>
+                  )}
+                </button>
+                <a
+                  href={shareableLink.full_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open
+                </a>
+              </div>
+              <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                <span>Access count: {shareableLink.access_count}</span>
+                <span>•</span>
+                <span>Created: {new Date(shareableLink.created_at).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

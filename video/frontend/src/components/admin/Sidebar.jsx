@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTheme } from '../../contexts/ThemeContext';
+import ThemeToggle from '../ui/ThemeToggle';
 
 const Sidebar = () => {
   const [courseCount, setCourseCount] = useState(0);
+  const { isDark } = useTheme();
 
   useEffect(() => {
     fetchCourseCount();
@@ -44,36 +47,49 @@ const Sidebar = () => {
     },
   ];
 
-return (
-<div className="w-64 bg-gray-900 bg-opacity-60 backdrop-blur-sm min-h-screen border-r border-gray-800/60 shadow-inner">
-        <div className="p-6">
-            {/* Navigation menu */}
-            <nav className="space-y-1">
-                {menuItems.map((item) => (
-                    <Link
-                        key={item.name}
-                        href={item.href}
-                        className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors duration-200 ${
-                            item.active
-                                ? 'bg-transparent text-gray-400'
-                                : 'text-gray-500 hover:bg-blue-800 hover:text-gray-300'
-                        }`}
-                    >
-                        <div className="flex items-center">
-                            <span className="mr-3 scale-125">{item.icon}</span>
-                            <span className="text-xl">{item.name}</span>
-                        </div>
-                        {item.badge !== undefined && item.badge > 0 && (
-                            <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
-                                {item.badge}
-                            </span>
-                        )}
-                    </Link>
-                ))}
-            </nav>
-        </div>
+  return (
+    <div className={`w-64 min-h-screen shadow-inner relative ${
+      isDark 
+        ? 'bg-gray-900 bg-opacity-60 backdrop-blur-sm border-r border-gray-800/60' 
+        : 'bg-white bg-opacity-60 backdrop-blur-sm border-r border-gray-200'
+    }`}>
+      <div className="p-6">
+        {/* Navigation menu */}
+        <nav className="space-y-1">
+          {menuItems.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex items-center justify-between px-4 py-3 rounded-lg transition-colors duration-200 ${
+                item.active
+                  ? isDark 
+                    ? 'bg-transparent text-gray-400' 
+                    : 'bg-gray-100 text-gray-700'
+                  : isDark
+                    ? 'text-gray-500 hover:bg-blue-800 hover:text-gray-300'
+                    : 'text-gray-600 hover:bg-blue-50 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center">
+                <span className="mr-3 scale-125">{item.icon}</span>
+                <span className="text-xl">{item.name}</span>
+              </div>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          ))}
+        </nav>
+      </div>
+      
+      {/* Theme Toggle at bottom */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
+        <ThemeToggle />
+      </div>
     </div>
-);
+  );
 };
 
 export default Sidebar;

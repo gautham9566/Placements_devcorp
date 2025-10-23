@@ -20,13 +20,13 @@ const UploadPage = () => {
       alert('Please select a video file to upload');
       return;
     }
-    
+
     // Validate schedule if set
     if (scheduledAt && !scheduleConfirmed) {
       alert('Please click the "Schedule Video" button to confirm the scheduled time before uploading');
       return;
     }
-    
+
     setUploading(true);
     try {
       // 1) upload video in chunks
@@ -48,32 +48,32 @@ const UploadPage = () => {
         title: title || videoFile.name,
         description: description || ''
       };
-      
+
       if (selectedCategory) {
         metadata.category = selectedCategory;
       }
-      
+
       if (scheduledAt && scheduleConfirmed) {
         metadata.status = 'Scheduled';
         metadata.scheduled_at = scheduledAt + ':00'; // append seconds for ISO format
       }
-      
+
       console.log('Sending metadata to /api/videos:', metadata);
-      const metadataResp = await fetch('/api/videos', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(metadata) 
+      const metadataResp = await fetch('/api/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(metadata)
       });
-      
+
       if (!metadataResp.ok) {
         const errorText = await metadataResp.text();
         console.error('Metadata creation failed:', errorText);
         throw new Error('Failed to create video metadata: ' + errorText);
       }
-      
+
       const metadataResult = await metadataResp.json();
       console.log('Metadata created successfully:', metadataResult);
-      
+
       // Do NOT automatically reset the form here; allow the user to keep the data until they explicitly clear or upload next.
     } catch (e) {
       console.error('Upload error:', e);
@@ -105,7 +105,7 @@ const UploadPage = () => {
   const [scheduledAt, setScheduledAt] = useState('');
   const [scheduleConfirmed, setScheduleConfirmed] = useState(false);
 
-  const handleBack = () => router.push('/admin');
+  const handleBack = () => router.push('/admin/videos');
 
   // Transcode status for the current uploaded video (if any)
   const [currentHash, setCurrentHash] = useState(null);
@@ -236,7 +236,7 @@ const UploadPage = () => {
                     {showCategoryDropdown && (
                       <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg max-h-40 overflow-y-auto">
                         {categories
-                          .filter(cat => 
+                          .filter(cat =>
                             cat.name.toLowerCase().includes(categorySearch.toLowerCase())
                           )
                           .map((category) => (
@@ -255,7 +255,7 @@ const UploadPage = () => {
                               )}
                             </div>
                           ))}
-                        {categories.filter(cat => 
+                        {categories.filter(cat =>
                           cat.name.toLowerCase().includes(categorySearch.toLowerCase())
                         ).length === 0 && categorySearch && (
                           <div className="p-3 text-gray-400">No categories found</div>
@@ -277,14 +277,14 @@ const UploadPage = () => {
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-2">Schedule publish (optional)</label>
-                  <input 
-                    type="datetime-local" 
-                    value={scheduledAt} 
-                    onChange={(e) => { 
-                      setScheduledAt(e.target.value); 
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => {
+                      setScheduledAt(e.target.value);
                       setScheduleConfirmed(false); // Reset confirmation when time changes
-                    }} 
-                    className="w-full bg-gray-700 p-2 rounded-lg border border-gray-600" 
+                    }}
+                    className="w-full bg-gray-700 p-2 rounded-lg border border-gray-600"
                   />
                   {scheduledAt && (
                     <button
@@ -311,8 +311,8 @@ const UploadPage = () => {
                         onClick={() => setScheduleConfirmed(true)}
                         disabled={scheduleConfirmed}
                         className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          scheduleConfirmed 
-                            ? 'bg-green-600 text-white cursor-not-allowed' 
+                          scheduleConfirmed
+                            ? 'bg-green-600 text-white cursor-not-allowed'
                             : 'bg-yellow-600 hover:bg-yellow-500 text-white'
                         }`}
                       >
@@ -422,7 +422,7 @@ const UploadPage = () => {
           width: 60px;
           height: 34px;
         }
-        .switch input { 
+        .switch input {
           opacity: 0;
           width: 0;
           height: 0;
@@ -469,7 +469,7 @@ const UploadPage = () => {
           <div className="bg-gray-900 rounded-lg p-6 w-full max-w-md text-center">
             <h3 className="text-lg font-semibold mb-3">Upload Successful!</h3>
             <p className="text-sm text-gray-300 mb-4">Your video has been uploaded and transcoded successfully.</p>
-            <button onClick={() => router.push('/admin')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold">Go to Admin Page</button>
+            <button onClick={() => router.push('/admin/videos')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold">Go to Videos Page</button>
           </div>
         </div>
       )}

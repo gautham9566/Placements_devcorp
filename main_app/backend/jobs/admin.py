@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import JobPosting, JobApplication
+from .models import JobPosting, JobApplication, CompanyForm
+from .ats_models import (
+    PipelineStage,
+    RecruitmentPipeline,
+    CandidateCard,
+    StageMovementHistory,
+    CandidateComment,
+    ShareableLink
+)
+
 
 class JobPostingAdmin(admin.ModelAdmin):
     list_display = ('title', 'company', 'location', 'job_type', 
@@ -18,3 +27,12 @@ class JobApplicationAdmin(admin.ModelAdmin):
 
 admin.site.register(JobPosting, JobPostingAdmin)
 admin.site.register(JobApplication, JobApplicationAdmin)
+admin.site.register(CompanyForm)
+
+# ATS Models
+admin.site.register(PipelineStage)
+admin.site.register(RecruitmentPipeline)
+admin.site.register(CandidateCard)
+admin.site.register(StageMovementHistory)
+admin.site.register(CandidateComment)
+admin.site.register(ShareableLink)

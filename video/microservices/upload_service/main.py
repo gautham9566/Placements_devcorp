@@ -21,6 +21,7 @@ SHARED_STORAGE = os.path.abspath("../shared_storage/originals")
 UPLOAD_STORAGE = SHARED_STORAGE
 
 METADATA_SERVICE_URL = "http://127.0.0.1:8003"
+COURSE_SERVICE_URL = "http://127.0.0.1:8006"
 TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 
 # Ensure storage exists
@@ -174,19 +175,30 @@ async def upload_complete(upload_id: str = Form(...), course_id: str = Form(None
         os.remove(final_path)
         raise HTTPException(status_code=400, detail="Final file has unsupported extension")
 
-    # Register in metadata service
+    # Register in appropriate database based on course_id
     try:
         metadata_payload = {"hash": upload_id, "filename": filename}
-        if course_id is not None and course_id != "":
-            metadata_payload["course_id"] = course_id
 
-        response = requests.post(
-            f"{METADATA_SERVICE_URL}/videos",
-            json=metadata_payload,
-            timeout=10
-        )
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Failed to register video in metadata service")
+        # If course_id is present, store in courses database
+        if course_id is not None and course_id != "" and course_id.lower() != 'none':
+            metadata_payload["course_id"] = int(course_id)
+
+            response = requests.post(
+                f"{COURSE_SERVICE_URL}/course-videos",
+                json=metadata_payload,
+                timeout=10
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Failed to register video in course database")
+        else:
+            # No course_id, store in videos.db (admin uploads)
+            response = requests.post(
+                f"{METADATA_SERVICE_URL}/videos",
+                json=metadata_payload,
+                timeout=10
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=500, detail="Failed to register video in metadata service")
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Metadata service unavailable: {str(e)}")
 

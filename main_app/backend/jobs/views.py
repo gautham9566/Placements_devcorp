@@ -48,6 +48,45 @@ User = get_user_model()
 
 def create_enhanced_application_snapshot(student_profile, custom_responses=None, request=None):
     """Create enhanced application snapshot with organized structure"""
+    # Get primary resume from Resume model (preferred) or fallback to profile resume
+    resume_url = None
+    resume_data = {}
+    
+    try:
+        # Try to get primary resume from Resume model
+        from accounts.models import Resume
+        primary_resume = Resume.objects.filter(
+            student=student_profile, 
+            is_primary=True
+        ).first()
+        
+        if primary_resume and primary_resume.file:
+            resume_url = primary_resume.file.url
+            resume_data = {
+                "resume_url": resume_url,
+                "resume_id": primary_resume.id,
+                "resume_name": primary_resume.name,
+                "resume_uploaded_at": primary_resume.uploaded_at.isoformat() if primary_resume.uploaded_at else None,
+            }
+        # Fallback to latest resume if no primary resume
+        elif not primary_resume:
+            latest_resume = Resume.objects.filter(student=student_profile).first()
+            if latest_resume and latest_resume.file:
+                resume_url = latest_resume.file.url
+                resume_data = {
+                    "resume_url": resume_url,
+                    "resume_id": latest_resume.id,
+                    "resume_name": latest_resume.name,
+                    "resume_uploaded_at": latest_resume.uploaded_at.isoformat() if latest_resume.uploaded_at else None,
+                }
+    except Exception as e:
+        print(f"Error getting resume from Resume model: {e}")
+    
+    # Final fallback to StudentProfile.resume field
+    if not resume_url and student_profile.resume:
+        resume_url = student_profile.resume.url
+        resume_data = {"resume_url": resume_url}
+    
     snapshot = {
         "basic_info": {
             "name": f"{student_profile.first_name} {student_profile.last_name}",
@@ -77,7 +116,7 @@ def create_enhanced_application_snapshot(student_profile, custom_responses=None,
             "country": student_profile.country,
         },
         "documents": {
-            "resume_url": student_profile.resume.url if student_profile.resume else None,
+            **resume_data,  # Include resume data from Resume model
             "tenth_certificate_url": student_profile.tenth_certificate.url if student_profile.tenth_certificate else None,
             "twelfth_certificate_url": student_profile.twelfth_certificate.url if student_profile.twelfth_certificate else None,
         },
@@ -725,26 +764,47 @@ class EnhancedJobApplicationCreateView(generics.CreateAPIView):
 
         uploaded_resume = self.request.FILES.get("resume", None)
         profile_resume = student.resume
+        
+        # Get resume_id from request if provided
+        resume_id = self.request.data.get('resume_id')
 
         # Check for resumes in the new Resume model
         student_resumes = student.resumes.all()
         primary_resume = student.resumes.filter(is_primary=True).first()
-        latest_resume = student.resumes.first() if student_resumes.exists() else None
+        latest_resume = student_resumes.first() if student_resumes.exists() else None
+        
+        # If resume_id is provided, try to get that specific resume
+        selected_resume = None
+        if resume_id:
+            try:
+                from accounts.models import Resume
+                selected_resume = Resume.objects.filter(
+                    id=resume_id,
+                    student=student
+                ).first()
+                if selected_resume:
+                    print(f"✅ Selected resume by ID {resume_id}: {selected_resume.name} (file: {selected_resume.file.name})")
+                else:
+                    print(f"⚠️ Resume ID {resume_id} not found for student {student.student_id}")
+            except (ValueError, TypeError) as e:
+                print(f"⚠️ Error parsing resume_id: {e}")
 
         if not uploaded_resume and not profile_resume and not student_resumes.exists():
             raise serializers.ValidationError({
                 "resume": "A resume must be uploaded or present in the student profile."
             })
 
-        # Priority: uploaded_resume > profile_resume > primary_resume > latest_resume
+        # Priority: uploaded_resume > selected_resume > primary_resume > latest_resume > profile_resume
         final_resume = uploaded_resume if uploaded_resume else (
-            profile_resume if profile_resume else (
+            selected_resume.file if selected_resume else (
                 primary_resume.file if primary_resume else (
-                    latest_resume.file if latest_resume else None
+                    latest_resume.file if latest_resume else (
+                        profile_resume if profile_resume else None
+                    )
                 )
             )
         )
-
+        
         # Process additional fields and handle file uploads
         additional_fields = {}
         uploaded_file_urls = {}
@@ -756,7 +816,8 @@ class EnhancedJobApplicationCreateView(generics.CreateAPIView):
 
         # Handle regular form data (for backward compatibility)
         for key, value in self.request.data.items():
-            if key not in ['cover_letter', 'job', 'resume', 'additional_field_responses']:
+            # Exclude system fields that shouldn't go into custom_responses
+            if key not in ['cover_letter', 'job', 'resume', 'resume_id', 'additional_field_responses']:
                 # Try to parse JSON for complex fields
                 try:
                     import json
@@ -797,10 +858,30 @@ class EnhancedJobApplicationCreateView(generics.CreateAPIView):
                 snapshot['documents'] = {}
             snapshot['documents'].update(uploaded_file_urls)
 
+        # Determine which resume file to save to application.resume field
+        # This is the resume that will be shown in candidate details
+        resume_to_save = None
+        resume_source = None
+        if uploaded_resume:
+            # User uploaded a new resume file
+            resume_to_save = uploaded_resume
+            resume_source = "uploaded"
+        elif selected_resume:
+            # User selected an existing resume by ID
+            resume_to_save = selected_resume.file
+            resume_source = f"selected (ID: {resume_id}, name: {selected_resume.name})"
+        elif final_resume:
+            # Fallback to the resume we determined earlier
+            resume_to_save = final_resume
+            resume_source = "fallback"
+        
+        print(f"💾 Saving application with resume from: {resume_source}")
+        print(f"   Resume file path: {resume_to_save.name if resume_to_save else 'None'}")
+
         serializer.save(
             job=job,
             applicant=self.request.user,
-            resume=uploaded_resume if uploaded_resume else None,
+            resume=resume_to_save,
             applied_data_snapshot=snapshot
         )
 

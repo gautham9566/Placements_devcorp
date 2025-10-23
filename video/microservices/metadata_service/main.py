@@ -13,11 +13,14 @@ from functools import lru_cache
 import requests
 import logging
 from contextlib import asynccontextmanager
+import os
 
 # Simple cache for videos endpoint
-_videos_cache = None
-_cache_timestamp = 0
-CACHE_TTL = 0.1  # 100ms cache
+# _videos_cache = None
+# _cache_timestamp = 0
+# CACHE_TTL = 0.1  # 100ms cache
+
+TRANSCODING_SERVICE_URL = os.getenv("TRANSCODING_SERVICE_URL", "http://localhost:8002")  # Default to local transcoding service
 
 async def _scheduler_loop():
     """Background loop that publishes scheduled videos when their scheduled_at <= now."""
@@ -180,20 +183,51 @@ async def create_video(video: VideoCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_video)
 
+    # Trigger transcoding only for standalone videos (not course videos)
+    if video.course_id is None:
+        try:
+            transcode_response = requests.post(
+                f"{TRANSCODING_SERVICE_URL}/transcode/start",
+                json={
+                    "upload_id": video.hash,
+                    "filename": video.filename,
+                    "network_speed": 10.0  # Default; adjust if needed
+                },
+                timeout=5
+            )
+            if transcode_response.status_code != 200:
+                logging.warning(f"Failed to start transcoding for {video.hash}: {transcode_response.text}")
+            else:
+                logging.info(f"Transcoding started for {video.hash}")
+        except requests.RequestException as e:
+            logging.error(f"Error triggering transcoding for {video.hash}: {e}")
+    
     return {"id": db_video.id, "hash": db_video.hash}
 
 @app.get("/videos")
-async def get_videos(db: Session = Depends(get_db)):
-    """Get all videos."""
-    global _videos_cache, _cache_timestamp
-
-    # Check cache
-    current_time = time.time()
-    if _videos_cache is not None and (current_time - _cache_timestamp) < CACHE_TTL:
-        return _videos_cache
-
-    # Fetch from database
-    videos = db.query(Video).all()
+async def get_videos(page: int = 1, limit: int = 10, status: str = None, search: str = None, db: Session = Depends(get_db)):
+    """Get videos with pagination and optional status filter."""
+    # Calculate offset
+    offset = (page - 1) * limit
+    
+    # Build query with optional status filter
+    query = db.query(Video)
+    if status:
+        query = query.filter(Video.status == status)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Video.title.ilike(search_term)) | 
+            (Video.description.ilike(search_term))
+        )
+    
+    # Get total count with filter
+    total_count = query.count()
+    
+    # Fetch videos with pagination and filter
+    videos = query.offset(offset).limit(limit).all()
+    
     result = {
         "videos": [
             {
@@ -214,12 +248,12 @@ async def get_videos(db: Session = Depends(get_db)):
                 "course_id": v.course_id
             }
             for v in videos
-        ]
+        ],
+        "total": total_count,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total_count + limit - 1) // limit  # Ceiling division
     }
-
-    # Update cache
-    _videos_cache = result
-    _cache_timestamp = current_time
 
     return result
 
@@ -235,6 +269,7 @@ async def get_video(hash: str, db: Session = Depends(get_db)):
         "hash": video.hash,
         "filename": video.filename,
         "title": video.title,
+        "description": video.description,
         "category": video.category,
         "status": video.status,
         "thumbnail_filename": video.thumbnail_filename,
@@ -278,9 +313,6 @@ async def update_video(hash: str, video_update: VideoUpdate, db: Session = Depen
 
     db.commit()
     return {"status": "updated"}
-
-
-TRANSCODING_SERVICE_URL = "http://127.0.0.1:8002"
 
 
 def _publish_video_db(video_hash: str):

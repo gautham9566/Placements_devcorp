@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '../../../../components/admin/Sidebar';
-import TopHeader from '../../../../components/admin/TopHeader';
-
 const STEPS = [
 	{
 		id: 1,
@@ -184,9 +181,18 @@ export default function CreateCoursePage() {
 				}
 			}
 
-			// Start transcoding for each video
+			// Start transcoding for each video that hasn't been transcoded yet
 			for (const videoId of videoIds) {
 				try {
+					// Check if video is already transcoded
+					const statusResponse = await fetch(`/api/transcode/${videoId}/status`);
+					if (statusResponse.ok) {
+						const statusData = await statusResponse.json();
+						if (statusData.status === 'completed' || statusData.status === 'processing') {
+							continue; // Skip already transcoded or processing videos
+						}
+					}
+					// Start transcoding
 					await fetch(`/api/transcode/${videoId}`, {
 						method: 'POST',
 					});
@@ -336,9 +342,18 @@ export default function CreateCoursePage() {
 				}
 			}
 
-			// Start transcoding for each video
+			// Start transcoding for each video that hasn't been transcoded yet
 			for (const videoId of videoIds) {
 				try {
+					// Check if video is already transcoded
+					const statusResponse = await fetch(`/api/transcode/${videoId}/status`);
+					if (statusResponse.ok) {
+						const statusData = await statusResponse.json();
+						if (statusData.status === 'completed' || statusData.status === 'processing') {
+							continue; // Skip already transcoded or processing videos
+						}
+					}
+					// Start transcoding
 					await fetch(`/api/transcode/${videoId}`, {
 						method: 'POST',
 					});
@@ -431,21 +446,18 @@ export default function CreateCoursePage() {
 	};
 
 	return (
-		<div className="flex min-h-screen bg-gray-900">
-			<Sidebar />
-			<div className="flex-1 ml-64">
-				<TopHeader />
-				<div className="p-6">
-					{/* Header */}
-					<div className="flex justify-between items-center mb-8">
-						<h1 className="text-3xl font-bold text-white">Create New Course</h1>
-						<button
-							onClick={() => router.push('/admin/courses')}
-							className="text-gray-400 hover:text-white transition-colors"
-						>
-							← Back to Courses
-						</button>
-					</div>
+		<div className="min-h-screen bg-gray-900/30 dark:bg-gray-900/30">
+			<div className="p-6">
+				{/* Header */}
+				<div className="flex justify-between items-center mb-8">
+					<h1 className="text-3xl font-bold text-white dark:text-white">Create New Course</h1>
+					<button
+						onClick={() => router.push('/admin/courses')}
+						className="text-gray-400 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+					>
+						← Back to Courses
+					</button>
+				</div>
 
 					{/* Progress Indicator */}
 					<div className="mb-8">
@@ -484,7 +496,6 @@ export default function CreateCoursePage() {
 						{renderStepContent()}
 					</div>
 
-					{/* Navigation Buttons */}
 					<div className="flex justify-between">
 						<button
 							onClick={prevStep}
@@ -502,9 +513,8 @@ export default function CreateCoursePage() {
 						</button>
 					</div>
 				</div>
-			</div>
 		</div>
-	);
+	)
 }
 
 // Step Components
@@ -786,31 +796,57 @@ function CourseStructureStep({ courseData, updateCourseData }) {
 									</div>
 									{lesson.type === 'video' && (
 										<div className="mb-2">
-											<select
-												value={lesson.video_id || ''}
-												onChange={(e) => {
-													const updatedSections = sections.map(s =>
-														s.id === section.id
-															? {
-																...s,
-																lessons: s.lessons.map(l =>
-																	l.id === lesson.id ? { ...l, video_id: e.target.value || null } : l
-																)
-															}
-															: s
-													);
-													setSections(updatedSections);
-													updateCourseData({ sections: updatedSections });
-												}}
-												className="w-full px-3 py-1 bg-gray-500 border border-gray-400 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-											>
-												<option value="">Select a video...</option>
-												{courseData.videos.map((video) => (
-													<option key={video.hash} value={video.hash}>
-														{video.filename} ({video.hash.slice(0, 8)}...)
-													</option>
-												))}
-											</select>
+											<div className="flex items-center space-x-2">
+												<select
+													value={lesson.video_id || ''}
+													onChange={(e) => {
+														const updatedSections = sections.map(s =>
+															s.id === section.id
+																? {
+																	...s,
+																	lessons: s.lessons.map(l =>
+																		l.id === lesson.id ? { ...l, video_id: e.target.value || null } : l
+																	)
+																}
+																: s
+														);
+														setSections(updatedSections);
+														updateCourseData({ sections: updatedSections });
+													}}
+													className="flex-1 px-3 py-1 bg-gray-500 border border-gray-400 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+												>
+													<option value="">Select a video...</option>
+													{courseData.videos.map((video) => (
+														<option key={video.hash} value={video.hash}>
+															{video.title || 'Untitled'} ({video.hash.slice(0, 8)}...)
+														</option>
+													))}
+												</select>
+												{lesson.video_id && (
+													<button
+														onClick={() => {
+															const updatedSections = sections.map(s =>
+																s.id === section.id
+																	? {
+																		...s,
+																		lessons: s.lessons.map(l =>
+																			l.id === lesson.id ? { ...l, video_id: null } : l
+																		)
+																	}
+																	: s
+															);
+															setSections(updatedSections);
+															updateCourseData({ sections: updatedSections });
+														}}
+														className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
+														title="Remove video assignment"
+													>
+														<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+														</svg>
+													</button>
+												)}
+											</div>
 										</div>
 									)}
 									<div className="mb-2">
@@ -1084,7 +1120,7 @@ function VideoUploadStep({ courseData, updateCourseData }) {
 									<div key={video.hash} className="bg-gray-700 rounded-lg p-3">
 										<div className="flex items-center justify-between mb-2">
 											<div className="flex-1">
-												<p className="text-white font-medium">{video.filename}</p>
+												<p className="text-white font-medium">{video.title || 'Untitled'}</p>
 												<p className="text-gray-400 text-sm">
 													ID: {video.hash.slice(0, 8)}... | Uploaded: {new Date(video.uploaded_at).toLocaleDateString()}
 												</p>
