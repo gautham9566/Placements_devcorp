@@ -68,7 +68,7 @@ export default function ATSLinksPage() {
   // Copy link to clipboard
   const copyToClipboard = async (linkId, token) => {
     try {
-      const fullUrl = `${window.location.origin}/admin/recruitment/shared/${token}`;
+      const fullUrl = `${window.location.origin}/shared/${token}`;
       await navigator.clipboard.writeText(fullUrl);
       setCopiedLinkId(linkId);
       setTimeout(() => setCopiedLinkId(null), 2000);
@@ -118,7 +118,7 @@ export default function ATSLinksPage() {
 
   // Open link in new tab
   const viewLink = (token) => {
-    const fullUrl = `${window.location.origin}/admin/recruitment/shared/${token}`;
+    const fullUrl = `${window.location.origin}/shared/${token}`;
     window.open(fullUrl, '_blank');
   };
 

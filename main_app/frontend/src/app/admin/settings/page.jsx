@@ -6,7 +6,7 @@ import * as auth from '../../../api/auth';
 import { studentsAPI } from '../../../api/optimized';
 
 // Import the main Settings component
-import Settings from '../../settings/page';
+import Settings from '../../students/settings/page';
 
 const AdminSettings = () => {
   const router = useRouter();

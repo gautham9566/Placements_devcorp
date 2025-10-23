@@ -51,7 +51,7 @@ export default function LoginPage() {
       // Handle different user types
       switch (user.user_type?.toLowerCase()) {
         case 'student':
-          router.push('/');
+          router.push('/students');
           break;
         case 'admin':
           router.push('/admin/dashboard');
@@ -60,7 +60,7 @@ export default function LoginPage() {
           router.push('/company/dashboard');
           break;
         default:
-          router.push('/');
+          router.push('/students');
       }
     } catch (err) {
       console.error('Login error:', err);

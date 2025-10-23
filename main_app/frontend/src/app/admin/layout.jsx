@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Sidebar from '../../components/ui/Sidebar';
+import DropdownMenu from '../../components/ui/DropdownMenu';
+import ThemeToggle from '../../components/ui/ThemeToggle';
 import {
   IconHome,
   IconBriefcase,
@@ -56,9 +59,20 @@ export default function AdminLayout({ children }) {
   }, []);
 
   return (
-    <div className="h-screen bg-gray-50 overflow-hidden">
+    <div className="h-screen bg-gray-50">
+      {/* Fixed Header */}
+      <div className="fixed w-full flex justify-between items-center py-4 bg-white shadow-sm z-10">
+        <Link href="/admin/dashboard" className="text-gray-700 font-medium text-xl ml-28">
+          DevCorp
+        </Link>
+        <div className="flex items-center gap-4 mr-6">
+          <ThemeToggle />
+          <DropdownMenu />
+        </div>
+      </div>
+
       {/* Sidebar + Main Content */}
-      <div className="flex h-full">
+      <div className="flex h-full pt-16">
         <Sidebar
           sections={adminLinks}
           bottomItems={bottomItems}

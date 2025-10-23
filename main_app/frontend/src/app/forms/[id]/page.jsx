@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getFormById, updateForm } from '../../../api/forms';
-import JobPostingForm from '../../../components/JobPostingForm';
-import { studentsAPI } from '../../../api/optimized';
+import { getFormById, updateForm } from '@/api/forms';
+import JobPostingForm from '@/components/JobPostingForm';
+import { studentsAPI } from '@/api/optimized';
 
 export default function CompanyFormPage() {
   const { id } = useParams();

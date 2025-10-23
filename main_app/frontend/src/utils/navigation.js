@@ -18,26 +18,26 @@ BookOpen
 export const navigationLinks = [
   {
     items: [
-      { title: 'My Campus', href: '/', icon: <IconHome /> },
-      { title: 'My Jobs', href: '/myjobs', icon: <IconBriefcase /> },
-      { title: 'Job Postings', href: '/jobpostings', icon: <IconBuilding /> },
-      { title: 'Companies', href: '/companies', icon: <IconUsers /> },
-      { title: 'Calendar', href: '/calendar', icon: <IconCalendarEvent /> },
-      { title: 'LMS', href: '/lms', icon: <BookOpen className="w-5 h-5" /> },
-      { title: 'My Profile', href: '/profile', icon: <IconUser /> },
-      { title: 'Settings', href: '/settings', icon: <IconSettings /> }
+      { title: 'My Campus', href: '/students/', icon: <IconHome /> },
+      { title: 'My Jobs', href: '/students/myjobs', icon: <IconBriefcase /> },
+      { title: 'Job Postings', href: '/students/jobpostings', icon: <IconBuilding /> },
+      { title: 'Companies', href: '/students/companies', icon: <IconUsers /> },
+      { title: 'Calendar', href: '/students/calendar', icon: <IconCalendarEvent /> },
+      { title: 'LMS', href: '/students/lms', icon: <BookOpen className="w-5 h-5" /> },
+      { title: 'My Profile', href: '/students/profile', icon: <IconUser /> },
+      { title: 'Settings', href: '/students/settings', icon: <IconSettings /> }
     ]
   }
 ];
 
 // Function to get the correct settings URL based on user role
 export const getSettingsUrl = (userType) => {
-  return userType === 'ADMIN' ? '/admin/settings' : '/settings';
+  return userType === 'ADMIN' ? '/admin/settings' : '/students/settings';
 };
 
 // Function to get the correct calendar URL based on user role
 export const getCalendarUrl = (userType) => {
-  return userType === 'ADMIN' ? '/admin/calendar' : '/calendar';
+  return userType === 'ADMIN' ? '/admin/calendar' : '/students/calendar';
 };
 
 // Function to get navigation links with dynamic settings URL

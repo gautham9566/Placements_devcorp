@@ -72,7 +72,6 @@ export default function DropdownMenu() {
 
   return (
     <div className="relative flex items-center gap-3" ref={dropdownRef}>
-      <span className="text-black font-medium">Student Career Center</span>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="text-blue-600 hover:text-blue-700 p-2 rounded-full hover:bg-blue-50 transition-colors"
