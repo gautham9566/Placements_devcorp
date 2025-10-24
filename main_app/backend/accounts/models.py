@@ -628,3 +628,43 @@ class YearManagement(models.Model):
         for year in existing_years:
             cls.objects.get_or_create(year=year, defaults={'is_active': True})
 
+
+class BranchManagement(models.Model):
+    """
+    Management of active/inactive branches/departments
+    """
+    branch = models.CharField(max_length=100, unique=True, help_text="Branch/Department name")
+    is_active = models.BooleanField(default=True, help_text="Whether this branch is active and visible")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Branch Management"
+        verbose_name_plural = "Branch Management"
+        ordering = ['branch']
+    
+    def __str__(self):
+        return f"{self.branch} ({'Active' if self.is_active else 'Inactive'})"
+    
+    @classmethod
+    def get_active_branches(cls):
+        """Get list of active branches"""
+        return list(cls.objects.filter(is_active=True).values_list('branch', flat=True))
+    
+    @classmethod
+    def get_all_branches_with_status(cls):
+        """Get all branches with their active status"""
+        return list(cls.objects.all().values('branch', 'is_active').order_by('branch'))
+    
+    @classmethod
+    def ensure_branches_exist(cls):
+        """Ensure all existing branches from StudentProfile are managed"""
+        # Get all distinct branches from StudentProfile
+        existing_branches = StudentProfile.objects.values_list(
+            'branch', flat=True
+        ).distinct().exclude(branch__isnull=True).exclude(branch='').order_by('branch')
+        
+        # Create BranchManagement entries for branches that don't exist
+        for branch in existing_branches:
+            cls.objects.get_or_create(branch=branch, defaults={'is_active': True})
+

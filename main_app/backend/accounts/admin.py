@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
 
-from .models import User, StudentProfile
+from .models import User, StudentProfile, YearManagement, BranchManagement
 
 import pandas as pd
 from django import forms
@@ -68,7 +68,7 @@ class StudentProfileAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Basic Information', {
-            'fields': ('user', 'college', 'first_name', 'last_name', 'student_id', 'date_of_birth', 'gender', 'profile_image')
+            'fields': ('user', 'first_name', 'last_name', 'student_id', 'date_of_birth', 'gender', 'profile_image')
         }),
         ('Contact Information', {
             'fields': ('contact_email', 'phone', 'address', 'city', 'district', 'state', 'pincode', 'country')
@@ -163,6 +163,23 @@ class StudentProfileAdmin(admin.ModelAdmin):
         else:
             form = StudentExcelUploadForm()
         return render(request, "admin/student_excel_upload.html", {"form": form})
+
+@admin.register(YearManagement)
+class YearManagementAdmin(admin.ModelAdmin):
+    list_display = ('year', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('year',)
+    ordering = ('-year',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(BranchManagement)
+class BranchManagementAdmin(admin.ModelAdmin):
+    list_display = ('branch', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('branch',)
+    ordering = ('branch',)
+    readonly_fields = ('created_at', 'updated_at')
 
 
 admin.site.register(User, UserAdmin)
