@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from .models import User, StudentProfile, Resume, SystemSettings, YearManagement
+from .models import User, StudentProfile, Resume, SystemSettings, YearManagement, BranchManagement
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .serializers import UserSerializer, StudentProfileSerializer, StudentProfileListSerializer, SemesterMarksheetSerializer, ResumeSerializer, ResumeCreateSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -1235,5 +1235,66 @@ class ActiveYearsView(APIView):
         return Response({
             'active_years': sorted(active_years, reverse=True),  # Most recent first
             'count': len(active_years)
+        })
+
+
+class BranchManagementView(APIView):
+    """
+    Admin view for managing active/inactive branches
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self, request):
+        """Get all branches with their active status"""
+        # Ensure all existing branches are managed
+        BranchManagement.ensure_branches_exist()
+        
+        branches = BranchManagement.get_all_branches_with_status()
+        return Response({
+            'branches': branches
+        })
+    
+    def post(self, request):
+        """Update branch active status"""
+        branch_data = request.data.get('branches', [])
+        
+        updated_branches = []
+        for branch_info in branch_data:
+            branch = branch_info.get('branch')
+            is_active = branch_info.get('is_active', True)
+            
+            if branch is not None:
+                branch_obj, created = BranchManagement.objects.get_or_create(
+                    branch=branch,
+                    defaults={'is_active': is_active}
+                )
+                if not created:
+                    branch_obj.is_active = is_active
+                    branch_obj.save()
+                
+                updated_branches.append({
+                    'branch': branch_obj.branch,
+                    'is_active': branch_obj.is_active
+                })
+        
+        return Response({
+            'message': 'Branch settings updated successfully',
+            'branches': updated_branches
+        })
+
+
+class ActiveBranchesView(APIView):
+    """
+    Public API endpoint to get list of active branches
+    Use this for dropdowns and filtering
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        """Get list of active branches only"""
+        active_branches = BranchManagement.get_active_branches()
+        return Response({
+            'active_branches': sorted(active_branches),
+            'count': len(active_branches)
         })
 

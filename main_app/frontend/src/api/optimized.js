@@ -720,16 +720,16 @@ export const adminAPI = {
   },
 
   /**
-   * Get active years list (for dropdowns/filtering)
-   * This endpoint is NOT cached and always returns current active years
-   * @returns {Promise} Active years array
+   * Get active branches list (for dropdowns/filtering)
+   * This endpoint is NOT cached and always returns current active branches
+   * @returns {Promise} Active branches array
    */
-  async getActiveYears() {
+  async getActiveBranches() {
     try {
-      const response = await client.get('/api/accounts/active-years/');
+      const response = await client.get('/api/accounts/active-branches/');
       return response.data;
     } catch (error) {
-      console.error('Error fetching active years:', error);
+      console.error('Error fetching active branches:', error);
       throw error;
     }
   }

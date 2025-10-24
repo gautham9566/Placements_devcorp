@@ -6,7 +6,7 @@ import json
 
 from .models import MetricsCache, PaginatedDataCache
 from companies.models import Company
-from accounts.models import StudentProfile, YearManagement
+from accounts.models import StudentProfile, YearManagement, BranchManagement
 from jobs.models import JobPosting, JobApplication
 
 
@@ -689,17 +689,26 @@ def calculate_student_department_breakdown():
     active_years = YearManagement.get_active_years()
     base_queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
     
-    departments = base_queryset.values('branch').annotate(
-        total_students=Count('id'),
-        with_resume=Count('id', filter=Q(resume__isnull=False)),
-        with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
-        placed_students=Count('id', filter=Q(user__job_applications__status='HIRED'), distinct=True)
-    ).exclude(branch__isnull=True).exclude(branch='').order_by('-total_students')
+    # Get all active branches
+    active_branches = BranchManagement.get_active_branches()
     
-    # Add calculated fields by processing each department manually
-    for dept in departments:
-        total = dept['total_students']
-        dept_students = base_queryset.filter(branch=dept['branch'])
+    departments = []
+    
+    for branch in active_branches:
+        # Get stats for this branch
+        dept_students = base_queryset.filter(branch=branch)
+        total_students = dept_students.count()
+        with_resume = dept_students.filter(resume__isnull=False).count()
+        with_applications = dept_students.filter(user__job_applications__isnull=False).distinct().count()
+        placed_students = dept_students.filter(user__job_applications__status='HIRED').distinct().count()
+        
+        dept = {
+            'branch': branch,
+            'total_students': total_students,
+            'with_resume': with_resume,
+            'with_applications': with_applications,
+            'placed_students': placed_students
+        }
         
         # Calculate GPA-related metrics manually
         gpa_sum = 0
@@ -740,19 +749,24 @@ def calculate_student_department_breakdown():
         dept['poor_performers'] = poor_performers
         
         # Calculate percentages
-        if total > 0:
-            dept['high_performer_percentage'] = round((high_performers / total) * 100, 2)
-            dept['placement_rate'] = round((dept['placed_students'] / total) * 100, 2)
-            dept['application_rate'] = round((dept['with_applications'] / total) * 100, 2)
-            dept['resume_completion_rate'] = round((dept['with_resume'] / total) * 100, 2)
+        if total_students > 0:
+            dept['high_performer_percentage'] = round((high_performers / total_students) * 100, 2)
+            dept['placement_rate'] = round((placed_students / total_students) * 100, 2)
+            dept['application_rate'] = round((with_applications / total_students) * 100, 2)
+            dept['resume_completion_rate'] = round((with_resume / total_students) * 100, 2)
         else:
             dept['high_performer_percentage'] = 0
             dept['placement_rate'] = 0
             dept['application_rate'] = 0
             dept['resume_completion_rate'] = 0
+        
+        departments.append(dept)
+    
+    # Sort by total_students descending
+    departments.sort(key=lambda x: x['total_students'], reverse=True)
     
     return {
-        'departments': list(departments),
+        'departments': departments,
         'last_updated': timezone.now().isoformat()
     }
 

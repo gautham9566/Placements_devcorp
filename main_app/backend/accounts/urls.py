@@ -19,7 +19,9 @@ from .views import (
     ResumeDetailView,
     SystemSettingsView,
     YearManagementView,
-    ActiveYearsView
+    ActiveYearsView,
+    BranchManagementView,
+    ActiveBranchesView
 )
 
 router = DefaultRouter()
@@ -49,7 +51,9 @@ urlpatterns = [
     # Admin endpoints
     path('admin/system-settings/', SystemSettingsView.as_view(), name='system-settings'),
     path('admin/year-management/', YearManagementView.as_view(), name='year-management'),
+    path('admin/branch-management/', BranchManagementView.as_view(), name='branch-management'),
     path('active-years/', ActiveYearsView.as_view(), name='active-years'),
+    path('active-branches/', ActiveBranchesView.as_view(), name='active-branches'),
 
     # ViewSet routes
     path('', include(router.urls)),

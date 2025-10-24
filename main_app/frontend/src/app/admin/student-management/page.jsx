@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { studentsAPI, studentMetricsAPI } from '../../../api/optimized';
+import { studentsAPI, studentMetricsAPI, adminAPI } from '../../../api/optimized';
 import { getAuthToken } from '../../../utils/auth';
 import { useNotification } from '../../../contexts/NotificationContext';
 import CustomDropdown from './StudentDropdown';
@@ -54,6 +54,7 @@ export default function StudentManagement() {
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
 
   // Function to update URL with current state
   const updateURL = (params = {}) => {
@@ -80,18 +81,6 @@ export default function StudentManagement() {
     const newURL = `${window.location.pathname}?${newParams.toString()}`;
     window.history.pushState({}, '', newURL);
   };
-
-  // Dropdown options
-  const departmentOptions = [
-    { value: 'Computer Science', label: 'Computer Science' },
-    { value: 'Electronics', label: 'Electronics' },
-    { value: 'Mechanical', label: 'Mechanical' },
-    { value: 'Civil', label: 'Civil' },
-    { value: 'Electrical', label: 'Electrical' },
-    { value: 'Information Technology', label: 'Information Technology' },
-    { value: 'Chemical', label: 'Chemical' },
-    { value: 'Biotechnology', label: 'Biotechnology' }
-  ];
 
   // Transform student data from API response
   const transformStudentData = (student) => ({
@@ -166,6 +155,20 @@ export default function StudentManagement() {
 
   //   return () => clearTimeout(timer);
   // }, [searchTerm]);
+
+  // Fetch department options from API
+  const fetchDepartmentOptions = async () => {
+    try {
+      const data = await adminAPI.getActiveBranches();
+      const options = data.active_branches.map(branch => ({
+        value: branch,
+        label: branch
+      }));
+      setDepartmentOptions(options);
+    } catch (error) {
+      console.error('Error fetching department options:', error);
+    }
+  };
 
   // Fetch students with server-side pagination and filtering
   const fetchStudents = async (page = 1) => {
@@ -346,6 +349,7 @@ export default function StudentManagement() {
 
   // Initial data fetch
   useEffect(() => {
+    fetchDepartmentOptions();
     fetchStudents();
   }, []);
 
