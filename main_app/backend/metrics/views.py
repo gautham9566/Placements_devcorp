@@ -175,7 +175,7 @@ class CachedStudentListView(generics.ListAPIView):
             """Fetch fresh student data with enhanced filtering and performance optimization"""
             # Use select_related and prefetch_related for better performance
             queryset = StudentProfile.objects.select_related(
-                'user', 'college'
+                'user'
             ).prefetch_related(
                 'user__job_applications'
             ).all()

@@ -8,7 +8,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('accounts', '0002_alter_user_user_type_delete_employerprofile'),
-        ('college', '0001_initial'),
     ]
 
     operations = [

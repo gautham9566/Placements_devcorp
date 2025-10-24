@@ -21,7 +21,6 @@ from .serializers import (
 )
 from accounts.models import YearManagement
 from accounts.models import StudentProfile
-from college.models import College
 from django.shortcuts import get_object_or_404
 from django.db import models
 from django.db.models import Q, Count
@@ -94,7 +93,7 @@ def create_enhanced_application_snapshot(student_profile, custom_responses=None,
             "student_id": student_profile.student_id,
             "branch": student_profile.branch,
             "current_cgpa": student_profile.gpa,
-            "university": student_profile.college_name or student_profile.college.name if student_profile.college else None,
+            "university": student_profile.college_name,
         },
         "academic_info": {
             "tenth_percentage": student_profile.tenth_percentage,
@@ -899,7 +898,7 @@ class JobStatsView(APIView):
     """Job statistics endpoint with caching"""
     permission_classes = [permissions.IsAdminUser]
 
-    def get(self, request, slug=None):
+    def get(self, request):
         try:
             from metrics.utils import get_or_calculate_metric
             
@@ -917,7 +916,6 @@ class JobStatsView(APIView):
             pass
         
         # Fallback to original calculation if caching fails
-        college = get_object_or_404(College, slug=slug)
         
         # Calculate statistics - now using on_campus jobs since we moved to company-based model
         total_jobs = JobPosting.objects.filter(
@@ -962,7 +960,7 @@ class CompanyStatsView(APIView):
     """Company statistics endpoint with caching"""
     permission_classes = [permissions.IsAdminUser]
 
-    def get(self, request, slug=None):
+    def get(self, request):
         try:
             from metrics.utils import get_or_calculate_metric
             
@@ -979,7 +977,6 @@ class CompanyStatsView(APIView):
             pass
         
         # Fallback to original calculation if caching fails
-        college = get_object_or_404(College, slug=slug)
         
         # Use Company model for stats instead of EmployerProfile
         from companies.models import Company
@@ -1000,7 +997,7 @@ class ApplicationStatsView(APIView):
     """Application statistics endpoint with caching"""
     permission_classes = [permissions.IsAdminUser]
 
-    def get(self, request, slug=None):
+    def get(self, request):
         try:
             from metrics.utils import get_or_calculate_metric
             
@@ -1017,7 +1014,6 @@ class ApplicationStatsView(APIView):
             pass
         
         # Fallback to original calculation if caching fails
-        college = get_object_or_404(College, slug=slug)
         
         total_applications = JobApplication.objects.filter(
             job__on_campus=True

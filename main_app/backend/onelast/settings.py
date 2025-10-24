@@ -28,7 +28,6 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Custom apps
-    'college',
     'accounts',
     'jobs',
     'companies',
@@ -44,7 +43,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'onelast.middleware.college_middleware.CollegeMiddleware',
 ]
 
 ROOT_URLCONF = 'onelast.urls'

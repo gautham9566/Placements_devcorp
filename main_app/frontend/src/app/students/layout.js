@@ -46,15 +46,10 @@ const shouldHideSidebar = (pathname) => {
 
 export default function RootLayout({ children }) {
   const pathname = usePathname();
-  const [college, setCollege] = useState('');
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    const storedCollege = localStorage.getItem('collegeName');
-    if (storedCollege) {
-      setCollege(storedCollege);
-    }
   }, []);
 
   // Don't render the layout structure until client-side hydration
@@ -83,7 +78,7 @@ export default function RootLayout({ children }) {
       {/* Fixed Header */}
       <div className="fixed w-full flex justify-between items-center py-4 bg-white shadow-sm z-10">
         <span className="text-gray-700 font-medium text-xl ml-16 sm:ml-28">
-          {college || 'College Name'}
+          Student Portal
         </span>
         <div className="flex items-center gap-4 mr-6">
           <ThemeToggle />

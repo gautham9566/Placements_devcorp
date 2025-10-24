@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
-from college.models import College
 from django.core.exceptions import ValidationError
 import os
 import uuid
@@ -152,9 +151,6 @@ class User(AbstractUser):
     username = None
     email = models.EmailField(_('email address'), unique=True)
 
-    # Added default college (adjust ID as needed)
-    college = models.ForeignKey(College, on_delete=models.CASCADE, default=1)
-
     user_type = models.CharField(
         max_length=10,
         choices=UserType.choices,
@@ -192,7 +188,6 @@ class StudentProfile(models.Model):
     objects = StudentProfileManager()
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
-    college = models.ForeignKey(College, on_delete=models.CASCADE, default=1)
 
     # Basic Information
     first_name = models.CharField(max_length=100, default='..')

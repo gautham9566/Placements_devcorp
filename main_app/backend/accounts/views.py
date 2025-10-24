@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from .models import User, StudentProfile, College, Resume, SystemSettings, YearManagement
+from .models import User, StudentProfile, Resume, SystemSettings, YearManagement
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .serializers import UserSerializer, StudentProfileSerializer, StudentProfileListSerializer, SemesterMarksheetSerializer, ResumeSerializer, ResumeCreateSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -24,7 +24,6 @@ import pandas as pd
 from rest_framework import filters, status
 from django.db import models
 from django.shortcuts import get_object_or_404
-from college.models import College
 # EmployerCompanyDataSerializer removed
 # CompaniesJSONSerializer removed
 
@@ -47,7 +46,6 @@ class StudentRegistrationView(APIView):
         contact_email = request.data.get('contact_email')
         branch = request.data.get('branch')
         gpa = request.data.get('gpa')
-        college_id = request.data.get('college', 1)
 
         # Check if email already exists before creating user
         if User.objects.filter(email=email).exists():
@@ -56,21 +54,14 @@ class StudentRegistrationView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            college = College.objects.get(id=college_id)
-        except College.DoesNotExist:
-            return Response({"detail": "College not found."}, status=status.HTTP_404_NOT_FOUND)
-
         user = User.objects.create_user(
             email=email,
             password=password,
-            college=college,
             user_type=User.UserType.STUDENT,
         )
 
         StudentProfile.objects.create(
             user=user,
-            college=college,
             first_name=first_name,
             last_name=last_name,
             student_id=student_id,
@@ -349,8 +340,8 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.user_type == 'ADMIN' or user.is_staff:
             # Optimize with select_related for admin users seeing all profiles
-            return StudentProfile.objects.select_related('user', 'college').all()
-        return StudentProfile.objects.select_related('user', 'college').filter(user=user)
+            return StudentProfile.objects.select_related('user').all()
+        return StudentProfile.objects.select_related('user').filter(user=user)
 
     def get_object(self):
         # Get profile of logged in user or specified user if admin
@@ -869,7 +860,7 @@ class OptimizedStudentListView(generics.ListAPIView):
         Optimized queryset with select_related and prefetch_related for performance
         """
         queryset = StudentProfile.objects.select_related(
-            'user', 'college'
+            'user'
         ).prefetch_related(
             'user__job_applications'
         ).all()

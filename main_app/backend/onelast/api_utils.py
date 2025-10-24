@@ -241,7 +241,7 @@ class QueryOptimizer:
         
         return QueryOptimizer.optimize_queryset(
             StudentProfile.objects.all(),
-            select_related=['user', 'college'],
+            select_related=['user'],
             prefetch_related=['user__job_applications']
         )
     

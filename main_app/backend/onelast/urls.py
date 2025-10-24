@@ -19,14 +19,6 @@ urlpatterns = [
     
     # Direct access to companies API
     path('api/v1/', include('companies.urls', namespace='companies_global')),
-    
-    # College-scoped URLs (keeping for backward compatibility, but main endpoints above)
-    path('api/v1/college/<slug:slug>/', include([
-        path('auth/', include('accounts.urls')),  # Optional: if you want scoped auth like /api/v1/college/amrita/auth/
-        path('jobs/', include('jobs.urls')),
-        path('companies/', include('companies.urls', namespace='companies_college')),
-        path('applications/', AllApplicationsView.as_view(), name='all-applications'),  # Direct endpoint for all applications
-    ])),
 ]
 
 # Add media URL config if needed
