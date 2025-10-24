@@ -51,6 +51,7 @@ export default function StudentManagement() {
   const [cgpaMin, setCgpaMin] = useState(searchParams.get('cgpa_min') || '');
   const [cgpaMax, setCgpaMax] = useState(searchParams.get('cgpa_max') || '');
   const [yearStats, setYearStats] = useState([]);
+  const [loadingYearStats, setLoadingYearStats] = useState(false);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -271,15 +272,21 @@ export default function StudentManagement() {
   };
 
   // Fetch year statistics for a specific department
-  const fetchYearStats = async (department) => {
+  const fetchYearStats = async (department, forceRefresh = false) => {
     try {
       const token = getAuthToken();
       if (!token) return;
 
-      console.log('Fetching year stats for department:', department);
+      console.log('Fetching year stats for department:', department, 'forceRefresh:', forceRefresh);
+      
+      // Set loading state
+      setLoadingYearStats(true);
+      
+      // Clear existing year stats before fetching new ones
+      setYearStats([]);
       
       // Use the optimized API to get year statistics filtered by department
-      const result = await studentMetricsAPI.getYearStats(null, false, department);
+      const result = await studentMetricsAPI.getYearStats(null, forceRefresh, department);
       
       if (result.success && result.data && result.data.years) {
         console.log('Year stats from API:', result.data.years);
@@ -336,6 +343,8 @@ export default function StudentManagement() {
     } catch (err) {
       console.error('Error fetching year stats:', err);
       setYearStats([]);
+    } finally {
+      setLoadingYearStats(false);
     }
   };
 
@@ -352,6 +361,14 @@ export default function StudentManagement() {
     fetchDepartmentOptions();
     fetchStudents();
   }, []);
+
+  // Fetch year stats when department is selected on initial load
+  useEffect(() => {
+    if (selectedDepartment && !selectedPassoutYear) {
+      // Only fetch if we're on the year selection view (department selected but no year)
+      fetchYearStats(selectedDepartment, false);
+    }
+  }, [selectedDepartment, selectedPassoutYear]);
 
   // Handle browser back/forward navigation
   useEffect(() => {
@@ -509,10 +526,11 @@ export default function StudentManagement() {
   const handleDepartmentSelect = (department) => {
     setSelectedDepartment(department);
     setCurrentPage(1);
+    setYearStats([]); // Clear year stats before fetching new ones
     updateURL({ department, page: '1' });
     
     // Fetch year statistics for this department
-    fetchYearStats(department);
+    fetchYearStats(department, false); // Don't force refresh, use cache
   };
 
   // Handle passout year selection
@@ -1008,6 +1026,8 @@ export default function StudentManagement() {
               onSelectYear={handlePassoutYearSelect}
               yearStats={yearStats}
               students={students}
+              isLoading={loadingYearStats}
+              error={error}
             />
           ) : (
             <StudentList

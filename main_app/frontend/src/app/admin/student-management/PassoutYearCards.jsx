@@ -66,63 +66,14 @@ export default function PassoutYearCards({
       {!isLoading && !error && availableYears.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {availableYears.map(year => {
-            // Find matching year statistics with more flexible matching
-            let yearStat = yearStats.find(stat => {
+            // Find matching year statistics from backend API
+            const yearStat = yearStats.find(stat => {
               const statYear = stat.passout_year || stat.year || stat.passoutYear;
               return statYear?.toString() === year?.toString();
             });
             
-            // Get counts from year statistics with improved accuracy
-            let count = yearStat?.total_students || yearStat?.count || 0;
-            
-            // For more accurate counts, check if we have metadata about total students per year
-            if (count === 0 && yearStats.length > 0) {
-              // If we don't have a direct match, look in the metadata for this year
-              const yearMetadata = yearStats.find(s => s.year_metadata && 
-                s.year_metadata[year] && s.year_metadata[year].total);
-              
-              if (yearMetadata && yearMetadata.year_metadata) {
-                count = yearMetadata.year_metadata[year].total || 0;
-              }
-            }
-            
-            // If we still don't have a count, calculate from students array
-            if (count === 0 && students.length > 0) {
-              const matchingStudents = students.filter(student => {
-                // Check if student belongs to selected department (improved matching)
-                const studentDepartment = (student.department || student.branch || student.dept || '').toLowerCase().trim();
-                const selectedDepartmentLower = (selectedDepartment || '').toLowerCase().trim();
-                
-                // Try exact match first, then contains match
-                const departmentMatch = studentDepartment === selectedDepartmentLower ||
-                                      studentDepartment.includes(selectedDepartmentLower) ||
-                                      selectedDepartmentLower.includes(studentDepartment);
-                
-                // Check if student belongs to this year (try multiple field variations)
-                const studentYear = student.passoutYear || 
-                                  student.passout_year || 
-                                  student.year || 
-                                  student.expectedGraduationYear || 
-                                  student.expected_graduation_year ||
-                                  student.graduation_year;
-                                  
-                return studentYear?.toString() === year?.toString();
-              });
-              
-              // Use the length of matching students for the count
-              count = matchingStudents.length;
-            }
-            
-            // Use total_count from pagination if we have filtered by year
-            if (count === 0 && selectedDepartment) {
-              // Try to get count from the total_count in parent component's state
-              const parentComponent = window.parent_component_context;
-              if (parentComponent && 
-                  parentComponent.totalStudents && 
-                  parentComponent.selectedPassoutYear === year) {
-                count = parentComponent.totalStudents;
-              }
-            }
+            // Use backend data as the primary source (already filtered by department and active years)
+            const count = yearStat?.total_students || 0;
             
             return (
               <div

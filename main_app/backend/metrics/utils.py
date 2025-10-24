@@ -494,12 +494,20 @@ def calculate_enhanced_student_stats():
     """
     current_year = timezone.now().year
     
+    # Filter by active years only (consistent with other metric functions)
+    active_years = YearManagement.get_active_years()
+    base_queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
+    
+    # DEBUG: Print what we're working with
+    print(f"DEBUG: Active years: {active_years}")
+    print(f"DEBUG: Base queryset count: {base_queryset.count()}")
+    
     # Basic counts
-    total_students = StudentProfile.objects.count()
-    active_departments = StudentProfile.objects.exclude(branch__isnull=True).exclude(branch='').values('branch').distinct().count()
+    total_students = base_queryset.count()
+    active_departments = base_queryset.exclude(branch__isnull=True).exclude(branch='').values('branch').distinct().count()
     
     # Years with students
-    active_years = list(StudentProfile.objects.exclude(
+    active_years_list = list(base_queryset.exclude(
         passout_year__isnull=True
     ).values_list('passout_year', flat=True).distinct().order_by('passout_year'))
     
@@ -509,7 +517,7 @@ def calculate_enhanced_student_stats():
     gpa_count = 0
     
     # Get all students and calculate GPA metrics manually
-    for student in StudentProfile.objects.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
+    for student in base_queryset.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
         try:
             gpa_value = float(student.gpa)
             total_gpa += gpa_value
@@ -521,17 +529,33 @@ def calculate_enhanced_student_stats():
     
     avg_gpa = (total_gpa / gpa_count) if gpa_count > 0 else 0
     
-    # Department wise student counts
-    department_wise_stats = list(StudentProfile.objects.values('branch').annotate(
-        total_students=Count('id'),
-        current_year_students=Count('id', filter=Q(passout_year=current_year)),
-        with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
-        placed_students=Count('id', filter=Q(user__job_applications__status='HIRED'), distinct=True)
-    ).exclude(branch__isnull=True).exclude(branch='').order_by('-total_students'))
+    # Department wise student counts - DEBUG: Manual counting
+    print("DEBUG: Manual department counts from base_queryset:")
+    all_departments = base_queryset.exclude(branch__isnull=True).exclude(branch='').values_list('branch', flat=True).distinct()
+    manual_counts = {}
+    for dept in all_departments:
+        count = base_queryset.filter(branch=dept).count()
+        manual_counts[dept] = count
+        print(f"DEBUG: {dept}: {count} students")
+    
+    # Use manual counts instead of annotation
+    department_wise_stats = []
+    for dept_name, count in manual_counts.items():
+        dept_data = {
+            'branch': dept_name,
+            'total_students': count,
+            'current_year_students': base_queryset.filter(branch=dept_name, passout_year=current_year).count(),
+            'with_applications': base_queryset.filter(branch=dept_name).filter(user__job_applications__isnull=False).distinct().count(),
+            'placed_students': base_queryset.filter(branch=dept_name).filter(user__job_applications__status='HIRED').distinct().count()
+        }
+        department_wise_stats.append(dept_data)
+    
+    # Sort by total_students descending
+    department_wise_stats.sort(key=lambda x: x['total_students'], reverse=True)
     
     # Calculate additional metrics for each department
     for dept in department_wise_stats:
-        dept_students = StudentProfile.objects.filter(branch=dept['branch'])
+        dept_students = base_queryset.filter(branch=dept['branch'])
         dept_gpa_sum = 0
         dept_gpa_count = 0
         dept_high_performers = 0
@@ -551,15 +575,16 @@ def calculate_enhanced_student_stats():
         dept['placement_rate'] = round((dept['placed_students'] / dept['total_students']) * 100, 2) if dept['total_students'] > 0 else 0
     
     # Year wise student counts
-    year_wise_stats = list(StudentProfile.objects.values('passout_year').annotate(
-        total_students=Count('id'),
+    # IMPORTANT: Use distinct=True for all counts to avoid duplicates from JOIN operations
+    year_wise_stats = list(base_queryset.values('passout_year').annotate(
+        total_students=Count('id', distinct=True),
         with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
         placed_students=Count('id', filter=Q(user__job_applications__status='HIRED'), distinct=True)
     ).exclude(passout_year__isnull=True).order_by('passout_year'))
     
     # Calculate additional metrics for each year
     for year in year_wise_stats:
-        year_students = StudentProfile.objects.filter(passout_year=year['passout_year'])
+        year_students = base_queryset.filter(passout_year=year['passout_year'])
         year_gpa_sum = 0
         year_gpa_count = 0
         year_high_performers = 0
@@ -577,6 +602,184 @@ def calculate_enhanced_student_stats():
         year['avg_gpa'] = round(year_gpa_sum / year_gpa_count, 2) if year_gpa_count > 0 else 0
         year['high_performers'] = year_high_performers
         year['placement_rate'] = round((year['placed_students'] / year['total_students']) * 100, 2) if year['total_students'] > 0 else 0
+    
+    # GPA distribution - manual calculation
+    gpa_ranges = {
+        '9.0+': 0, '8.5-8.9': 0, '8.0-8.4': 0, '7.5-7.9': 0,
+        '7.0-7.4': 0, '6.5-6.9': 0, '6.0-6.4': 0, 'Below 6.0': 0
+    }
+    
+    for student in base_queryset.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
+        try:
+            gpa_value = float(student.gpa)
+            if gpa_value >= 9.0:
+                gpa_ranges['9.0+'] += 1
+            elif gpa_value >= 8.5:
+                gpa_ranges['8.5-8.9'] += 1
+            elif gpa_value >= 8.0:
+                gpa_ranges['8.0-8.4'] += 1
+            elif gpa_value >= 7.5:
+                gpa_ranges['7.5-7.9'] += 1
+            elif gpa_value >= 7.0:
+                gpa_ranges['7.0-7.4'] += 1
+            elif gpa_value >= 6.5:
+                gpa_ranges['6.5-6.9'] += 1
+            elif gpa_value >= 6.0:
+                gpa_ranges['6.0-6.4'] += 1
+            else:
+                gpa_ranges['Below 6.0'] += 1
+        except (ValueError, TypeError):
+            continue
+    
+    gpa_distribution = [{'gpa_range': k, 'count': v} for k, v in gpa_ranges.items()]
+    
+    # Performance categories based on GPA
+    performance_categories = {
+        'high_performers': base_queryset.filter(
+            Q(gpa__gte='8.5') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count(),
+        'good_performers': base_queryset.filter(
+            Q(gpa__gte='7.0') & Q(gpa__lt='8.5') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count(),
+        'average_performers': base_queryset.filter(
+            Q(gpa__gte='6.0') & Q(gpa__lt='7.0') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count(),
+        'poor_performers': base_queryset.filter(
+            Q(gpa__lt='6.0') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count()
+    }
+    
+    # Current year students (placement ready)
+    placement_ready = base_queryset.filter(passout_year=current_year).count()
+    
+    # Build the comprehensive response
+    data = {
+        'overview': {
+            'total_students': total_students,
+            'active_departments': active_departments,
+            'active_years': active_years_list,
+            'high_performers': high_performers,
+            'high_performer_percentage': round((high_performers / total_students) * 100, 2) if total_students > 0 else 0,
+            'average_gpa': round(avg_gpa, 2),
+            'placement_ready': placement_ready,
+            'current_year_students': placement_ready
+        },
+        'departments': department_wise_stats,
+        'years': year_wise_stats,
+        'gpa_distribution': gpa_distribution,
+        'performance_categories': performance_categories,
+        'last_updated': timezone.now().isoformat()
+    }
+    
+    return data
+
+
+def calculate_student_department_breakdown():
+    """
+    Calculate department-wise student breakdown with detailed statistics
+    """
+    current_year = timezone.now().year
+    
+    # Get department-wise statistics
+    # IMPORTANT: Use distinct=True for all counts to avoid duplicates from JOIN operations
+    departments = StudentProfile.objects.values('branch').annotate(
+        total_students=Count('id', distinct=True),
+        current_year_students=Count('id', filter=Q(passout_year=current_year), distinct=True),
+        with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
+        placed_students=Count('id', filter=Q(user__job_applications__status='HIRED'), distinct=True)
+    ).exclude(branch__isnull=True).exclude(branch='').order_by('-total_students')
+    
+    # Calculate additional metrics for each department
+    for dept in departments:
+        dept_students = StudentProfile.objects.filter(branch=dept['branch'])
+        dept_gpa_sum = 0
+        dept_gpa_count = 0
+        dept_high_performers = 0
+        
+        for student in dept_students.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
+            try:
+                gpa_value = float(student.gpa)
+                dept_gpa_sum += gpa_value
+                dept_gpa_count += 1
+                if gpa_value >= 8.5:
+                    dept_high_performers += 1
+            except (ValueError, TypeError):
+                continue
+        
+        dept['avg_gpa'] = round(dept_gpa_sum / dept_gpa_count, 2) if dept_gpa_count > 0 else 0
+        dept['high_performers'] = dept_high_performers
+        dept['placement_rate'] = round((dept['placed_students'] / dept['total_students']) * 100, 2) if dept['total_students'] > 0 else 0
+    
+    data = {
+        'departments': list(departments),
+        'total_departments': departments.count(),
+        'last_updated': timezone.now().isoformat()
+    }
+    
+    return data
+
+
+def calculate_student_year_analysis(department=None):
+    """
+    Calculate year-wise student analysis with detailed statistics
+    Args:
+        department: Optional department name to filter by
+    """
+    current_year = timezone.now().year
+    
+    # Filter by active years only
+    active_years = YearManagement.get_active_years()
+    base_queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
+    
+    # Apply department filter if provided
+    if department:
+        base_queryset = base_queryset.filter(branch=department)
+    
+    # Get year-wise statistics
+    # IMPORTANT: Use distinct=True for all counts to avoid duplicates from JOIN operations
+    years = base_queryset.values('passout_year').annotate(
+        total_students=Count('id', distinct=True),
+        with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
+        placed_students=Count('id', filter=Q(user__job_applications__status='HIRED'), distinct=True)
+    ).exclude(passout_year__isnull=True).order_by('passout_year')
+    
+    # Calculate additional metrics for each year
+    for year in years:
+        # Use the same base queryset with department filter if applicable
+        year_students = base_queryset.filter(passout_year=year['passout_year'])
+        year_gpa_sum = 0
+        year_gpa_count = 0
+        year_high_performers = 0
+        
+        for student in year_students.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
+            try:
+                gpa_value = float(student.gpa)
+                year_gpa_sum += gpa_value
+                year_gpa_count += 1
+                if gpa_value >= 8.5:
+                    year_high_performers += 1
+            except (ValueError, TypeError):
+                continue
+        
+        year['avg_gpa'] = round(year_gpa_sum / year_gpa_count, 2) if year_gpa_count > 0 else 0
+        year['high_performers'] = year_high_performers
+        year['placement_rate'] = round((year['placed_students'] / year['total_students']) * 100, 2) if year['total_students'] > 0 else 0
+    
+    data = {
+        'years': list(years),
+        'total_years': years.count(),
+        'department_filter': department,
+        'last_updated': timezone.now().isoformat()
+    }
+    
+    return data
+
+
+def calculate_student_performance_analytics():
+    """
+    Calculate student performance analytics including GPA distribution and categories
+    """
+    current_year = timezone.now().year
     
     # GPA distribution - manual calculation
     gpa_ranges = {
@@ -606,245 +809,32 @@ def calculate_enhanced_student_stats():
         except (ValueError, TypeError):
             continue
     
-    gpa_distribution = [{'gpa_range': k, 'count': v} for k, v in gpa_ranges.items() if v > 0]
+    gpa_distribution = [{'gpa_range': k, 'count': v} for k, v in gpa_ranges.items()]
     
-    # Students ready for placement (current year + good GPA)
-    placement_ready = 0
-    for student in StudentProfile.objects.filter(passout_year=current_year):
-        try:
-            if student.gpa and float(student.gpa) >= 6.0:
-                placement_ready += 1
-        except (ValueError, TypeError):
-            continue
+    # Performance categories based on GPA
+    performance_categories = {
+        'high_performers': StudentProfile.objects.filter(
+            Q(gpa__gte='8.5') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count(),
+        'good_performers': StudentProfile.objects.filter(
+            Q(gpa__gte='7.0') & Q(gpa__lt='8.5') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count(),
+        'average_performers': StudentProfile.objects.filter(
+            Q(gpa__gte='6.0') & Q(gpa__lt='7.0') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count(),
+        'poor_performers': StudentProfile.objects.filter(
+            Q(gpa__lt='6.0') & ~Q(gpa__isnull=True) & ~Q(gpa='')
+        ).count()
+    }
     
-    # Application statistics
-    total_applications = StudentProfile.objects.filter(
-        user__job_applications__isnull=False
-    ).distinct().count()
+    # Current year students (placement ready)
+    placement_ready = StudentProfile.objects.filter(passout_year=current_year).count()
     
-    # Top performing departments by average GPA
-    top_departments_by_gpa = sorted(
-        [dept for dept in department_wise_stats if dept['avg_gpa'] > 0 and dept['total_students'] >= 5],
-        key=lambda x: x['avg_gpa'],
-        reverse=True
-    )[:5]
-    
-    # Find highest and lowest GPA
-    highest_gpa = 0
-    lowest_gpa = 10
-    for student in StudentProfile.objects.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
-        try:
-            gpa_value = float(student.gpa)
-            highest_gpa = max(highest_gpa, gpa_value)
-            lowest_gpa = min(lowest_gpa, gpa_value)
-        except (ValueError, TypeError):
-            continue
-    
-    if lowest_gpa == 10:  # No valid GPA found
-        lowest_gpa = 0
-    
-    stats = {
-        'overview': {
-            'total_students': total_students,
-            'active_departments': active_departments,
-            'active_years': len(active_years),
-            'high_performers': high_performers,
-            'placement_ready': placement_ready,
-            'with_applications': total_applications,
-            'high_performer_percentage': round((high_performers / total_students * 100), 2) if total_students > 0 else 0,
-        },
-        'departments': {
-            'total_departments': active_departments,
-            'department_wise_data': department_wise_stats,
-            'top_departments_by_gpa': top_departments_by_gpa,
-        },
-        'years': {
-            'active_years': active_years,
-            'year_wise_data': year_wise_stats,
-            'current_year': current_year,
-            'current_year_students': StudentProfile.objects.filter(passout_year=current_year).count(),
-        },
-        'performance': {
-            'gpa_distribution': gpa_distribution,
-            'average_gpa': round(avg_gpa, 2),
-            'highest_gpa': highest_gpa,
-            'lowest_gpa': lowest_gpa,
-            'high_performers': high_performers,
-        },
-        'trends': {
-            'yearly_intake': year_wise_stats,
-            'department_growth': department_wise_stats,
-        },
+    data = {
+        'gpa_distribution': gpa_distribution,
+        'performance_categories': performance_categories,
+        'placement_ready': placement_ready,
         'last_updated': timezone.now().isoformat()
     }
     
-    return stats
-
-
-def calculate_student_department_breakdown():
-    """
-    Calculate detailed department-wise breakdown for students
-    """
-    # Filter by active years only
-    active_years = YearManagement.get_active_years()
-    base_queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
-    
-    # Get all active branches
-    active_branches = BranchManagement.get_active_branches()
-    
-    departments = []
-    
-    for branch in active_branches:
-        # Get stats for this branch
-        dept_students = base_queryset.filter(branch=branch)
-        total_students = dept_students.count()
-        with_resume = dept_students.filter(resume__isnull=False).count()
-        with_applications = dept_students.filter(user__job_applications__isnull=False).distinct().count()
-        placed_students = dept_students.filter(user__job_applications__status='HIRED').distinct().count()
-        
-        dept = {
-            'branch': branch,
-            'total_students': total_students,
-            'with_resume': with_resume,
-            'with_applications': with_applications,
-            'placed_students': placed_students
-        }
-        
-        # Calculate GPA-related metrics manually
-        gpa_sum = 0
-        gpa_count = 0
-        high_performers = 0
-        good_performers = 0
-        average_performers = 0
-        poor_performers = 0
-        max_gpa = 0
-        min_gpa = 10
-        
-        for student in dept_students.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
-            try:
-                gpa_value = float(student.gpa)
-                gpa_sum += gpa_value
-                gpa_count += 1
-                max_gpa = max(max_gpa, gpa_value)
-                min_gpa = min(min_gpa, gpa_value)
-                
-                if gpa_value >= 8.5:
-                    high_performers += 1
-                elif gpa_value >= 7.0:
-                    good_performers += 1
-                elif gpa_value >= 6.0:
-                    average_performers += 1
-                else:
-                    poor_performers += 1
-            except (ValueError, TypeError):
-                continue
-        
-        # Set calculated values
-        dept['avg_gpa'] = round(gpa_sum / gpa_count, 2) if gpa_count > 0 else 0
-        dept['max_gpa'] = max_gpa if max_gpa > 0 else 0
-        dept['min_gpa'] = min_gpa if min_gpa < 10 else 0
-        dept['high_performers'] = high_performers
-        dept['good_performers'] = good_performers
-        dept['average_performers'] = average_performers
-        dept['poor_performers'] = poor_performers
-        
-        # Calculate percentages
-        if total_students > 0:
-            dept['high_performer_percentage'] = round((high_performers / total_students) * 100, 2)
-            dept['placement_rate'] = round((placed_students / total_students) * 100, 2)
-            dept['application_rate'] = round((with_applications / total_students) * 100, 2)
-            dept['resume_completion_rate'] = round((with_resume / total_students) * 100, 2)
-        else:
-            dept['high_performer_percentage'] = 0
-            dept['placement_rate'] = 0
-            dept['application_rate'] = 0
-            dept['resume_completion_rate'] = 0
-        
-        departments.append(dept)
-    
-    # Sort by total_students descending
-    departments.sort(key=lambda x: x['total_students'], reverse=True)
-    
-    return {
-        'departments': departments,
-        'last_updated': timezone.now().isoformat()
-    }
-
-
-def calculate_student_year_analysis(department=None):
-    """
-    Calculate year-wise student analysis
-    """
-    current_year = timezone.now().year
-    
-    # Filter by active years only
-    active_years = YearManagement.get_active_years()
-    
-    # Base queryset
-    queryset = StudentProfile.objects.filter(passout_year__in=active_years) if active_years else StudentProfile.objects.all()
-    
-    # Filter by department if specified
-    if department:
-        queryset = queryset.filter(branch__iexact=department)
-    
-    years = queryset.values('passout_year').annotate(
-        total_students=Count('id'),
-        with_applications=Count('id', filter=Q(user__job_applications__isnull=False), distinct=True),
-        placed_students=Count('id', filter=Q(user__job_applications__status='HIRED'), distinct=True),
-        departments_count=Count('branch', distinct=True),
-        male_students=Count('id', filter=Q(gender='Male')),
-        female_students=Count('id', filter=Q(gender='Female'))
-    ).exclude(passout_year__isnull=True).order_by('passout_year')
-    
-    # Add calculated fields by processing each year manually
-    for year in years:
-        total = year['total_students']
-        year_queryset = queryset.filter(passout_year=year['passout_year'])
-        
-        # Calculate GPA-related metrics manually
-        gpa_sum = 0
-        gpa_count = 0
-        high_performers = 0
-        
-        for student in year_queryset.exclude(gpa__isnull=True).exclude(gpa='').exclude(gpa='0.0'):
-            try:
-                gpa_value = float(student.gpa)
-                gpa_sum += gpa_value
-                gpa_count += 1
-                if gpa_value >= 8.5:
-                    high_performers += 1
-            except (ValueError, TypeError):
-                continue
-        
-        # Set calculated values
-        year['avg_gpa'] = round(gpa_sum / gpa_count, 2) if gpa_count > 0 else 0
-        year['high_performers'] = high_performers
-        
-        # Calculate percentages
-        if total > 0:
-            year['placement_rate'] = round((year['placed_students'] / total) * 100, 2)
-            year['application_rate'] = round((year['with_applications'] / total) * 100, 2)
-            year['high_performer_percentage'] = round((high_performers / total) * 100, 2)
-            year['male_percentage'] = round((year['male_students'] / total) * 100, 2)
-            year['female_percentage'] = round((year['female_students'] / total) * 100, 2)
-        else:
-            year['placement_rate'] = 0
-            year['application_rate'] = 0
-            year['high_performer_percentage'] = 0
-            year['male_percentage'] = 0
-            year['female_percentage'] = 0
-        
-        # Classify year status
-        if year['passout_year'] and year['passout_year'] < current_year:
-            year['status'] = 'graduated'
-        elif year['passout_year'] == current_year:
-            year['status'] = 'graduating'
-        else:
-            year['status'] = 'current'
-    
-    return {
-        'years': list(years),
-        'current_year': current_year,
-        'department_filter': department,
-        'last_updated': timezone.now().isoformat()
-    }
+    return data

@@ -123,16 +123,23 @@ export const studentMetricsAPI = {
         studentMetricsAPI.getPerformanceAnalytics()
       ]);
 
+      // Wrap response in a consistent envelope expected by UI components
       return {
-        enhanced: enhancedStats,
-        departments: departmentStats,
-        years: yearStats,
-        performance: performanceStats,
-        last_updated: new Date().toISOString()
+        success: true,
+        data: {
+          enhanced: enhancedStats,
+          departments: departmentStats,
+          years: yearStats,
+          performance: performanceStats,
+          last_updated: new Date().toISOString()
+        }
       };
     } catch (error) {
       console.error('Error fetching all student analytics:', error);
-      throw error;
+      return {
+        success: false,
+        error: error?.message || 'Failed to fetch student analytics'
+      };
     }
   },
 
@@ -150,7 +157,7 @@ export const studentMetricsAPI = {
       return { success: true, message: 'All student metrics refreshed successfully' };
     } catch (error) {
       console.error('Error refreshing student metrics:', error);
-      throw error;
+      return { success: false, error: error?.message || 'Failed to refresh student metrics' };
     }
   }
 };

@@ -39,16 +39,27 @@ export default function DepartmentCards({ departmentOptions, departmentStats, to
   // Refresh analytics
   const handleRefresh = async () => {
     setRefreshing(true);
+    setError(null);
+    
     try {
+      console.log('Refreshing metrics - clearing existing data...');
+      
+      // Clear existing analytics data first
+      setAnalytics(null);
+      
+      // Call backend to refresh all metrics
       const result = await studentMetricsAPI.refreshAllMetrics();
+      
       if (result.success) {
+        console.log('Backend refresh successful, fetching fresh data...');
+        // Fetch fresh data with force refresh flag
         await fetchAnalytics(true);
       } else {
         setError(result.error || 'Failed to refresh metrics');
       }
     } catch (err) {
       console.error('Error refreshing metrics:', err);
-      setError('Failed to refresh metrics');
+      setError('Failed to refresh metrics: ' + err.message);
     } finally {
       setRefreshing(false);
     }
@@ -64,10 +75,15 @@ export default function DepartmentCards({ departmentOptions, departmentStats, to
   const yearData = analytics?.years?.years || [];
   const performanceData = analytics?.performance?.performance_categories || {};
 
+  // Debug logging
+  console.log('DepartmentCards - Analytics loaded:', !!analytics);
+  console.log('DepartmentCards - Department data count:', departmentData.length);
+  console.log('DepartmentCards - Departments:', departmentData.map(d => ({ branch: d.branch, count: d.total_students })));
+
   // Calculate enhanced stats
   const enhancedStats = {
     totalStudents: overview.total_students || totalStudents || 0,
-    activeDepartments: overview.active_departments || departmentStats.length || 0,
+    activeDepartments: overview.active_departments || departmentData.length || 0,
     highPerformers: overview.high_performers || 0,
     highPerformerPercentage: overview.high_performer_percentage || 0,
     placementReady: overview.placement_ready || 0,
@@ -260,20 +276,22 @@ export default function DepartmentCards({ departmentOptions, departmentStats, to
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Browse by Department</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {departmentOptions.map((dept) => {
-            // More robust department matching
-            const stats = departmentStats.find(stat => 
-              stat.department?.toLowerCase().trim() === dept.value?.toLowerCase().trim() ||
-              stat.department?.toLowerCase().includes(dept.value?.toLowerCase()) ||
-              dept.value?.toLowerCase().includes(stat.department?.toLowerCase())
-            );
+            // Skip departments with 0 students BEFORE loading analytics (prevents showing wrong data)
+            // Wait for analytics to load before showing any department cards
+            if (loading || !analytics || departmentData.length === 0) {
+              return null;
+            }
+
+            // Use analytics data from backend (which respects active years filtering)
             const analyticsStats = departmentData.find(analytic => 
-              analytic.branch?.toLowerCase().trim() === dept.value?.toLowerCase().trim() ||
-              analytic.branch?.toLowerCase().includes(dept.value?.toLowerCase()) ||
-              dept.value?.toLowerCase().includes(analytic.branch?.toLowerCase())
+              analytic.branch?.toLowerCase().trim() === dept.value?.toLowerCase().trim()
             );
             
-            // Fallback to analytics data if stats is not found
-            const studentCount = stats?.count || analyticsStats?.total_students || 0;
+            // Use analytics data as primary source (already filtered by active years on backend)
+            const studentCount = analyticsStats?.total_students || 0;
+            
+            // Show all departments, even those with 0 students (they are active in the system)
+            console.log(`Department ${dept.value}: ${studentCount} students`);
             
             return (
               <div
@@ -292,28 +310,6 @@ export default function DepartmentCards({ departmentOptions, departmentStats, to
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-2">{dept.label}</h3>
                 <p className="text-sm text-gray-600 mb-3">View and manage {dept.label.toLowerCase()} students</p>
-                
-                {/* Enhanced Department Stats */}
-                {analyticsStats && (
-                  <div className="border-t pt-3 mt-3">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="text-center">
-                        <div className="font-semibold text-blue-600">{analyticsStats.avg_gpa ? analyticsStats.avg_gpa.toFixed(2) : 'N/A'}</div>
-                        <div className="text-gray-500">Avg GPA</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-semibold text-purple-600">{analyticsStats.high_performers || 0}</div>
-                        <div className="text-gray-500">Top Performers</div>
-                      </div>
-                    </div>
-                    {/* {analyticsStats.placement_rate && (
-                      <div className="mt-2 text-center">
-                        <div className="text-xs text-gray-500">Placement Rate</div>
-                        <div className="font-semibold text-green-600">{analyticsStats.placement_rate.toFixed(1)}%</div>
-                      </div>
-                    )} */}
-                  </div>
-                )}
               </div>
             );
           })}
