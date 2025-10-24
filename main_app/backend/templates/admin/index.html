@@ -15,22 +15,24 @@
         background: #1f2937;
         border-color: #374151;
     }
+    .kpi-card { min-height: 112px; }
+    .section-card { border: 1px solid rgba(229,231,235,var(--tw-border-opacity,1)); }
 </style>
 {% endblock %}
 
 {% block content %}
     <!-- Chart.js Script - Load first -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
-    <!-- Main Content - Everything in One Page -->
+
     <div class="space-y-6 mb-8">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">📊 Dashboard Overview</h2>
-        
+
         <!-- KPI Cards -->
-        {% if kpi %}
+        {% firstof dashboard_kpi kpi as dashboard_items %}
+        {% if dashboard_items %}
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {% for item in kpi %}
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+            {% for item in dashboard_items %}
+            <div class="kpi-card bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
                 <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ item.title }}</div>
                 <div class="mt-2 text-3xl font-bold text-purple-600 dark:text-purple-400">{{ item.metric }}</div>
                 <div class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ item.footer }}</div>
@@ -44,9 +46,10 @@
         {% endif %}
 
         <!-- Progress Bars -->
-        {% if progress %}
+        {% firstof dashboard_progress progress as dashboard_progress_items %}
+        {% if dashboard_progress_items %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {% for item in progress %}
+            {% for item in dashboard_progress_items %}
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
                 <div class="flex justify-between items-center mb-2">
                     <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.title }}</div>
@@ -62,7 +65,7 @@
         {% endif %}
 
         <!-- Charts Section -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+        <div class="section-card bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Analytics Charts</h3>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="charts-container">
                 <div class="col-span-2 text-center text-gray-500 dark:text-gray-400 p-8">
@@ -71,118 +74,49 @@
             </div>
         </div>
 
-        <!-- Admin Models Section -->
-        <div class="mt-8">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">⚙️ {% translate 'Site administration' %}</h2>
-            
-            {% if app_list %}
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {% for app in app_list %}
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ app.name }}</h3>
-                            </div>
-                            <div class="p-4">
-                                <ul class="space-y-2">
-                                    {% for model in app.models %}
-                                        <li>
-                                            <a href="{% if model.admin_url %}{{ model.admin_url }}{% else %}#{% endif %}" 
-                                               class="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300">
-                                                {{ model.name }}
-                                            </a>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="text-gray-500 dark:text-gray-400">{% translate "You don't have permission to view or edit anything." %}</p>
-            {% endif %}
-        </div>
+        <!-- Site administration listing intentionally removed from main content.
+             The Unfold sidebar already provides navigation for applications and models.
+             Keeping the main dashboard focused on KPIs and charts. -->
     </div>
 
-    <!-- Chart Rendering Script -->
+    <!-- Chart Rendering Script (fetch from backend JSON endpoint) -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM Loaded - Starting chart rendering...');
-            console.log('Template variables check:');
-            console.log('- kpi exists:', {{ kpi|length|default:0 }});
-            console.log('- progress exists:', {{ progress|length|default:0 }});
-            console.log('- chart exists:', '{{ chart|default:"NOT SET" }}'.substring(0, 50));
-            
             const container = document.getElementById('charts-container');
-            
-            try {
-                // Get the chart data from Django template
-                const chartDataStr = '{{ chart|escapejs }}';
-                console.log('Chart data string length:', chartDataStr.length);
-                console.log('Chart data preview (first 200 chars):', chartDataStr.substring(0, 200));
-                
-                // Check if we have data
-                if (!chartDataStr || chartDataStr === '' || chartDataStr === 'None' || chartDataStr === 'null') {
-                    console.warn('No chart data available from backend');
-                    container.innerHTML = '<div class="col-span-2 text-center text-yellow-500 dark:text-yellow-400 p-8"><strong>⚠️ No chart data available</strong><br><small>The backend is not passing chart data. Please check admin.py</small></div>';
-                    return;
-                }
-                
-                const chartData = JSON.parse(chartDataStr);
-                console.log('Parsed chart data:', chartData);
-                console.log('Number of charts:', chartData.length);
-                
-                if (!chartData || chartData.length === 0) {
-                    console.log('Empty chart data array');
+            const renderCharts = (chartData) => {
+                if (!Array.isArray(chartData) || chartData.length === 0) {
                     container.innerHTML = '<div class="col-span-2 text-center text-gray-500 dark:text-gray-400 p-8">No charts to display.</div>';
                     return;
                 }
-                
-                // Clear loading message
                 container.innerHTML = '';
-                
-                // Create charts
                 chartData.forEach((item, index) => {
-                    console.log(`Creating chart ${index + 1}:`, item.title, '- Type:', item.type);
-                    
-                    // Create chart card
                     const chartCard = document.createElement('div');
                     chartCard.className = 'bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700';
-                    
-                    // Create header
                     const header = document.createElement('div');
                     header.className = 'mb-4';
-                    
                     const title = document.createElement('h3');
                     title.className = 'text-lg font-semibold text-gray-900 dark:text-white';
-                    title.textContent = item.title;
+                    title.textContent = item.title || 'Chart';
                     header.appendChild(title);
-                    
                     if (item.description) {
                         const desc = document.createElement('p');
                         desc.className = 'text-sm text-gray-500 dark:text-gray-400 mt-1';
                         desc.textContent = item.description;
                         header.appendChild(desc);
                     }
-                    
                     chartCard.appendChild(header);
-                    
-                    // Create canvas container
                     const canvasContainer = document.createElement('div');
                     canvasContainer.className = 'relative';
                     canvasContainer.style.height = '300px';
-                    
                     const canvas = document.createElement('canvas');
                     canvas.id = 'chart-' + index;
                     canvasContainer.appendChild(canvas);
-                    
                     chartCard.appendChild(canvasContainer);
                     container.appendChild(chartCard);
-                    
-                    // Create chart
                     const ctx = canvas.getContext('2d');
                     new Chart(ctx, {
-                        type: item.type,
-                        data: item.data,
+                        type: item.type || 'bar',
+                        data: item.data || { labels: [], datasets: [] },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
@@ -207,17 +141,16 @@
                             ...(item.options || {})
                         }
                     });
-                    
-                    console.log(`Chart ${index + 1} created successfully`);
                 });
-                
-                console.log('All charts rendered successfully!');
-                
-            } catch (error) {
-                console.error('Error rendering charts:', error);
-                console.error('Error stack:', error.stack);
-                container.innerHTML = '<div class="col-span-2 text-center text-red-500 dark:text-red-400 p-8"><strong>❌ Error loading charts:</strong><br>' + error.message + '<br><small>Check browser console for details</small></div>';
-            }
+            };
+
+            fetch('/admin/dashboard-data/', { credentials: 'same-origin' })
+                .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+                .then(data => { if (!data || data.ok !== true) throw new Error('Invalid response'); renderCharts(data.chart || []); })
+                .catch(err => {
+                    console.error('Failed to load charts:', err);
+                    container.innerHTML = '<div class="col-span-2 text-center text-yellow-500 dark:text-yellow-400 p-8"><strong>⚠️ No chart data available</strong><br><small>Could not fetch /admin/dashboard-data/. ' + err.message + '</small></div>';
+                });
         });
     </script>
 {% endblock %}

@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 from jobs.views import AllApplicationsView
 from django.conf import settings
 from django.conf.urls.static import static
-from .views import dashboard_overview
+from .views import dashboard_overview, admin_dashboard_data, site_administration_overview
 
 
 def redirect_to_admin(request):
@@ -15,6 +15,8 @@ def redirect_to_admin(request):
 urlpatterns = [
     path('', redirect_to_admin, name='home'),
     path('admin/dashboard/', dashboard_overview, name='dashboard_overview'),
+    path('admin/dashboard-data/', admin_dashboard_data, name='admin_dashboard_data'),
+    path('admin/site-administration/', site_administration_overview, name='admin_site_admin'),
     path('admin/', admin.site.urls),
     
     # Global authentication URLs

@@ -196,6 +196,7 @@ UNFOLD = {
     },
     "SIDEBAR": {
         "show_search": True,
+        # Avoid overlay/drawer; keep navigation simple and page-based
         "show_all_applications": False,
         "navigation": [
             {
@@ -208,6 +209,20 @@ UNFOLD = {
                         "icon": "analytics",
                         "link": reverse_lazy("admin:index"),
                     },
+                ],
+            },
+            {
+                # Single-page site administration link (no dropdown)
+                "title": _("Site administration"),
+                "separator": True,
+                "collapsible": False,
+                "icon": "settings",
+                "items": [
+                    {
+                        "title": _("All apps & models"),
+                        "icon": "view_list",
+                        "link": reverse_lazy("admin_site_admin"),
+                    }
                 ],
             },
             {
