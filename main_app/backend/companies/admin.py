@@ -1,12 +1,15 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import display
 from .models import Company
 
 @admin.register(Company)
-class CompanyAdmin(admin.ModelAdmin):
+class CompanyAdmin(ModelAdmin):
     list_display = ['name', 'industry', 'tier', 'location', 'campus_recruiting', 'total_active_jobs']
     list_filter = ['tier', 'industry', 'campus_recruiting']
     search_fields = ['name', 'description', 'industry', 'location']
     readonly_fields = ['created_at', 'updated_at']
+    list_filter_submit = True  # Unfold feature - adds a submit button to filters
 
     # Conditionally add slug field to fieldsets if it exists
     def get_fieldsets(self, request, obj=None):

@@ -5,6 +5,8 @@ from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
+from unfold.admin import ModelAdmin
+from unfold.decorators import display
 
 from .models import User, StudentProfile, YearManagement, BranchManagement
 
@@ -14,8 +16,8 @@ from django import forms
 class StudentExcelUploadForm(forms.Form):
     excel_file = forms.FileField()
 
-class UserAdmin(BaseUserAdmin):
-    """Define admin model for custom User model."""
+class UserAdmin(BaseUserAdmin, ModelAdmin):
+    """Define admin model for custom User model with Unfold styling."""
     list_display = ('email', 'first_name', 'last_name', 'user_type', 'is_staff')
     list_filter = ('user_type', 'is_staff', 'is_superuser', 'is_active')
     fieldsets = (
@@ -36,13 +38,14 @@ class UserAdmin(BaseUserAdmin):
     ordering = ('email',)
 
 
-class StudentProfileAdmin(admin.ModelAdmin):
+class StudentProfileAdmin(ModelAdmin):
     list_display = ('user', 'first_name', 'last_name', 'student_id', 'branch', 'joining_year', 'passout_year', 'get_freeze_status_display', 'created_at')
     search_fields = ('first_name', 'last_name', 'student_id', 'skills', 'branch')
     list_filter = ('joining_year', 'passout_year', 'branch', 'freeze_status')
     
     readonly_fields = ('freeze_date', 'frozen_by')
     
+    @display(description='Freeze Status', ordering='freeze_status')
     def get_freeze_status_display(self, obj):
         if obj.freeze_status == 'none':
             return '✅ Active'
@@ -51,7 +54,6 @@ class StudentProfileAdmin(admin.ModelAdmin):
         elif obj.freeze_status == 'partial':
             return '⚠️ Partial Freeze'
         return obj.freeze_status
-    get_freeze_status_display.short_description = 'Freeze Status'
     
     def save_model(self, request, obj, form, change):
         # Auto-set freeze date and frozen_by when freeze status changes
@@ -165,7 +167,7 @@ class StudentProfileAdmin(admin.ModelAdmin):
         return render(request, "admin/student_excel_upload.html", {"form": form})
 
 @admin.register(YearManagement)
-class YearManagementAdmin(admin.ModelAdmin):
+class YearManagementAdmin(ModelAdmin):
     list_display = ('year', 'is_active', 'created_at', 'updated_at')
     list_filter = ('is_active', 'created_at')
     search_fields = ('year',)
@@ -174,7 +176,7 @@ class YearManagementAdmin(admin.ModelAdmin):
 
 
 @admin.register(BranchManagement)
-class BranchManagementAdmin(admin.ModelAdmin):
+class BranchManagementAdmin(ModelAdmin):
     list_display = ('branch', 'is_active', 'created_at', 'updated_at')
     list_filter = ('is_active', 'created_at')
     search_fields = ('branch',)

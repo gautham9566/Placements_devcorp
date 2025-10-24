@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from django.templatetags.static import static
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -15,6 +18,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Application definition
 INSTALLED_APPS = [
+    # Unfold must be before django.contrib.admin
+    'unfold',
+    'unfold.contrib.filters',  # optional, if special filters are needed
+    'unfold.contrib.forms',    # optional, if special form elements are needed
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -50,7 +58,7 @@ ROOT_URLCONF = 'onelast.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -83,6 +91,10 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Authentication settings
+LOGIN_REDIRECT_URL = '/admin/'
+LOGOUT_REDIRECT_URL = '/admin/login/'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -157,3 +169,113 @@ LOGGING = {
         },
     },
 }
+
+# Django Unfold Configuration
+UNFOLD = {
+    "SITE_TITLE": "DevCorp Placements",
+    "SITE_HEADER": "DevCorp Placement Management System",
+    "SITE_URL": "/",
+    "SITE_SYMBOL": "school",  # Material icon name
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "THEME": None,
+    "COLORS": {
+        "primary": {
+            "50": "250 245 255",
+            "100": "243 232 255",
+            "200": "233 213 255",
+            "300": "216 180 254",
+            "400": "192 132 252",
+            "500": "168 85 247",
+            "600": "147 51 234",
+            "700": "126 34 206",
+            "800": "107 33 168",
+            "900": "88 28 135",
+            "950": "59 7 100",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": _("Dashboard"),
+                "separator": False,
+                "icon": "dashboard",
+                "items": [
+                    {
+                        "title": _("Overview"),
+                        "icon": "analytics",
+                        "link": reverse_lazy("admin:index"),
+                    },
+                ],
+            },
+            {
+                "title": _("User Management"),
+                "separator": True,
+                "collapsible": True,
+                "icon": "people",
+                "items": [
+                    {
+                        "title": _("Users"),
+                        "icon": "person",
+                        "link": reverse_lazy("admin:accounts_user_changelist"),
+                    },
+                    {
+                        "title": _("Student Profiles"),
+                        "icon": "school",
+                        "link": reverse_lazy("admin:accounts_studentprofile_changelist"),
+                    },
+                    {
+                        "title": _("Year Management"),
+                        "icon": "calendar_today",
+                        "link": reverse_lazy("admin:accounts_yearmanagement_changelist"),
+                    },
+                    {
+                        "title": _("Branch Management"),
+                        "icon": "account_tree",
+                        "link": reverse_lazy("admin:accounts_branchmanagement_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Jobs & Applications"),
+                "separator": True,
+                "collapsible": True,
+                "icon": "work",
+                "items": [
+                    {
+                        "title": _("Job Postings"),
+                        "icon": "work_outline",
+                        "link": reverse_lazy("admin:jobs_jobposting_changelist"),
+                    },
+                    {
+                        "title": _("Applications"),
+                        "icon": "assignment",
+                        "link": reverse_lazy("admin:jobs_jobapplication_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Companies"),
+                "separator": True,
+                "collapsible": True,
+                "icon": "business",
+                "items": [
+                    {
+                        "title": _("Companies"),
+                        "icon": "business_center",
+                        "link": reverse_lazy("admin:companies_company_changelist"),
+                    },
+                ],
+            },
+        ],
+    },
+}
+
+# Callback function for environment badge
+def environment_callback(request):
+    """Return environment name for display in admin header."""
+    if DEBUG:
+        return ["Development", "info"]
+    return ["Production", "danger"]

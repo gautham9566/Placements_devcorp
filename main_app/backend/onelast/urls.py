@@ -1,10 +1,20 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.shortcuts import redirect
 from jobs.views import AllApplicationsView
 from django.conf import settings
 from django.conf.urls.static import static
+from .views import dashboard_overview
+
+
+def redirect_to_admin(request):
+    """Redirect root URL to admin dashboard"""
+    return redirect('admin:index')
+
 
 urlpatterns = [
+    path('', redirect_to_admin, name='home'),
+    path('admin/dashboard/', dashboard_overview, name='dashboard_overview'),
     path('admin/', admin.site.urls),
     
     # Global authentication URLs
