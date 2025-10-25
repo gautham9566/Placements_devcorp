@@ -227,7 +227,22 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
 
     if (targetStageIndex === -1) return 'pending';
     if (targetStageIndex < currentStageIndex) return 'completed';
-    if (targetStageIndex === currentStageIndex) return 'active';
+    
+    // Check if this is a terminal stage (final stage like hired/contract signed)
+    const targetStage = stages[targetStageIndex];
+    const isTerminalStage = targetStage && (
+      targetStage.stage_type === 'CONTRACT_SIGNED' || 
+      targetStage.stage_type === 'REJECTED' || 
+      targetStage.stage_type === 'WITHDRAWN' ||
+      targetStage.name.toLowerCase().includes('hired') ||
+      targetStage.name.toLowerCase().includes('contract signed')
+    );
+    
+    if (targetStageIndex === currentStageIndex) {
+      // If this is a terminal stage and candidate is in it, show as completed
+      return isTerminalStage ? 'completed' : 'active';
+    }
+    
     return 'pending';
   };
 
