@@ -13,7 +13,8 @@ import {
   Target,
   TrendingUp,
   Eye,
-  Search
+  Search,
+  RefreshCw
 } from "lucide-react";
 import { listAppliedJobs, getJobById } from '@/api/jobs';
 import { FormattedJobDescription } from '@/lib/utils';
@@ -31,6 +32,8 @@ const MyJobs = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [perPage, setPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [justRefreshed, setJustRefreshed] = useState(false);
 
   const searchParams = useSearchParams();
   const selectedId = searchParams.get('selected');
@@ -79,6 +82,11 @@ const MyJobs = () => {
       
       console.log('Applications with job details:', applicationsWithJobDetails);
       setApplications(applicationsWithJobDetails);
+      setLastRefreshed(new Date());
+      setJustRefreshed(true);
+      
+      // Clear the "just refreshed" indicator after 2 seconds
+      setTimeout(() => setJustRefreshed(false), 2000);
       
       // Update pagination state
       setCurrentPage(paginationData.current_page || 1);
@@ -107,6 +115,22 @@ const MyJobs = () => {
   useEffect(() => {
     fetchApplications(currentPage, statusFilter, searchTerm, sortBy);
   }, []);
+
+  // Add visibility change listener to refresh data when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, refresh the applications
+        fetchApplications(currentPage, statusFilter, searchTerm, sortBy);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentPage, statusFilter, searchTerm, sortBy]);
 
   const getStatusConfig = (status) => {
     const configs = {
@@ -213,9 +237,30 @@ const MyJobs = () => {
       {/* Compact Header Section */}
       <div className="mb-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Job Applications</h1>
-            <p className="text-sm text-gray-600">Track and manage your job applications</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Job Applications</h1>
+              <p className="text-sm text-gray-600">
+                Track and manage your job applications
+                {lastRefreshed && (
+                  <span className="ml-2 text-xs text-gray-400">
+                    • Last updated: {lastRefreshed.toLocaleTimeString()}
+                  </span>
+                )}
+              </p>
+            </div>
+            <button
+              onClick={() => fetchApplications(currentPage, statusFilter, searchTerm, sortBy)}
+              disabled={loading}
+              className={`p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                justRefreshed 
+                  ? 'text-green-600 bg-green-100' 
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+              }`}
+              title="Refresh applications"
+            >
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
           {/* Inline Stats */}
           <div className="flex items-center gap-6">

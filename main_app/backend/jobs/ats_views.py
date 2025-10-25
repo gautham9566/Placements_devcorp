@@ -173,12 +173,46 @@ class CandidateCardViewSet(viewsets.ModelViewSet):
         card.moved_to_current_stage_at = timezone.now()
         card.save()
         
+        # Update application status based on new stage
+        self._update_application_status(card, to_stage, request.user)
+        
         return Response({
             'message': 'Candidate moved successfully',
             'from_stage': old_stage.name,
             'to_stage': to_stage.name,
             'duration_in_previous_stage': str(duration)
         })
+    
+    def _update_application_status(self, card, to_stage, user):
+        """
+        Update the JobApplication status based on the ATS stage
+        """
+        from .models import JobApplication
+        
+        # Map ATS stage types to application statuses
+        stage_to_status_mapping = {
+            'NEW': 'UNDER_REVIEW',
+            'SCREENING': 'UNDER_REVIEW',
+            'FIRST_INTERVIEW': 'SHORTLISTED',
+            'SECOND_INTERVIEW': 'SHORTLISTED',
+            'TECHNICAL': 'SHORTLISTED',
+            'HR_ROUND': 'SHORTLISTED',
+            'CONTRACT_PROPOSAL': 'SHORTLISTED',
+            'OFFER_MADE': 'SHORTLISTED',
+            'CONTRACT_SIGNED': 'HIRED',
+            'REJECTED': 'REJECTED',
+            'WITHDRAWN': 'REJECTED',
+        }
+        
+        new_status = stage_to_status_mapping.get(to_stage.stage_type)
+        if new_status and card.application.status != new_status:
+            # Update application status
+            card.application.add_status_change(
+                new_status=new_status,
+                changed_by=user,
+                notes=f"Moved to {to_stage.name} in recruitment pipeline"
+            )
+            card.application.save()
     
     @action(detail=True, methods=['post'])
     def add_comment(self, request, pk=None):
@@ -364,6 +398,9 @@ class BulkMoveCandidatesView(APIView):
                     card.moved_to_current_stage_at = timezone.now()
                     card.save()
                     
+                    # Update application status based on new stage
+                    self._update_application_status(card, to_stage, request.user)
+                    
                     moved_count += 1
                 except CandidateCard.DoesNotExist:
                     continue
@@ -373,6 +410,37 @@ class BulkMoveCandidatesView(APIView):
             'moved_count': moved_count,
             'to_stage': to_stage.name
         })
+    
+    def _update_application_status(self, card, to_stage, user):
+        """
+        Update the JobApplication status based on the ATS stage
+        """
+        from .models import JobApplication
+        
+        # Map ATS stage types to application statuses
+        stage_to_status_mapping = {
+            'NEW': 'UNDER_REVIEW',
+            'SCREENING': 'UNDER_REVIEW',
+            'FIRST_INTERVIEW': 'SHORTLISTED',
+            'SECOND_INTERVIEW': 'SHORTLISTED',
+            'TECHNICAL': 'SHORTLISTED',
+            'HR_ROUND': 'SHORTLISTED',
+            'CONTRACT_PROPOSAL': 'SHORTLISTED',
+            'OFFER_MADE': 'SHORTLISTED',
+            'CONTRACT_SIGNED': 'HIRED',
+            'REJECTED': 'REJECTED',
+            'WITHDRAWN': 'REJECTED',
+        }
+        
+        new_status = stage_to_status_mapping.get(to_stage.stage_type)
+        if new_status and card.application.status != new_status:
+            # Update application status
+            card.application.add_status_change(
+                new_status=new_status,
+                changed_by=user,
+                notes=f"Moved to {to_stage.name} in recruitment pipeline"
+            )
+            card.application.save()
 
 
 class ShareableLinkViewSet(viewsets.ModelViewSet):
