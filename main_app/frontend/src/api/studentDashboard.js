@@ -231,7 +231,6 @@ export const studentDashboardAPI = {
       'gpa',
       'tenth_percentage',
       'twelfth_percentage',
-      'resume',
       'address',
       'city',
       'state'
@@ -246,18 +245,36 @@ export const studentDashboardAPI = {
       'github_profile'
     ];
 
+    // Special handling for file fields - check URL fields instead
+    const fileFields = {
+      'resume': 'resume_url',
+      'tenth_certificate': 'tenth_certificate_url',
+      'twelfth_certificate': 'twelfth_certificate_url'
+    };
+
     const completedRequired = requiredFields.filter(field => {
       const value = profile[field];
       return value !== null && value !== undefined && value !== '';
     }).length;
 
+    // Check if resume is uploaded (required field, checked separately)
+    // Support both old single resume field and new Resume model with multiple resumes
+    const hasOldResume = profile.resume_url || profile.resume;
+    const hasNewResumes = profile.resumes && Array.isArray(profile.resumes) && profile.resumes.length > 0;
+    const hasResumeCount = profile.resume_count && profile.resume_count > 0;
+    const resumeUploaded = hasOldResume || hasNewResumes || hasResumeCount;
+    const resumeScore = resumeUploaded ? 1 : 0;
+
     const completedOptional = optionalFields.filter(field => {
-      const value = profile[field];
+      // Use URL field for file fields if available
+      const checkField = fileFields[field] || field;
+      const value = profile[checkField];
       return value !== null && value !== undefined && value !== '';
     }).length;
 
-    // Required fields are worth 80%, optional fields worth 20%
-    const requiredScore = (completedRequired / requiredFields.length) * 80;
+    // Required fields + resume are worth 80%, optional fields worth 20%
+    const totalRequiredFields = requiredFields.length + 1; // +1 for resume
+    const requiredScore = ((completedRequired + resumeScore) / totalRequiredFields) * 80;
     const optionalScore = (completedOptional / optionalFields.length) * 20;
 
     return Math.round(requiredScore + optionalScore);
@@ -291,7 +308,18 @@ export const studentDashboardAPI = {
     const missingFields = [];
 
     Object.keys(fieldDescriptions).forEach(field => {
-      const value = profile[field];
+      let value;
+      
+      // Special handling for resume - check URL field and new Resume model
+      if (field === 'resume') {
+        const hasOldResume = profile.resume_url || profile.resume;
+        const hasNewResumes = profile.resumes && Array.isArray(profile.resumes) && profile.resumes.length > 0;
+        const hasResumeCount = profile.resume_count && profile.resume_count > 0;
+        value = hasOldResume || hasNewResumes || hasResumeCount;
+      } else {
+        value = profile[field];
+      }
+      
       if (value === null || value === undefined || value === '') {
         missingFields.push({
           field: field,

@@ -4,12 +4,18 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getFormById, updateForm } from '../../../../../api/forms';
 import JobPostingForm from '../../../../../components/JobPostingForm';
+import { studentsAPI } from '../../../../../api/optimized';
 
 export default function EditFormPage() {
   const { id } = useParams();
   const router = useRouter();
   const [form, setForm] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [passoutYears, setPassoutYears] = useState([]);
+  const [selectedPassoutYears, setSelectedPassoutYears] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [arrearsRequirement, setArrearsRequirement] = useState('NO_RESTRICTION');
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -28,6 +34,24 @@ export default function EditFormPage() {
     
     fetchForm();
   }, [id, router]);
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const studentsResponse = await studentsAPI.getStudents({ page_size: 1 });
+        if (studentsResponse.metadata && studentsResponse.metadata.available_years) {
+          setPassoutYears(studentsResponse.metadata.available_years);
+        }
+        if (studentsResponse.metadata && studentsResponse.metadata.available_departments) {
+          setDepartments(studentsResponse.metadata.available_departments);
+        }
+      } catch (error) {
+        console.error('Error fetching metadata:', error);
+      }
+    };
+    
+    fetchMetadata();
+  }, []);
 
   const handleJobSubmit = async (jobData) => {
     try {
@@ -118,6 +142,14 @@ export default function EditFormPage() {
                   duration: form?.details?.duration || ''
                 }}
                 companyDisabled={true}
+                passoutYears={passoutYears}
+                selectedPassoutYears={selectedPassoutYears}
+                onPassoutYearsChange={setSelectedPassoutYears}
+                departments={departments}
+                selectedDepartments={selectedDepartments}
+                onDepartmentsChange={setSelectedDepartments}
+                arrearsRequirement={arrearsRequirement}
+                onArrearsRequirementChange={setArrearsRequirement}
               />
             </div>
           </div>

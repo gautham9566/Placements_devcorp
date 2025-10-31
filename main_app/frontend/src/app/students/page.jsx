@@ -170,8 +170,13 @@ export default function StudentDashboard() {
       });
     }
 
-    // Check for missing resume
-    if (!profile.resume) {
+    // Check for missing resume - support both old and new Resume model
+    const hasOldResume = profile.resume_url || profile.resume;
+    const hasNewResumes = profile.resumes && Array.isArray(profile.resumes) && profile.resumes.length > 0;
+    const hasResumeCount = profile.resume_count && profile.resume_count > 0;
+    const hasResume = hasOldResume || hasNewResumes || hasResumeCount;
+    
+    if (!hasResume) {
       actions.push({
         id: 'upload-resume',
         title: 'Upload Resume',

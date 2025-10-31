@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 
 // Import the API functions
-import { companiesAPI } from '../../../../api/optimized';
+import { companiesAPI, studentsAPI } from '../../../../api/optimized';
 import { 
   getCompany, 
   transformCompanyData, 
@@ -87,6 +87,13 @@ export default function AdminCompanyDetail({ params }) {
   const [publishedSearch, setPublishedSearch] = useState('');
   const publishedPerPage = 10;
 
+  // Job form state
+  const [passoutYears, setPassoutYears] = useState([]);
+  const [selectedPassoutYears, setSelectedPassoutYears] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [arrearsRequirement, setArrearsRequirement] = useState('NO_RESTRICTION');
+
   useEffect(() => {
     loadCompanyData();
   }, [companyId]);
@@ -97,6 +104,25 @@ export default function AdminCompanyDetail({ params }) {
       loadJobData();
     }
   }, [company]);
+
+  // Load metadata for job form
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const studentsResponse = await studentsAPI.getStudents({ page_size: 1 });
+        if (studentsResponse.metadata && studentsResponse.metadata.available_years) {
+          setPassoutYears(studentsResponse.metadata.available_years);
+        }
+        if (studentsResponse.metadata && studentsResponse.metadata.available_departments) {
+          setDepartments(studentsResponse.metadata.available_departments);
+        }
+      } catch (error) {
+        console.error('Error fetching metadata:', error);
+      }
+    };
+    
+    fetchMetadata();
+  }, []);
 
   const loadCompanyData = async () => {
     setLoading(true);
@@ -847,6 +873,14 @@ export default function AdminCompanyDetail({ params }) {
                   company_name: company.name,
                   company_id: companyId
                 }}
+                passoutYears={passoutYears}
+                selectedPassoutYears={selectedPassoutYears}
+                onPassoutYearsChange={setSelectedPassoutYears}
+                departments={departments}
+                selectedDepartments={selectedDepartments}
+                onDepartmentsChange={setSelectedDepartments}
+                arrearsRequirement={arrearsRequirement}
+                onArrearsRequirementChange={setArrearsRequirement}
               />
             </div>
           </div>

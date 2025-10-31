@@ -17,6 +17,7 @@ export default function CompanyFormPage() {
   const [selectedPassoutYears, setSelectedPassoutYears] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [arrearsRequirement, setArrearsRequirement] = useState('NO_RESTRICTION');
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -247,6 +248,8 @@ export default function CompanyFormPage() {
               departments={departments}
               selectedDepartments={selectedDepartments}
               onDepartmentsChange={setSelectedDepartments}
+              arrearsRequirement={arrearsRequirement}
+              onArrearsRequirementChange={setArrearsRequirement}
             />
           </div>
         </div>
