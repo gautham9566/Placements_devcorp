@@ -380,7 +380,7 @@ const MyJobs = () => {
                           </div>
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Building2 className="w-3 h-3" />
-                            <span className="font-medium">{app.jobDetails?.employer_name || app.employer_name || app.company_name || "N/A"}</span>
+                            <span className="font-medium">{app.jobDetails?.company_name || app.jobDetails?.employer_name || app.employer_name || app.company_name || "N/A"}</span>
                           </div>
                           <div className="flex items-center gap-4 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
@@ -483,7 +483,7 @@ const MyJobs = () => {
                       <div className="flex items-center gap-4 text-gray-600">
                         <div className="flex items-center gap-2">
                           <Building2 className="w-5 h-5" />
-                          <span className="font-medium">{selectedApplication.jobDetails?.employer_name || selectedApplication.employer_name || selectedApplication.company_name || "Company not available"}</span>
+                          <span className="font-medium">{selectedApplication.jobDetails?.company_name || selectedApplication.jobDetails?.employer_name || selectedApplication.employer_name || selectedApplication.company_name || "Company not available"}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <MapPin className="w-5 h-5" />
@@ -520,7 +520,7 @@ const MyJobs = () => {
                           <Clock className="w-4 h-4 text-gray-500" />
                           <span className="text-sm font-medium text-gray-900">Deadline</span>
                         </div>
-                        <span className="text-sm text-gray-600">Not specified</span>
+                        <span className="text-sm text-gray-600">{selectedApplication.jobDetails?.application_deadline ? new Date(selectedApplication.jobDetails.application_deadline).toLocaleDateString() : "Not specified"}</span>
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center gap-2 mb-1">
