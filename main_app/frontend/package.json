@@ -6,12 +6,16 @@
     "dev": "next dev --turbo",
     "dev:fast": "next dev --turbo",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
     "clean-dev": "rmdir /s /q .next 2>nul & rmdir /s /q node_modules\\.cache 2>nul & next dev --turbo",
     "clean": "rmdir /s /q .next 2>nul & rmdir /s /q node_modules\\.cache 2>nul",
     "analyze": "next build",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "find-images": "node scripts/find-images.js",
+    "perf": "lighthouse http://localhost:3000 --view --preset=desktop",
+    "perf:mobile": "lighthouse http://localhost:3000 --view --preset=mobile"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
