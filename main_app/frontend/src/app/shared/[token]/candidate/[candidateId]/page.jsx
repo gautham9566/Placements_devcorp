@@ -81,7 +81,7 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
   useEffect(() => {
     loadCandidateDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidate?.id, routeCandidateId]);
+  }, [routeCandidateId]);
 
   const loadCandidateDetails = async () => {
     const idToLoad = candidate?.id || routeCandidateId;
@@ -126,12 +126,13 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
       setLoading(true);
       const idToUse = candidate?.id || routeCandidateId;
       if (!idToUse) throw new Error('Candidate ID is not available');
-      await addCandidateComment(idToUse, {
+      const response = await addCandidateComment(idToUse, {
         content: newComment,
         is_internal: true,
       });
+      // Add the new comment to the local state
+      setComments(prev => [...prev, response.data]);
       setNewComment('');
-      await loadCandidateDetails();
     } catch (err) {
       console.error('Failed to add comment:', err);
       alert('Failed to add comment');
@@ -161,8 +162,13 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
         to_stage_id: nextStage.id,
       });
 
-      // Reload candidate details to get updated data
-      await loadCandidateDetails();
+      // Update local state
+      setCandidate(prev => ({
+        ...prev,
+        current_stage: nextStage.id,
+        stage_name: nextStage.name,
+        stage_color: nextStage.color,
+      }));
     } catch (error) {
       console.error('Failed to move candidate:', error);
       alert('Failed to move candidate to next stage. Please try again.');
@@ -192,13 +198,32 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
         to_stage_id: previousStage.id,
       });
 
-      // Reload candidate details to get updated data
-      await loadCandidateDetails();
+      // Update local state
+      setCandidate(prev => ({
+        ...prev,
+        current_stage: previousStage.id,
+        stage_name: previousStage.name,
+        stage_color: previousStage.color,
+      }));
     } catch (error) {
       console.error('Failed to move candidate:', error);
       alert('Failed to move candidate to previous stage. Please try again.');
     } finally {
       setIsMoving(false);
+    }
+  };
+
+  const handleRatingChange = async (newRating) => {
+    try {
+      setRating(newRating);
+      setCandidate(prev => ({ ...prev, rating: newRating }));
+      await updateCandidateCard(candidate.id, { rating: newRating });
+    } catch (err) {
+      console.error('Failed to update rating:', err);
+      alert('Failed to update rating');
+      // Revert on error
+      setRating(candidate.rating || 0);
+      setCandidate(prev => ({ ...prev, rating: candidate.rating || 0 }));
     }
   };
 
