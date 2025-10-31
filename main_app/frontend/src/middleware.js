@@ -53,10 +53,18 @@ export function middleware(request) {
     return NextResponse.redirect(url);
   }
 
-  // Block homepage `/` unless student or admin
-  if (url.pathname === '/' && role !== 'STUDENT' && role !== 'ADMIN') {
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+  // Handle root path redirects based on role
+  if (url.pathname === '/') {
+    if (!role) {
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    } else if (role === 'STUDENT') {
+      url.pathname = '/students';
+      return NextResponse.redirect(url);
+    } else if (role === 'ADMIN') {
+      url.pathname = '/admin/dashboard';
+      return NextResponse.redirect(url);
+    }
   }
 
   // Otherwise allow the request
