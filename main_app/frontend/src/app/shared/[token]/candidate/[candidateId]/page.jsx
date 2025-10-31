@@ -253,7 +253,7 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
 
   return (
     <div className='w-full min-h-screen flex-1 p-0'>
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-full h-[90vh] flex flex-col mx-auto">
+      <div className="bg-white w-full h-screen flex flex-col mx-auto">
         {isFetching && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
             <div className="text-center">
@@ -279,9 +279,9 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
         </div>
 
         {/* Main Content */}
-  <div className="flex-1 overflow-hidden flex w-full">
+  <div className="flex-1 overflow-hidden flex flex-col lg:flex-row w-full">
           {/* Left Panel - Candidate Information */}
-          <div className="basis-1/3 border-r border-gray-200 overflow-y-auto p-6 space-y-6 min-w-0">
+          <div className="w-full lg:basis-1/3 lg:border-r border-gray-200 overflow-y-auto p-6 space-y-6 min-w-0">
             {/* Personal Info */}
             <div>
               <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">
@@ -436,7 +436,7 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
           </div>
 
           {/* Center Panel - Job Details & Actions */}
-          <div className="flex-1 overflow-y-auto p-6 min-w-0">
+          <div className="w-full lg:flex-1 overflow-y-auto p-6 min-w-0">
             {/* Action Buttons */}
             <div className="flex items-center gap-3 mb-6">
               <button
@@ -649,7 +649,7 @@ export default function CandidateDetailModal({ candidate: initialCandidate, onCl
           </div>
 
           {/* Right Panel - Resume Viewer */}
-          <div className="basis-1/3 border-l border-gray-200 overflow-y-auto bg-gray-50 min-w-0">
+          <div className="w-full lg:basis-1/3 lg:border-l border-gray-200 overflow-y-auto bg-gray-50 min-w-0">
             {candidate.resume_url ? (
               <PDFViewer resumeUrl={candidate.resume_url} />
             ) : (

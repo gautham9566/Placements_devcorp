@@ -21,7 +21,7 @@ export default function PDFViewer({ resumeUrl }) {
   const absoluteResumeUrl = useMemo(() => {
     if (!resumeUrl) return null;
     
-    // If already an absolute URL, return as is
+    // If already an absolute URL (including Azure blob URLs), return as is
     if (resumeUrl.startsWith('http://') || resumeUrl.startsWith('https://')) {
       return resumeUrl;
     }
@@ -31,6 +31,21 @@ export default function PDFViewer({ resumeUrl }) {
     return `${baseUrl}${resumeUrl.startsWith('/') ? resumeUrl : '/' + resumeUrl}`;
   }, [resumeUrl]);
 
+  // Memoize file configuration to prevent unnecessary reloads
+  const fileConfig = useMemo(() => ({
+    url: absoluteResumeUrl,
+    httpHeaders: {
+      'Accept': 'application/pdf',
+    },
+    withCredentials: false,
+  }), [absoluteResumeUrl]);
+
+  // Memoize options to prevent unnecessary reloads
+  const pdfOptions = useMemo(() => ({
+    cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+    cMapPacked: true,
+  }), []);
+
   function onDocumentLoadSuccess({ numPages }) {
     setNumPages(numPages);
     setLoading(false);
@@ -39,7 +54,19 @@ export default function PDFViewer({ resumeUrl }) {
 
   function onDocumentLoadError(error) {
     console.error('Error loading PDF:', error);
-    setError('Failed to load resume');
+    console.error('PDF URL:', absoluteResumeUrl);
+    
+    // Provide more detailed error message
+    let errorMessage = 'Failed to load resume';
+    if (error.message) {
+      if (error.message.includes('fetch')) {
+        errorMessage = 'Unable to fetch PDF file. Please check your connection or try again later.';
+      } else if (error.message.includes('CORS')) {
+        errorMessage = 'CORS error: Unable to access PDF file. Please contact support.';
+      }
+    }
+    
+    setError(errorMessage);
     setLoading(false);
   }
 
@@ -166,11 +193,12 @@ export default function PDFViewer({ resumeUrl }) {
 
         {!error && (
           <Document
-            file={absoluteResumeUrl}
+            file={fileConfig}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading=""
             className="shadow-lg"
+            options={pdfOptions}
           >
             <Page
               pageNumber={pageNumber}
