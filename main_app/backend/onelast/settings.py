@@ -5,6 +5,10 @@ from django.templatetags.static import static
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-change-me-in-production'
@@ -15,7 +19,7 @@ ALLOWED_HOSTS = ["*"]
 
 # Azure Blob Storage Configuration
 AZURE_ACCOUNT_NAME = 'devcorpdocstorage'
-AZURE_ACCOUNT_KEY = ''
+AZURE_ACCOUNT_KEY = os.environ.get('AZURE_ACCOUNT_KEY', '')
 AZURE_CONTAINER = 'media'
 AZURE_CUSTOM_DOMAIN = f'{AZURE_ACCOUNT_NAME}.blob.core.windows.net'
 
