@@ -1,0 +1,48 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="space-y-6 mb-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">⚙️ {% translate 'Site administration' %}</h1>
+
+    {% if app_list %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for app in app_list %}
+        <div class="bg-white dark:bg-base-900 rounded-lg shadow border border-base-200 dark:border-base-800">
+            <div class="p-4 border-b border-base-200 dark:border-base-800">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    <a href="{{ app.app_url }}" class="hover:text-primary-600 dark:hover:text-primary-400">{{ app.name }}</a>
+                </h2>
+            </div>
+            <div class="p-4">
+                <ul class="space-y-2">
+                    {% for model in app.models %}
+                    <li class="flex items-center justify-between">
+                        <a href="{% if model.admin_url %}{{ model.admin_url }}{% else %}#{% endif %}"
+                           class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
+                            {{ model.name }}
+                        </a>
+                        <span class="flex items-center gap-3 text-sm">
+                            {% if model.add_url %}
+                                <a href="{{ model.add_url }}" class="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300">{% translate 'Add' %}</a>
+                            {% endif %}
+                            {% if model.admin_url %}
+                                {% if model.view_only %}
+                                    <a href="{{ model.admin_url }}" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">{% translate 'View' %}</a>
+                                {% else %}
+                                    <a href="{{ model.admin_url }}" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">{% translate 'Change' %}</a>
+                                {% endif %}
+                            {% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p class="text-gray-500 dark:text-gray-400">{% translate "You don’t have permission to view or edit anything." %}</p>
+    {% endif %}
+</div>
+{% endblock %}

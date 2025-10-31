@@ -1,0 +1,199 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+<style>
+    /* Custom styles for dashboard */
+    .chart-card { border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; }
+    /* Use Unfold base colors for better dark theme harmony */
+    .chart-card { background: #ffffff; border: 1px solid #e5e7eb; }
+    .dark .chart-card { background: #0f172a; border-color: #1f2937; }
+    .kpi-card { min-height: 112px; }
+    .section-card { border: 1px solid rgba(229,231,235,var(--tw-border-opacity,1)); }
+    /* Improve contrast in dark mode for borders */
+    .dark .section-card { border-color: #374151; }
+</style>
+{% endblock %}
+
+{% block content %}
+    <!-- Chart.js Script - Load first -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <div class="space-y-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">📊 Dashboard Overview</h2>
+
+        <!-- KPI Cards -->
+        {% firstof dashboard_kpi kpi as dashboard_items %}
+        {% if dashboard_items %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% for item in dashboard_items %}
+            <div class="kpi-card bg-white dark:bg-base-900 rounded-lg shadow p-6 border border-base-200 dark:border-base-800">
+                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ item.title }}</div>
+                <div class="mt-2 text-3xl font-bold text-purple-600 dark:text-purple-400">{{ item.metric }}</div>
+                <div class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ item.footer }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <p class="text-yellow-800 dark:text-yellow-200">No KPI data available. Please add some data to your database.</p>
+        </div>
+        {% endif %}
+
+        <!-- Progress Bars -->
+        {% firstof dashboard_progress progress as dashboard_progress_items %}
+        {% if dashboard_progress_items %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for item in dashboard_progress_items %}
+            <div class="bg-white dark:bg-base-900 rounded-lg shadow p-6 border border-base-200 dark:border-base-800">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.title }}</div>
+                    <div class="text-sm font-bold text-purple-600 dark:text-purple-400">{{ item.value }}%</div>
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">{{ item.description }}</div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div class="bg-purple-600 dark:bg-purple-500 h-2.5 rounded-full transition-all duration-300" style="width: {{ item.value }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Charts Section -->
+        <div class="section-card bg-white dark:bg-base-900 rounded-lg shadow p-6 border border-base-200 dark:border-base-800">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Analytics Charts</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="charts-container">
+                <div class="col-span-2 text-center text-gray-500 dark:text-gray-400 p-8">
+                    <div class="animate-pulse">Loading charts...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Site administration listing intentionally removed from main content.
+             The Unfold sidebar already provides navigation for applications and models.
+             Keeping the main dashboard focused on KPIs and charts. -->
+    </div>
+
+    <!-- Chart Rendering Script (fetch from backend JSON endpoint) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('charts-container');
+            const getThemePalette = () => {
+                const isDark = document.documentElement.classList.contains('dark');
+                return {
+                    isDark,
+                    text: isDark ? '#d1d5db' : '#374151',
+                    grid: isDark ? '#374151' : '#e5e7eb',
+                    border: isDark ? '#4b5563' : '#d1d5db',
+                    tooltipBg: isDark ? 'rgba(17, 24, 39, 0.9)' : 'rgba(0, 0, 0, 0.8)',
+                };
+            };
+
+            const applyAxisColors = (options, palette) => {
+                const base = {
+                    ticks: { color: palette.text },
+                    grid: { color: palette.grid, borderColor: palette.border },
+                    title: { color: palette.text }
+                };
+                options.scales = options.scales || {};
+                options.scales.x = { ...(options.scales.x || {}), ...base };
+                options.scales.y = { ...(options.scales.y || {}), ...base };
+                options.plugins = options.plugins || {};
+                options.plugins.legend = options.plugins.legend || {};
+                options.plugins.legend.labels = options.plugins.legend.labels || {};
+                options.plugins.legend.labels.color = palette.text;
+                options.plugins.tooltip = options.plugins.tooltip || {};
+                options.plugins.tooltip.backgroundColor = palette.tooltipBg;
+                options.plugins.tooltip.titleColor = '#fff';
+                options.plugins.tooltip.bodyColor = '#fff';
+                options.plugins.tooltip.borderColor = '#9333ea';
+                options.plugins.tooltip.borderWidth = 1;
+                return options;
+            };
+
+            const palette = getThemePalette();
+            window.__adminCharts = window.__adminCharts || [];
+            const renderCharts = (chartData) => {
+                if (!Array.isArray(chartData) || chartData.length === 0) {
+                    container.innerHTML = '<div class="col-span-2 text-center text-gray-500 dark:text-gray-400 p-8">No charts to display.</div>';
+                    return;
+                }
+                container.innerHTML = '';
+                chartData.forEach((item, index) => {
+                    const chartCard = document.createElement('div');
+                    chartCard.className = 'bg-white dark:bg-base-900 rounded-lg shadow p-6 border border-base-200 dark:border-base-800';
+                    const header = document.createElement('div');
+                    header.className = 'mb-4';
+                    const title = document.createElement('h3');
+                    title.className = 'text-lg font-semibold text-gray-900 dark:text-white';
+                    title.textContent = item.title || 'Chart';
+                    header.appendChild(title);
+                    if (item.description) {
+                        const desc = document.createElement('p');
+                        desc.className = 'text-sm text-gray-500 dark:text-gray-400 mt-1';
+                        desc.textContent = item.description;
+                        header.appendChild(desc);
+                    }
+                    chartCard.appendChild(header);
+                    const canvasContainer = document.createElement('div');
+                    canvasContainer.className = 'relative';
+                    canvasContainer.style.height = '300px';
+                    const canvas = document.createElement('canvas');
+                    canvas.id = 'chart-' + index;
+                    canvasContainer.appendChild(canvas);
+                    chartCard.appendChild(canvasContainer);
+                    container.appendChild(chartCard);
+                    const ctx = canvas.getContext('2d');
+                    const mergedOptions = applyAxisColors(item.options || {}, palette);
+                    const chart = new Chart(ctx, {
+                        type: item.type || 'bar',
+                        data: item.data || { labels: [], datasets: [] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: mergedOptions.plugins || {},
+                            scales: mergedOptions.scales || {}
+                        }
+                    });
+                    window.__adminCharts.push(chart);
+                });
+            };
+
+            fetch('/admin/dashboard-data/', { credentials: 'same-origin' })
+                .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+                .then(data => { if (!data || data.ok !== true) throw new Error('Invalid response'); renderCharts(data.chart || []); })
+                .catch(err => {
+                    console.error('Failed to load charts:', err);
+                    container.innerHTML = '<div class="col-span-2 text-center text-yellow-500 dark:text-yellow-400 p-8"><strong>⚠️ No chart data available</strong><br><small>Could not fetch /admin/dashboard-data/. ' + err.message + '</small></div>';
+                });
+
+            // React to theme toggle: update chart colors dynamically
+            const observer = new MutationObserver(() => {
+                const p = getThemePalette();
+                (window.__adminCharts || []).forEach(ch => {
+                    ch.options = applyAxisColors(ch.options || {}, p);
+                    ch.update();
+                });
+            });
+            observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+            // Register a plugin to paint chart area background based on theme
+            const backgroundPlugin = {
+                id: 'customCanvasBackgroundColor',
+                beforeDraw: (chart, _args, opts) => {
+                    const {ctx, chartArea} = chart;
+                    if (!chartArea) return;
+                    const {top, left, width, height} = chartArea;
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'destination-over';
+                    ctx.fillStyle = opts && opts.color ? opts.color : (palette.isDark ? '#0f172a' : '#ffffff');
+                    ctx.fillRect(left, top, width, height);
+                    ctx.restore();
+                }
+            };
+            if (!Chart.registry.plugins.get('customCanvasBackgroundColor')) {
+                Chart.register(backgroundPlugin);
+            }
+        });
+    </script>
+{% endblock %}

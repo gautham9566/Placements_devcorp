@@ -1,0 +1,884 @@
+[
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo1",
+    "companyName": "TechNova Inc.",
+    "companyDescription": "Innovative tech solutions for businesses.",
+    "location": "San Francisco, CA",
+    "employeeCount": 1500,
+    "website": "https://www.technova.com",
+    "awaitedApproval": 2,
+    "totalApplicants": 1200,
+    "totalHired": 250,
+    "totalActiveJobs": 5,
+    "activeListingsData": [
+      {
+        "title": "Software Engineer",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-15"
+      },
+      {
+        "title": "Data Analyst Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1500,
+        "deadline": "2025-06-30"
+      },
+      {
+        "title": "Product Manager",
+        "type": "Full-Time",
+        "ctc": 13,
+        "stipend": 0,
+        "deadline": "2025-08-01"
+      },
+      {
+        "title": "UX Designer",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-20"
+      },
+      {
+        "title": "QA Tester Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1200,
+        "deadline": "2025-07-05"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo2",
+    "companyName": "HealthCore Solutions",
+    "companyDescription": "Revolutionizing healthcare through data.",
+    "location": "Austin, TX",
+    "employeeCount": 800,
+    "website": "https://www.healthcore.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 750,
+    "totalHired": 150,
+    "totalActiveJobs": 3,
+    "activeListingsData": [
+      {
+        "title": "Healthcare Data Scientist",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-10"
+      },
+      {
+        "title": "Medical Software Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1400,
+        "deadline": "2025-06-25"
+      },
+      {
+        "title": "Clinical Research Coordinator",
+        "type": "Full-Time",
+        "ctc": 10,
+        "stipend": 0,
+        "deadline": "2025-07-30"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo3",
+    "companyName": "GreenPlanet Energy",
+    "companyDescription": "Sustainable energy solutions for a better tomorrow.",
+    "location": "Denver, CO",
+    "employeeCount": 1200,
+    "website": "https://www.greenplanetenergy.com",
+    "awaitedApproval": 0,
+    "totalApplicants": 900,
+    "totalHired": 180,
+    "totalActiveJobs": 6,
+    "activeListingsData": [
+      {
+        "title": "Renewable Energy Engineer",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-18"
+      },
+      {
+        "title": "Energy Systems Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1300,
+        "deadline": "2025-06-28"
+      },
+      {
+        "title": "Environmental Analyst",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-08-05"
+      },
+      {
+        "title": "Project Manager",
+        "type": "Full-Time",
+        "ctc": 13,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      },
+      {
+        "title": "Sustainability Research Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1250,
+        "deadline": "2025-07-01"
+      },
+      {
+        "title": "Electrical Engineer",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-22"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo4",
+    "companyName": "EduSpark Learning",
+    "companyDescription": "Next-gen digital learning tools.",
+    "location": "Seattle, WA",
+    "employeeCount": 600,
+    "website": "https://www.eduspark.com",
+    "awaitedApproval": 3,
+    "totalApplicants": 650,
+    "totalHired": 130,
+    "totalActiveJobs": 4,
+    "activeListingsData": [
+      {
+        "title": "E-learning Content Developer",
+        "type": "Full-Time",
+        "ctc": 9,
+        "stipend": 0,
+        "deadline": "2025-07-12"
+      },
+      {
+        "title": "Education Technology Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1000,
+        "deadline": "2025-06-20"
+      },
+      {
+        "title": "Instructional Designer",
+        "type": "Full-Time",
+        "ctc": 9,
+        "stipend": 0,
+        "deadline": "2025-07-30"
+      },
+      {
+        "title": "User Experience Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1100,
+        "deadline": "2025-07-05"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo5",
+    "companyName": "FinBridge",
+    "companyDescription": "Modern financial solutions for enterprises.",
+    "location": "New York, NY",
+    "employeeCount": 2300,
+    "website": "https://www.finbridge.com",
+    "awaitedApproval": 2,
+    "totalApplicants": 2000,
+    "totalHired": 400,
+    "totalActiveJobs": 7,
+    "activeListingsData": [
+      {
+        "title": "Financial Analyst",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-15"
+      },
+      {
+        "title": "Risk Management Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1600,
+        "deadline": "2025-07-01"
+      },
+      {
+        "title": "Investment Banking Associate",
+        "type": "Full-Time",
+        "ctc": 14,
+        "stipend": 0,
+        "deadline": "2025-08-05"
+      },
+      {
+        "title": "Compliance Officer",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-20"
+      },
+      {
+        "title": "Financial Planning Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1500,
+        "deadline": "2025-06-30"
+      },
+      {
+        "title": "Product Manager",
+        "type": "Full-Time",
+        "ctc": 13,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      },
+      {
+        "title": "Audit Specialist",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-18"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo6",
+    "companyName": "RoboMinds AI",
+    "companyDescription": "AI and robotics innovations for industry.",
+    "location": "Palo Alto, CA",
+    "employeeCount": 900,
+    "website": "https://www.robomindsai.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 850,
+    "totalHired": 175,
+    "totalActiveJobs": 5,
+    "activeListingsData": [
+      {
+        "title": "AI Research Scientist",
+        "type": "Full-Time",
+        "ctc": 13,
+        "stipend": 0,
+        "deadline": "2025-07-22"
+      },
+      {
+        "title": "Robotics Engineer",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-08-01"
+      },
+      {
+        "title": "Machine Learning Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1700,
+        "deadline": "2025-06-30"
+      },
+      {
+        "title": "Data Engineer",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      },
+      {
+        "title": "Robotics Technician Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1300,
+        "deadline": "2025-07-10"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo7",
+    "companyName": "SmartWare Technologies",
+    "companyDescription": "Custom software and app development.",
+    "location": "Chicago, IL",
+    "employeeCount": 700,
+    "website": "https://www.smartwaretech.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 600,
+    "totalHired": 140,
+    "totalActiveJobs": 3,
+    "activeListingsData": [
+      {
+        "title": "Mobile Developer",
+        "type": "Full-Time",
+        "ctc": 10,
+        "stipend": 0,
+        "deadline": "2025-07-12"
+      },
+      {
+        "title": "Frontend Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1100,
+        "deadline": "2025-06-28"
+      },
+      {
+        "title": "Backend Engineer",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-30"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo8",
+    "companyName": "EcoNest Living",
+    "companyDescription": "Eco-friendly home solutions.",
+    "location": "Portland, OR",
+    "employeeCount": 350,
+    "website": "https://www.econestliving.com",
+    "awaitedApproval": 0,
+    "totalApplicants": 400,
+    "totalHired": 90,
+    "totalActiveJobs": 2,
+    "activeListingsData": [
+      {
+        "title": "Sustainability Consultant",
+        "type": "Full-Time",
+        "ctc": 9,
+        "stipend": 0,
+        "deadline": "2025-07-10"
+      },
+      {
+        "title": "Marketing Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 900,
+        "deadline": "2025-06-25"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo9",
+    "companyName": "NextMove Logistics",
+    "companyDescription": "Smart logistics and fleet management.",
+    "location": "Atlanta, GA",
+    "employeeCount": 2000,
+    "website": "https://www.nextmovelogistics.com",
+    "awaitedApproval": 2,
+    "totalApplicants": 1700,
+    "totalHired": 380,
+    "totalActiveJobs": 8,
+    "activeListingsData": [
+      {
+        "title": "Logistics Coordinator",
+        "type": "Full-Time",
+        "ctc": 9,
+        "stipend": 0,
+        "deadline": "2025-07-15"
+      },
+      {
+        "title": "Fleet Manager",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-08-05"
+      },
+      {
+        "title": "Supply Chain Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1200,
+        "deadline": "2025-06-30"
+      },
+      {
+        "title": "Operations Analyst",
+        "type": "Full-Time",
+        "ctc": 10,
+        "stipend": 0,
+        "deadline": "2025-07-22"
+      },
+      {
+        "title": "Customer Service Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1100,
+        "deadline": "2025-07-08"
+      },
+      {
+        "title": "Warehouse Manager",
+        "type": "Full-Time",
+        "ctc": 10,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      },
+      {
+        "title": "Logistics Planner",
+        "type": "Full-Time",
+        "ctc": 10,
+        "stipend": 0,
+        "deadline": "2025-07-18"
+      },
+      {
+        "title": "Inventory Specialist Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1150,
+        "deadline": "2025-07-10"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo10",
+    "companyName": "DataSync Labs",
+    "companyDescription": "Big data processing and cloud solutions.",
+    "location": "Boston, MA",
+    "employeeCount": 1100,
+    "website": "https://www.datasynclabs.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 950,
+    "totalHired": 210,
+    "totalActiveJobs": 6,
+    "activeListingsData": [
+      {
+        "title": "Cloud Engineer",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-20"
+      },
+      {
+        "title": "Data Scientist Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1400,
+        "deadline": "2025-06-28"
+      },
+      {
+        "title": "Big Data Engineer",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-08-01"
+      },
+      {
+        "title": "DevOps Specialist",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      },
+      {
+        "title": "Software Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1300,
+        "deadline": "2025-07-05"
+      },
+      {
+        "title": "Data Analyst",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-15"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo11",
+    "companyName": "BrightNet Media",
+    "companyDescription": "Creative digital marketing agency.",
+    "location": "Los Angeles, CA",
+    "employeeCount": 450,
+    "website": "https://www.brightnetmedia.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 500,
+    "totalHired": 110,
+    "totalActiveJobs": 4,
+    "activeListingsData": [
+      {
+        "title": "Digital Marketing Specialist",
+        "type": "Full-Time",
+        "ctc": 8,
+        "stipend": 0,
+        "deadline": "2025-07-10"
+      },
+      {
+        "title": "SEO Analyst Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 900,
+        "deadline": "2025-06-25"
+      },
+      {
+        "title": "Content Strategist",
+        "type": "Full-Time",
+        "ctc": 8,
+        "stipend": 0,
+        "deadline": "2025-07-28"
+      },
+      {
+        "title": "Social Media Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 850,
+        "deadline": "2025-07-05"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo12",
+    "companyName": "CareCompanion Health",
+    "companyDescription": "Home healthcare and support services.",
+    "location": "Houston, TX",
+    "employeeCount": 900,
+    "website": "https://www.carecompanionhealth.com",
+    "awaitedApproval": 2,
+    "totalApplicants": 700,
+    "totalHired": 160,
+    "totalActiveJobs": 3,
+    "activeListingsData": [
+      {
+        "title": "Home Care Nurse",
+        "type": "Full-Time",
+        "ctc": 7,
+        "stipend": 0,
+        "deadline": "2025-07-15"
+      },
+      {
+        "title": "Medical Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1100,
+        "deadline": "2025-06-30"
+      },
+      {
+        "title": "Healthcare Coordinator",
+        "type": "Full-Time",
+        "ctc": 8,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo13",
+    "companyName": "BuildSmart Construction",
+    "companyDescription": "Smart and sustainable construction services.",
+    "location": "Dallas, TX",
+    "employeeCount": 1300,
+    "website": "https://www.buildsmart.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 1000,
+    "totalHired": 210,
+    "totalActiveJobs": 5,
+    "activeListingsData": [
+      {
+        "title": "Civil Engineer",
+        "type": "Full-Time",
+        "ctc": 9,
+        "stipend": 0,
+        "deadline": "2025-07-18"
+      },
+      {
+        "title": "Project Manager",
+        "type": "Full-Time",
+        "ctc": 9,
+        "stipend": 0,
+        "deadline": "2025-08-05"
+      },
+      {
+        "title": "Site Supervisor Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1100,
+        "deadline": "2025-06-28"
+      },
+      {
+        "title": "Safety Officer",
+        "type": "Full-Time",
+        "ctc": 8,
+        "stipend": 0,
+        "deadline": "2025-07-30"
+      },
+      {
+        "title": "Materials Coordinator",
+        "type": "Full-Time",
+        "ctc": 8,
+        "stipend": 0,
+        "deadline": "2025-07-20"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo14",
+    "companyName": "FreshBite Foods",
+    "companyDescription": "Organic and healthy food products.",
+    "location": "San Diego, CA",
+    "employeeCount": 400,
+    "website": "https://www.freshbitefoods.com",
+    "awaitedApproval": 0,
+    "totalApplicants": 350,
+    "totalHired": 80,
+    "totalActiveJobs": 2,
+    "activeListingsData": [
+      {
+        "title": "Food Quality Analyst",
+        "type": "Full-Time",
+        "ctc": 6,
+        "stipend": 0,
+        "deadline": "2025-07-10"
+      },
+      {
+        "title": "Marketing Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 700,
+        "deadline": "2025-06-25"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo15",
+    "companyName": "CyberShield Security",
+    "companyDescription": "Cybersecurity solutions and consulting.",
+    "location": "Washington, DC",
+    "employeeCount": 1100,
+    "website": "https://www.cybershieldsecurity.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 900,
+    "totalHired": 190,
+    "totalActiveJobs": 5,
+    "activeListingsData": [
+      {
+        "title": "Cybersecurity Analyst",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-20"
+      },
+      {
+        "title": "Penetration Testing Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1400,
+        "deadline": "2025-06-30"
+      },
+      {
+        "title": "Security Consultant",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-08-05"
+      },
+      {
+        "title": "Incident Response Specialist",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-28"
+      },
+      {
+        "title": "Network Security Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1300,
+        "deadline": "2025-07-10"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo16",
+    "companyName": "Visionary VR",
+    "companyDescription": "Cutting-edge virtual reality experiences.",
+    "location": "San Jose, CA",
+    "employeeCount": 700,
+    "website": "https://www.visionaryvr.com",
+    "awaitedApproval": 0,
+    "totalApplicants": 600,
+    "totalHired": 140,
+    "totalActiveJobs": 3,
+    "activeListingsData": [
+      {
+        "title": "VR Developer",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-18"
+      },
+      {
+        "title": "3D Artist Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1100,
+        "deadline": "2025-06-30"
+      },
+      {
+        "title": "Project Manager",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo17",
+    "companyName": "AutoDrive Motors",
+    "companyDescription": "Innovating autonomous vehicle technologies.",
+    "location": "Detroit, MI",
+    "employeeCount": 1600,
+    "website": "https://www.autodrivemotors.com",
+    "awaitedApproval": 2,
+    "totalApplicants": 1300,
+    "totalHired": 280,
+    "totalActiveJobs": 6,
+    "activeListingsData": [
+      {
+        "title": "Autonomous Systems Engineer",
+        "type": "Full-Time",
+        "ctc": 13,
+        "stipend": 0,
+        "deadline": "2025-07-22"
+      },
+      {
+        "title": "Mechanical Engineer",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-08-05"
+      },
+      {
+        "title": "Software Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1600,
+        "deadline": "2025-07-01"
+      },
+      {
+        "title": "Sensor Systems Engineer",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      },
+      {
+        "title": "AI Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1500,
+        "deadline": "2025-07-10"
+      },
+      {
+        "title": "Test Engineer",
+        "type": "Full-Time",
+        "ctc": 11,
+        "stipend": 0,
+        "deadline": "2025-07-18"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo18",
+    "companyName": "BrightFuture Education",
+    "companyDescription": "Empowering students worldwide.",
+    "location": "Philadelphia, PA",
+    "employeeCount": 500,
+    "website": "https://www.brightfutureedu.com",
+    "awaitedApproval": 1,
+    "totalApplicants": 480,
+    "totalHired": 110,
+    "totalActiveJobs": 3,
+    "activeListingsData": [
+      {
+        "title": "Curriculum Developer",
+        "type": "Full-Time",
+        "ctc": 7,
+        "stipend": 0,
+        "deadline": "2025-07-12"
+      },
+      {
+        "title": "Education Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 900,
+        "deadline": "2025-06-28"
+      },
+      {
+        "title": "Academic Advisor",
+        "type": "Full-Time",
+        "ctc": 7,
+        "stipend": 0,
+        "deadline": "2025-07-30"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo19",
+    "companyName": "FreshFlow Beverages",
+    "companyDescription": "Innovative drink products with natural ingredients.",
+    "location": "Miami, FL",
+    "employeeCount": 350,
+    "website": "https://www.freshflowbeverages.com",
+    "awaitedApproval": 0,
+    "totalApplicants": 320,
+    "totalHired": 70,
+    "totalActiveJobs": 2,
+    "activeListingsData": [
+      {
+        "title": "Quality Control Analyst",
+        "type": "Full-Time",
+        "ctc": 6,
+        "stipend": 0,
+        "deadline": "2025-07-10"
+      },
+      {
+        "title": "Marketing Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 700,
+        "deadline": "2025-06-25"
+      }
+    ]
+  },
+  {
+    "Logo": "https://via.placeholder.com/80?text=Logo20",
+    "companyName": "Quantum Tech Innovations",
+    "companyDescription": "Next-level quantum computing research.",
+    "location": "Cambridge, MA",
+    "employeeCount": 950,
+    "website": "https://www.quantumtechinnovations.com",
+    "awaitedApproval": 3,
+    "totalApplicants": 850,
+    "totalHired": 190,
+    "totalActiveJobs": 4,
+    "activeListingsData": [
+      {
+        "title": "Quantum Research Scientist",
+        "type": "Full-Time",
+        "ctc": 14,
+        "stipend": 0,
+        "deadline": "2025-07-25"
+      },
+      {
+        "title": "Quantum Computing Intern",
+        "type": "Internship",
+        "ctc": 0,
+        "stipend": 1800,
+        "deadline": "2025-07-10"
+      },
+      {
+        "title": "Software Engineer",
+        "type": "Full-Time",
+        "ctc": 13,
+        "stipend": 0,
+        "deadline": "2025-08-05"
+      },
+      {
+        "title": "Data Scientist",
+        "type": "Full-Time",
+        "ctc": 12,
+        "stipend": 0,
+        "deadline": "2025-07-20"
+      }
+    ]
+  }
+]

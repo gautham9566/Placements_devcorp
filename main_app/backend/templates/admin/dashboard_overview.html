@@ -1,0 +1,134 @@
+{% extends "unfold/layouts/base_simple.html" %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+    <div class="p-6 space-y-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Dashboard Overview</h1>
+        
+        <!-- KPI Cards -->
+        {% if kpi %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% for item in kpi %}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ item.title }}</div>
+                <div class="mt-2 text-3xl font-bold text-purple-600 dark:text-purple-400">{{ item.metric }}</div>
+                <div class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ item.footer }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Progress Bars -->
+        {% if progress %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for item in progress %}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-sm font-medium text-gray-900 dark:text-white">{{ item.title }}</div>
+                    <div class="text-sm font-bold text-purple-600 dark:text-purple-400">{{ item.value }}%</div>
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400 mb-2">{{ item.description }}</div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div class="bg-purple-600 dark:bg-purple-500 h-2.5 rounded-full transition-all duration-300" style="width: {{ item.value }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" id="charts-container">
+            <!-- Charts will be dynamically created here -->
+        </div>
+    </div>
+
+    <!-- Chart.js Script -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                const chartData = JSON.parse('{{ chart|escapejs }}');
+                const container = document.getElementById('charts-container');
+                
+                if (!chartData || chartData.length === 0) {
+                    console.log('No chart data available');
+                    return;
+                }
+                
+                chartData.forEach((item, index) => {
+                    // Create chart card
+                    const chartCard = document.createElement('div');
+                    chartCard.className = 'bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700';
+                    
+                    // Create header
+                    const header = document.createElement('div');
+                    header.className = 'mb-4';
+                    
+                    const title = document.createElement('h3');
+                    title.className = 'text-lg font-semibold text-gray-900 dark:text-white';
+                    title.textContent = item.title;
+                    header.appendChild(title);
+                    
+                    if (item.description) {
+                        const desc = document.createElement('p');
+                        desc.className = 'text-sm text-gray-500 dark:text-gray-400 mt-1';
+                        desc.textContent = item.description;
+                        header.appendChild(desc);
+                    }
+                    
+                    chartCard.appendChild(header);
+                    
+                    // Create canvas container
+                    const canvasContainer = document.createElement('div');
+                    canvasContainer.className = 'relative';
+                    canvasContainer.style.height = '300px';
+                    
+                    const canvas = document.createElement('canvas');
+                    canvas.id = 'chart-' + (index + 1);
+                    canvasContainer.appendChild(canvas);
+                    
+                    chartCard.appendChild(canvasContainer);
+                    container.appendChild(chartCard);
+                    
+                    // Create chart
+                    const ctx = canvas.getContext('2d');
+                    const config = {
+                        type: item.type,
+                        data: item.data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#374151',
+                                        padding: 15,
+                                        font: {
+                                            size: 12
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    padding: 12,
+                                    titleColor: '#fff',
+                                    bodyColor: '#fff',
+                                    borderColor: '#9333ea',
+                                    borderWidth: 1
+                                }
+                            },
+                            ...(item.options || {})
+                        }
+                    };
+                    
+                    new Chart(ctx, config);
+                });
+            } catch (error) {
+                console.error('Error rendering charts:', error);
+            }
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+/* Dark theme variables - Applied by default */
+:root {
+  --background: #071025;        /* deep navy page background */
+  --foreground: #E6F4FF;        /* cool light foreground */
+  --bg-primary: #07142a;        /* card / surface background (navy) */
+  --bg-secondary: #0b1b34;      /* slightly lighter surfaces */
+  --bg-tertiary: #0b1b34;
+  --text-primary: #E6F4FF;      /* main text */
+  --text-secondary: #9fbfe6;    /* secondary text (soft blue) */
+  --text-tertiary: #86a7d6;
+  --border-color: #10243a;      /* blue-black borders */
+  --border-secondary: #0d2236;
+  --shadow-color: rgba(3, 10, 25, 0.65); /* bluish shadow */
+  --shadow-hover: rgba(3, 10, 25, 0.78);
+  --accent-primary: #3B82F6;    /* bright blue accent */
+  --accent-secondary: #2563EB;  /* deeper blue */
+  --success: #3FD6A4;
+  --error: #F87171;
+  --warning: #F3AF58;
+  --radius: 12px;
+  --surface-gradient: none;
+  --surface-hover-gradient: none;
+  --glass-border: rgba(59,130,246,0.10);
+  --focus-ring: rgba(59, 130, 246, 0.16);
+}
+
+/* Light theme variables - Optional override */
+[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #171717;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-color: #e5e7eb;
+  --border-secondary: #d1d5db;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --shadow-hover: rgba(0, 0, 0, 0.15);
+  --accent-primary: #3b82f6;
+  --accent-secondary: #1d4ed8;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --radius: 12px;
+  --surface-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95));
+  --surface-hover-gradient: linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.96));
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --focus-ring: rgba(59, 130, 246, 0.18);
+}
+
+/* Dark theme variables - Modern Design System */
+[data-theme="dark"] {
+  --background: #071025;        /* deep navy page background */
+  --foreground: #E6F4FF;        /* cool light foreground */
+  --bg-primary: #07142a;        /* card / surface background */
+  --bg-secondary: #0b1b34;      /* slightly lighter surfaces */
+  --bg-tertiary: #0b1b34;
+  --text-primary: #E6F4FF;      /* main text */
+  --text-secondary: #9fbfe6;    /* secondary text */
+  --text-tertiary: #86a7d6;
+  --border-color: #10243a;      /* blue-black borders */
+  --border-secondary: #0d2236;
+  --shadow-color: rgba(3, 10, 25, 0.65); /* bluish shadow */
+  --shadow-hover: rgba(3, 10, 25, 0.78);
+  --accent-primary: #3B82F6;    /* bright blue accent */
+  --accent-secondary: #2563EB;
+  --success: #3FD6A4;
+  --error: #F87171;
+  --warning: #F3AF58;
+  --radius: 12px;
+  --surface-gradient: none;
+  --surface-hover-gradient: none;
+  --glass-border: rgba(59,130,246,0.10);
+  --focus-ring: rgba(59, 130, 246, 0.16);
+}
+
+/* System theme follows user's OS preference */
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --background: #061026;
+    --foreground: #eaf5ff;
+    --bg-primary: #07142a;
+    --bg-secondary: #0b1b34;
+    --bg-tertiary: #0f2743;
+    --text-primary: #eaf5ff;
+    --text-secondary: #9bb7e7;
+    --text-tertiary: #7f9fca;
+    --border-color: #12283f;
+    --border-secondary: #15314a;
+    --shadow-color: rgba(2,8,20,0.7);
+    --shadow-hover: rgba(3,10,30,0.85);
+    --accent-primary: #4f7bff;
+    --accent-secondary: #3358ff;
+    --success: #3fd6a4;
+    --error: #f87171;
+    --warning: #f3af58;
+    --radius: 12px;
+    --surface-gradient: linear-gradient(160deg, rgba(6,20,44,0.9) 0%, rgba(3,10,25,0.92) 100%);
+    --surface-hover-gradient: linear-gradient(160deg, rgba(11,28,60,0.95) 0%, rgba(6,12,30,0.95) 100%);
+    --glass-border: rgba(79,123,255,0.12);
+    --focus-ring: rgba(79,123,255,0.22);
+  }
+}
+
+html,body {
+  background: var(--background);
+  background-image:
+    radial-gradient(120% 100% at 0% 0%, rgba(59,130,246,0.12) 0%, rgba(6,12,25,0) 55%),
+    radial-gradient(120% 120% at 100% 0%, rgba(59,130,246,0.06) 0%, rgba(6,12,25,0) 60%),
+    linear-gradient(180deg, rgba(4,9,22,0) 0%, rgba(4,9,22,0.85) 100%);
+  background-attachment: fixed;
+  color: var(--foreground);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  height: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Global dark mode classes */
+.dark-mode {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+body.dark-mode,
+.dark-mode body {
+  background-color: var(--background);
+  background-image: radial-gradient(120% 100% at 0% 0%, rgba(59, 130, 246, 0.12) 0%, rgba(6, 12, 25, 0) 55%),
+    radial-gradient(120% 120% at 100% 0%, rgba(59, 130, 246, 0.06) 0%, rgba(6, 12, 25, 0) 60%),
+    linear-gradient(180deg, rgba(4, 9, 22, 0) 0%, rgba(4, 9, 22, 0.85) 100%);
+  background-attachment: fixed;
+  color: var(--foreground);
+}
+
+.dark-mode ::selection {
+  background-color: rgba(63, 130, 255, 0.35);
+  color: var(--foreground);
+}
+
+/* Replace dark theme variables with the requested design system */
+[data-theme="dark"] {
+  --background: #071025;        /* deep navy page background */
+  --foreground: #E6F4FF;        /* cool light foreground */
+  --bg-primary: #07142a;        /* card / surface background */
+  --bg-secondary: #0b1b34;      /* slightly lighter surfaces */
+  --bg-tertiary: #0b1b34;
+  --text-primary: #E6F4FF;      /* main text */
+  --text-secondary: #9fbfe6;    /* secondary text */
+  --text-tertiary: #86a7d6;
+  --border-color: #10243a;      /* blue-black borders */
+  --border-secondary: #0d2236;
+  --shadow-color: rgba(3, 10, 25, 0.65); /* bluish shadow */
+  --shadow-hover: rgba(3, 10, 25, 0.78);
+  --accent-primary: #3B82F6;    /* bright blue accent */
+  --accent-secondary: #2563EB;
+  --success: #3FD6A4;
+  --error: #F87171;
+  --warning: #F3AF58;
+  --radius: 12px;               /* rounded corners */
+  --surface-gradient: none;     /* keep surfaces flat */
+  --surface-hover-gradient: none;
+  --glass-border: rgba(59,130,246,0.10);
+  --focus-ring: rgba(59, 130, 246, 0.16);
+}
+
+/* Reduce heavy card gradients/shadows and use the new variables */
+.dark-mode :is(.content-card, .card, .stat-card, .dashboard-card, .metric-card, .panel, .glass-card, .surface-card) {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 6px 18px -8px var(--shadow-color) !important; /* minimal depth */
+  transition: background 0.2s ease, border-color 0.15s ease, box-shadow 0.2s ease, transform 0.12s ease;
+  border-radius: var(--radius) !important;
+}
+
+.dark-mode :is(.content-card, .card, .stat-card, .dashboard-card, .metric-card, .panel, .glass-card, .surface-card):hover {
+  box-shadow: 0 10px 22px -12px var(--shadow-hover) !important;
+  transform: translateY(-2px);
+}
+
+/* Sidebar surfaces */
+.dark-mode .sidebar {
+  background: var(--bg-primary) !important;
+  border-right: 1px solid var(--border-color) !important;
+  box-shadow: none;
+}
+
+/* Stat/icon wrappers: subtle accent usage, no heavy glow */
+.dark-mode :is(.stat-card-icon, .icon-wrapper, .circle-icon, .metric-icon) {
+  background: linear-gradient(180deg, rgba(96,165,250,0.08), rgba(37,99,235,0.04));
+  border: 1px solid rgba(59,130,246,0.12);
+  box-shadow: 0 6px 20px -12px rgba(3,10,25,0.55);
+  color: var(--text-primary) !important;
+}
+
+/* Map generic bg overrides to the new variables */
+.dark-mode .bg-white { background-color: var(--bg-primary) !important; }
+.dark-mode .bg-gray-50 { background-color: var(--bg-secondary) !important; }
+.dark-mode .bg-gray-100 { background-color: var(--bg-secondary) !important; }
+
+/* Text color mappings to new tokens */
+.dark-mode .text-black,
+.dark-mode .text-gray-900,
+.dark-mode .text-gray-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-gray-700,
+.dark-mode .text-gray-600,
+.dark-mode .text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+
+/* Blue / accent mappings */
+.dark-mode .text-blue-600 { color: var(--accent-primary) !important; }
+.dark-mode .bg-blue-50   { background-color: rgba(59,130,246,0.06) !important; }
+.dark-mode .bg-blue-100  { background-color: rgba(59,130,246,0.08) !important; }
+
+/* Borders */
+.dark-mode .border-gray-200,
+.dark-mode .border-gray-300 {
+  border-color: var(--border-color) !important;
+}
+
+/* Focus and accessibility */
+.dark-mode input:focus,
+.dark-mode textarea:focus,
+.dark-mode select:focus {
+  box-shadow: 0 0 0 4px var(--focus-ring) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* Keep svg/icon opt-in rules (unchanged) */
+.dark-mode svg.svg-inherit { color: inherit !important; }
+
+.dark-mode svg.icon-force,
+.dark-mode .icon.icon-force,
+.dark-mode [class*="icon"].icon-force {
+  color: var(--text-primary) !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+}
+
+/* Recharts: default tooltip/text styling - rely on variables */
+.dark-mode .recharts-wrapper { font-family: 'Inter', sans-serif !important; }
+.dark-mode .recharts-cartesian-grid-horizontal line,
+.dark-mode .recharts-cartesian-grid-vertical line { stroke: rgba(255,255,255,0.06) !important; }
+.dark-mode .recharts-text { fill: var(--text-secondary) !important; }
+.dark-mode .recharts-default-tooltip {
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 8px 20px -10px var(--shadow-color) !important;
+}
+
+/* Keep explicit SVG stroke/fill values intact (do not override them globally) */
+
+/* Disabled state */
+.dark-mode button:disabled,
+.dark-mode input:disabled,
+.dark-mode select:disabled,
+.dark-mode textarea:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Selection highlight */
+.dark-mode ::selection {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  color: var(--text-primary) !important;
+}
